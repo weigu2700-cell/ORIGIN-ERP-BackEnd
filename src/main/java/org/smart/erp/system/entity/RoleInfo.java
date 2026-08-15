@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @Data
 @TableName("sys_role")
-public class role {
+public class RoleInfo {
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 

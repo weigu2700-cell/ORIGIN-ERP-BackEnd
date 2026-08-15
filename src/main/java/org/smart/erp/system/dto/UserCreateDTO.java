@@ -2,6 +2,8 @@ package org.smart.erp.system.dto;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class UserCreateDTO {
 
@@ -12,5 +14,7 @@ public class UserCreateDTO {
     private String realName;
 
     private Long deptId;
+
+    private List<Long> roleIds;
 
 }

@@ -6,6 +6,7 @@ import org.smart.erp.system.Enum.UserStatus;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @TableName("sys_user")
@@ -17,8 +18,6 @@ public class User {
     private String username;
 
     private String password;
-
-    private String realName;
 
     private Long deptId;
 
@@ -36,4 +35,5 @@ public class User {
 
     @TableLogic
     private int deleted;
+
 }
