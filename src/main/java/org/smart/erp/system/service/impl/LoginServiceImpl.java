@@ -1,4 +1,4 @@
-package org.smart.erp.system.service.Impl;
+package org.smart.erp.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;

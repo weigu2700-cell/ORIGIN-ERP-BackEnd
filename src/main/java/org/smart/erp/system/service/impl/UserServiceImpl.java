@@ -1,4 +1,4 @@
-package org.smart.erp.system.service.Impl;
+package org.smart.erp.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -7,6 +7,7 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.system.Enum.UserStatus;
 import org.smart.erp.system.dto.UserCreateDTO;
 import org.smart.erp.system.dto.UserGetDTO;
+import org.smart.erp.system.dto.UserRoleAssignDTO;
 import org.smart.erp.system.dto.UserUpdateDTO;
 import org.smart.erp.system.entity.Dept;
 import org.smart.erp.system.entity.User;
@@ -18,6 +19,7 @@ import org.smart.erp.system.vo.UserGetVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import org.smart.erp.system.entity.RoleInfo;
 import java.util.HashMap;
@@ -166,28 +168,49 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (dto.getPassword() != null) user.setPassword(passwordEncoder.encode(dto.getPassword()));
         if (dto.getStatus() != null) user.setStatus(dto.getStatus());
 
-        if (dto.getRoleIds() != null) {
-            LambdaQueryWrapper<UserRole> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(UserRole::getUserId, id);
-            userRoleMapper.delete(queryWrapper);
-
-            List<UserRole> userRoles = dto.getRoleIds().stream()
-                    .map(roleId -> {
-                        UserRole userRole = new UserRole();
-                        userRole.setUserId(id);
-                        userRole.setRoleId(roleId);
-                        return userRole;
-                    })
-                    .toList();
-            userRoles.forEach(userRoleMapper::insert);
-        }
-
         userMapper.updateById(user);
 
         UserGetVO vo = new UserGetVO();
         BeanUtils.copyProperties(user, vo);
         vo.setDeptName(resolveDeptName(user.getDeptId()));
         return vo;
+    }
+
+    /**
+     * 给用户分配角色。
+     * <p>
+     * 说明：用户拥有哪些角色由"前端选择"决定，本方法不负责查询可选角色，
+     * 只接收前端传来的用户 id 与角色 id 列表，以"全量覆盖"方式写入 sys_user_role 对照表：
+     * 先删除该用户已有的全部角色关联，再批量插入本次传入的角色 id。
+     * 既保证最终状态与前端选择一致，又避免增量更新带来的脏数据。
+     *
+     * @param dto userId 用户 id；roleIds 要绑定的角色 id 列表
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void assignRoles(UserRoleAssignDTO dto) {
+        // 1. 校验用户是否存在
+        if (userMapper.selectById(dto.getUserId()) == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+
+        // 2. 删除该用户原有关联（全量覆盖的前提：先清后写）
+        LambdaQueryWrapper<UserRole> deleteWrapper = new LambdaQueryWrapper<>();
+        deleteWrapper.eq(UserRole::getUserId, dto.getUserId());
+        userRoleMapper.delete(deleteWrapper);
+
+        // 3. 批量写入本次前端选择的角色关联
+        List<Long> roleIds = dto.getRoleIds();
+        if (roleIds != null && !roleIds.isEmpty()) {
+            List<UserRole> relations = roleIds.stream().map(roleId -> {
+                UserRole ur = new UserRole();
+                ur.setUserId(dto.getUserId());
+                ur.setRoleId(roleId);
+                return ur;
+            }).toList();
+            // 逐条 insert（BaseMapper 无批量 insert，数据量小可接受）
+            relations.forEach(userRoleMapper::insert);
+        }
     }
 
     @Override

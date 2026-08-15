@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Data
 @TableName("sys_permission")
-public class permission {
+public class Permission {
 
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;

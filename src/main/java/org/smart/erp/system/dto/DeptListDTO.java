@@ -10,14 +10,14 @@ public class DeptListDTO {
     @Min(value = 1, message = "页码最小为1")
     private int page = 1;
 
-    @Min(value = 10, message = "每页条数最小为1")
+    @Min(value = 1, message = "每页条数最小为1")
     private int pageSize = 10;
 
     private String name;
 
     private String code;
 
-    private String parentId;
+    private Long parentId;
 
     private DeptStatus status;
 

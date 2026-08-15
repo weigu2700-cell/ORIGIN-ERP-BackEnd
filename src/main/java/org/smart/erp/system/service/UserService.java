@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import org.smart.erp.system.dto.LoginDTO;
 import org.smart.erp.system.dto.UserCreateDTO;
 import org.smart.erp.system.dto.UserGetDTO;
+import org.smart.erp.system.dto.UserRoleAssignDTO;
 import org.smart.erp.system.dto.UserUpdateDTO;
 import org.smart.erp.system.entity.User;
 import org.smart.erp.system.vo.LoginVO;
@@ -23,4 +24,6 @@ public interface UserService extends IService<User> {
     UserGetVO updateUser(Long id, UserUpdateDTO dto);
 
     Page<UserGetVO> getUserList(UserGetDTO dto);
+
+    void assignRoles(UserRoleAssignDTO dto);
 }

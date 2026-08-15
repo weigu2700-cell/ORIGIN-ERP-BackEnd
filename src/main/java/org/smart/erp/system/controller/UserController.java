@@ -6,6 +6,7 @@ import org.smart.erp.common.result.Result;
 import org.smart.erp.system.dto.LoginDTO;
 import org.smart.erp.system.dto.UserCreateDTO;
 import org.smart.erp.system.dto.UserGetDTO;
+import org.smart.erp.system.dto.UserRoleAssignDTO;
 import org.smart.erp.system.dto.UserUpdateDTO;
 import org.smart.erp.system.entity.User;
 import org.smart.erp.system.Enum.UserStatus;
@@ -21,7 +22,7 @@ import java.util.Collections;
 import java.util.List;
 
 @RestController
-@RequestMapping("/user")
+@RequestMapping("/system/user")
 public class UserController {
 
     private final UserService userService;
@@ -49,6 +50,19 @@ public class UserController {
     @GetMapping("/list")
     public Result<Page<UserGetVO>> getUserList(UserGetDTO dto) {
         return Result.success(userService.getUserList(dto));
+    }
+
+    /**
+     * 给用户分配角色。
+     * 路径 {id} 为用户 id，请求体传要绑定的角色 id 列表。
+     * 只负责把前端选择的角色写入 sys_user_role 对照表（查可选角色由其它接口完成）。
+     */
+    @PostMapping("/{id}/roles")
+    public Result<Void> assignRoles(@PathVariable Long id,
+                                    @RequestBody UserRoleAssignDTO dto) {
+        dto.setUserId(id);
+        userService.assignRoles(dto);
+        return Result.success(null);
     }
 
 }

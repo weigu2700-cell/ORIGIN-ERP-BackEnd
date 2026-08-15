@@ -2,7 +2,6 @@ package org.smart.erp.system.dto;
 
 import lombok.Data;
 import org.smart.erp.system.Enum.UserStatus;
-import org.smart.erp.system.entity.User;
 
 import java.util.List;
 
@@ -10,8 +9,6 @@ import java.util.List;
 public class UserUpdateDTO {
 
     private long id;
-
-    private String name;
 
     private String username;
 

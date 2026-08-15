@@ -11,7 +11,7 @@ import org.smart.erp.system.vo.DeptVO;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/dept")
+@RequestMapping("/system/dept")
 @Valid
 public class DeptController {
 
