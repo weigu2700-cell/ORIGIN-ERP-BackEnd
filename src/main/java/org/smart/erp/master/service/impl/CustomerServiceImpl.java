@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.SnowflakeIdGenerator;
+import org.smart.erp.master.convertor.ApplyUpdate;
 import org.smart.erp.master.dto.CustomerCreateDTO;
 import org.smart.erp.master.dto.CustomerListDTO;
 import org.smart.erp.master.dto.CustomerStatusDTO;
@@ -23,6 +24,7 @@ import org.springframework.util.StringUtils;
 @Service
 public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> implements CustomerService {
 
+
     private static final SnowflakeIdGenerator SNOWFLAKE = new SnowflakeIdGenerator();
 
     private CustomerVO toVO(Customer customer) {
@@ -33,16 +35,6 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
         vo.setCreatedTime(customer.getCreateTime());
         return vo;
-    }
-
-    private void applyUpdate(Customer customer, CustomerUpdateDTO dto) {
-        if (dto.getName() != null) customer.setName(dto.getName());
-        if (dto.getShortName() != null) customer.setShortName(dto.getShortName());
-        if (dto.getContactName() != null) customer.setContactName(dto.getContactName());
-        if (dto.getAddress() != null) customer.setAddress(dto.getAddress());
-        if (dto.getPhone() != null) customer.setPhone(dto.getPhone());
-        if (dto.getEmail() != null) customer.setEmail(dto.getEmail());
-        if (dto.getRemark() != null) customer.setRemark(dto.getRemark());
     }
 
     @Override
@@ -57,7 +49,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
         Customer customer = new Customer();
         BeanUtils.copyProperties(dto, customer);
-        customer.setCode("CU"  + SNOWFLAKE);
+        customer.setCode("CU"  + SNOWFLAKE.nextId());
         customer.setStatus(CustomerStatus.ACTIVE);
         this.save(customer);
     }
@@ -93,7 +85,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         if (customer == null) {
             throw new BusinessException(404, "客户不存在");
         }
-        applyUpdate(customer, dto);
+        ApplyUpdate.setUpdateValue(customer, dto);
         this.updateById(customer);
         return this.toVO(customer);
     }
