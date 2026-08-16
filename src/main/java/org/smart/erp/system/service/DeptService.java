@@ -12,13 +12,15 @@ import org.smart.erp.system.vo.DeptVO;
 import java.util.List;
 
 public interface DeptService extends IService<Dept> {
-    DeptVO createDept(DeptDTO dto);
+    /** 新增部门，仅落库不返回数据 */
+    void createDept(DeptDTO dto);
 
     DeptVO getDeptDetail(Long id);
 
     Page<DeptVO> getDeptList(DeptListDTO dto);
 
-    DeptVO updateDept(DeptUpdateDTO dto);
+    /** 更新部门，仅落库不返回数据 */
+    void updateDept(DeptUpdateDTO dto);
 
     Boolean deleteDept(Long id);
 

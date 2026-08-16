@@ -17,11 +17,13 @@ import java.util.List;
 public interface UserService extends IService<User> {
     User getUserById(Long id);
 
-    UserCreateVO createUser(UserCreateDTO dto);
+    /** 新增用户，仅落库不返回数据 */
+    void createUser(UserCreateDTO dto);
 
     UserGetVO getUserDetail(Long id);
 
-    UserGetVO updateUser(Long id, UserUpdateDTO dto);
+    /** 更新用户，仅落库不返回数据 */
+    void updateUser(Long id, UserUpdateDTO dto);
 
     Page<UserGetVO> getUserList(UserGetDTO dto);
 

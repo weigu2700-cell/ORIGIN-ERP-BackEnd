@@ -33,8 +33,9 @@ public class UserController {
 
 
     @PostMapping("/create")
-    public Result<UserCreateVO> create(@RequestBody UserCreateDTO dto) {
-        return Result.success(userService.createUser(dto));
+    public Result<Void> create(@RequestBody UserCreateDTO dto) {
+        userService.createUser(dto);
+        return Result.success();
     }
 
     @GetMapping("/{id}")
@@ -43,8 +44,9 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public Result<UserGetVO> updateUser(@PathVariable Long id, @RequestBody UserUpdateDTO dto) {
-        return Result.success(userService.updateUser(id, dto));
+    public Result<Void> updateUser(@PathVariable Long id, @RequestBody UserUpdateDTO dto) {
+        userService.updateUser(id, dto);
+        return Result.success();
     }
 
     @GetMapping("/list")

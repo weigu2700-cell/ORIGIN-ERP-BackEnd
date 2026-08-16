@@ -61,7 +61,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public RoleInfoVO updateRole(RoleUpdateDTO dto) {
+    public void updateRole(RoleUpdateDTO dto) {
         // 先按 id 查出已存在记录，避免静默更新 0 行
         RoleInfo exist = this.getById(dto.getId());
         if (exist == null) {
@@ -76,12 +76,11 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
         LambdaQueryWrapper<RoleInfo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoleInfo::getId, dto.getId());
         this.update(roleInfo, queryWrapper);
-        return toVO(this.getById(dto.getId()));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public RoleInfoVO addRole(RoleUpdateDTO dto) {
+    public void addRole(RoleUpdateDTO dto) {
         RoleInfo roleInfo = new RoleInfo();
         LambdaQueryWrapper<RoleInfo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoleInfo::getCode, dto.getCode());
@@ -93,7 +92,6 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
         if (dto.getCode() != null) roleInfo.setCode(dto.getCode());
         if (dto.getStatus() != null) roleInfo.setStatus(dto.getStatus());
         this.save(roleInfo);
-        return toVO(roleInfo);
     }
 
     /**

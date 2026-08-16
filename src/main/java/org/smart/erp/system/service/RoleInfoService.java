@@ -11,9 +11,11 @@ import org.smart.erp.system.vo.RoleInfoVO;
 public interface RoleInfoService extends IService<RoleInfo> {
     Page<RoleInfoVO> getRoleList(RoleGetDTO dto);
 
-    RoleInfoVO updateRole(RoleUpdateDTO dto);
+    /** 更新角色，仅落库不返回数据 */
+    void updateRole(RoleUpdateDTO dto);
 
-    RoleInfoVO addRole(RoleUpdateDTO dto);
+    /** 新增角色，仅落库不返回数据 */
+    void addRole(RoleUpdateDTO dto);
 
     RoleInfoVO getRoleDetail(Long id);
 

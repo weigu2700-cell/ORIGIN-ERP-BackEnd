@@ -32,13 +32,15 @@ public class RoleInfoController {
     }
 
     @PutMapping("/{id}")
-    public Result<RoleInfoVO> updateRole(@RequestBody RoleUpdateDTO dto) {
-        return Result.success(roleInfoService.updateRole(dto));
+    public Result<Void> updateRole(@RequestBody RoleUpdateDTO dto) {
+        roleInfoService.updateRole(dto);
+        return Result.success();
     }
 
     @PostMapping("/add")
-    public Result<RoleInfoVO> addRole(@RequestBody RoleUpdateDTO dto) {
-        return Result.success(roleInfoService.addRole(dto));
+    public Result<Void> addRole(@RequestBody RoleUpdateDTO dto) {
+        roleInfoService.addRole(dto);
+        return Result.success();
     }
 
     @PostMapping("/{id}/permissions")

@@ -64,7 +64,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public DeptVO createDept(DeptDTO dto) {
+    public void createDept(DeptDTO dto) {
         if (this.count(new LambdaQueryWrapper<Dept>().eq(Dept::getName, dto.getName())) > 0) {
             throw new BusinessException(400, "部门名称已存在");
         }
@@ -77,7 +77,6 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
         Dept dept = new Dept();
         BeanUtils.copyProperties(dto, dept);
         this.save(dept);
-        return toVOWithParent(dept);
     }
 
     @Override
@@ -124,7 +123,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public DeptVO updateDept(DeptUpdateDTO dto) {
+    public void updateDept(DeptUpdateDTO dto) {
         Dept dept = this.getById(dto.getId());
         if (dept == null) {
             throw new BusinessException(404, "部门不存在");
@@ -154,7 +153,6 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
         if (dto.getStatus() != null) dept.setStatus(dto.getStatus());
 
         this.updateById(dept);
-        return toVOWithParent(dept);
     }
 
     @Override

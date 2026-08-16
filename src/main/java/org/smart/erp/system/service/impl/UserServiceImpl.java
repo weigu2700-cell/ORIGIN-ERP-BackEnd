@@ -14,7 +14,6 @@ import org.smart.erp.system.entity.User;
 import org.smart.erp.system.entity.UserRole;
 import org.smart.erp.system.mapper.*;
 import org.smart.erp.system.service.UserService;
-import org.smart.erp.system.vo.UserCreateVO;
 import org.smart.erp.system.vo.UserGetVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -104,7 +103,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public UserCreateVO createUser(UserCreateDTO dto) {
+    public void createUser(UserCreateDTO dto) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(User::getUsername, dto.getUsername());
 
@@ -134,10 +133,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     .toList();
             userRoles.forEach(userRoleMapper::insert);
         }
-
-        UserCreateVO vo = new UserCreateVO();
-        BeanUtils.copyProperties(newUser, vo);
-        return vo;
     }
 
     @Override
@@ -155,7 +150,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
 
     @Override
-    public UserGetVO updateUser(Long id, UserUpdateDTO dto) {
+    public void updateUser(Long id, UserUpdateDTO dto) {
         User user = userMapper.selectById(id);
         if (user == null) {
             throw new BusinessException(404, "用户不存在");
@@ -169,11 +164,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (dto.getStatus() != null) user.setStatus(dto.getStatus());
 
         userMapper.updateById(user);
-
-        UserGetVO vo = new UserGetVO();
-        BeanUtils.copyProperties(user, vo);
-        vo.setDeptName(resolveDeptName(user.getDeptId()));
-        return vo;
     }
 
     /**

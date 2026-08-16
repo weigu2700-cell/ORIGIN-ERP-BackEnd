@@ -1,11 +1,9 @@
-package org.smart.erp.system.vo;
+package org.smart.erp.system.dto;
 
 import lombok.Data;
 
 @Data
-public class PermissionVO {
-
-    private Long id;
+public class PermissionCreateDTO {
 
     private String name;
 
@@ -14,8 +12,6 @@ public class PermissionVO {
     private Integer type;
 
     private Long parentId;
-
-    private String parentName;
 
     private Integer sort;
 

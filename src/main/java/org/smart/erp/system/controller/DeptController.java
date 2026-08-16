@@ -25,8 +25,9 @@ public class DeptController {
     }
 
     @PostMapping("/add")
-    public Result<DeptVO> add(@RequestBody DeptDTO dto) {
-        return Result.success(deptService.createDept(dto));
+    public Result<Void> add(@RequestBody DeptDTO dto) {
+        deptService.createDept(dto);
+        return Result.success();
     }
 
     @GetMapping("/{id}")
@@ -45,8 +46,9 @@ public class DeptController {
     }
 
     @PutMapping()
-    public Result<DeptVO> updateDept(@RequestBody DeptUpdateDTO dto) {
-        return Result.success(deptService.updateDept(dto));
+    public Result<Void> updateDept(@RequestBody DeptUpdateDTO dto) {
+        deptService.updateDept(dto);
+        return Result.success();
     }
 
     @DeleteMapping("/{id}")

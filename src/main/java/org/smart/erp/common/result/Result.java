@@ -25,6 +25,15 @@ public class Result<T> {
         );
     }
 
+    /** 无参成功响应，用于新增/修改等不需要返回业务数据的接口 */
+    public static Result<Void> success() {
+        return new Result<Void>(
+                200,
+                "请求成功",
+                null
+        );
+    }
+
     public static <T> Result<T> fail(Integer code , String msg) {
         return new Result<T>(
                 code,
