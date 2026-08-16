@@ -1,6 +1,8 @@
 package org.smart.erp.system.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.system.dto.LoginDTO;
@@ -23,6 +25,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/system/user")
+@Tag(name = "用户管理", description = "用户的增删改查、列表与角色分配")
 public class UserController {
 
     private final UserService userService;
@@ -32,23 +35,27 @@ public class UserController {
     }
 
 
+    @Operation(summary = "新增用户")
     @PostMapping("/create")
     public Result<Void> create(@RequestBody UserCreateDTO dto) {
         userService.createUser(dto);
         return Result.success();
     }
 
+    @Operation(summary = "用户详情")
     @GetMapping("/{id}")
     public Result<UserGetVO> getUserDetail(@PathVariable Long id) {
         return Result.success(userService.getUserDetail(id));
     }
 
+    @Operation(summary = "更新用户")
     @PutMapping("/{id}")
     public Result<Void> updateUser(@PathVariable Long id, @RequestBody UserUpdateDTO dto) {
         userService.updateUser(id, dto);
         return Result.success();
     }
 
+    @Operation(summary = "用户分页列表")
     @GetMapping("/list")
     public Result<Page<UserGetVO>> getUserList(UserGetDTO dto) {
         return Result.success(userService.getUserList(dto));
@@ -59,6 +66,7 @@ public class UserController {
      * 路径 {id} 为用户 id，请求体传要绑定的角色 id 列表。
      * 只负责把前端选择的角色写入 sys_user_role 对照表（查可选角色由其它接口完成）。
      */
+    @Operation(summary = "为用户分配角色")
     @PostMapping("/{id}/roles")
     public Result<Void> assignRoles(@PathVariable Long id,
                                     @RequestBody UserRoleAssignDTO dto) {

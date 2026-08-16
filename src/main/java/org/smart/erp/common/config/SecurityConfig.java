@@ -31,7 +31,15 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
-                    .requestMatchers("/login", "/error","/user/create").permitAll()
+                    .requestMatchers("/login", "/error").permitAll()
+                    // Swagger / OpenAPI 相关路径放行
+                    .requestMatchers(
+                            "/swagger-ui.html",
+                            "/swagger-ui/**",
+                            "/v3/api-docs/**",
+                            "/swagger-resources/**",
+                            "/webjars/**"
+                    ).permitAll()
                     .anyRequest()
                     .authenticated()
             )

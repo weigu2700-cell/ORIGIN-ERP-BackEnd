@@ -17,3 +17,12 @@ mybatis-plus:
 logging:
   level:
     org.smart.erp: debug
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    # 界面上显示的标题
+    doc-expansion: none
+    operations-sorter: method

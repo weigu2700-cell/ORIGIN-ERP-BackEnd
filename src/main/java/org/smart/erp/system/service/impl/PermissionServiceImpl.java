@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.system.dto.PermissionCreateDTO;
 import org.smart.erp.system.dto.PermissionGetDTO;
+import org.smart.erp.system.dto.PermissionUpdateDTO;
 import org.smart.erp.system.entity.Permission;
 import org.smart.erp.system.mapper.PermissionMapper;
 import org.smart.erp.system.service.PermissionService;
@@ -146,6 +147,33 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         Permission permission = new Permission();
         BeanUtils.copyProperties(dto, permission);
         this.save(permission);
+    }
+
+    @Override
+    public void updatePermission(PermissionUpdateDTO dto) {
+        Permission permission = this.getById(dto.getId());
+        if (permission == null) {
+            throw new BusinessException(404, "权限不存在");
+        }
+        if (dto.getParentId() != null) {
+            Permission parent = this.getById(dto.getParentId());
+            if (parent == null) {
+                throw new BusinessException(400, "父权限不存在");
+            }
+        }
+        if (dto.getCode() != null) {
+            if (this.count(new LambdaQueryWrapper<Permission>().eq(Permission::getCode, dto.getCode())) > 0) {
+                throw new BusinessException(400, "权限编码已存在");
+            }
+        }
+        if (dto.getCode() != null) permission.setCode(dto.getCode());
+        if (dto.getName() != null) permission.setName(dto.getName());
+        if (dto.getType() != null) permission.setType(dto.getType());
+        if (dto.getParentId() != null) permission.setParentId(dto.getParentId());
+        if (dto.getStatus() != null) permission.setStatus(dto.getStatus());
+        if (dto.getRemark() != null) permission.setRemark(dto.getRemark());
+
+        this.updateById(permission);
     }
 
 
