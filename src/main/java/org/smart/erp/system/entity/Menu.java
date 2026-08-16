@@ -2,38 +2,40 @@ package org.smart.erp.system.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
-import org.smart.erp.system.Enum.PermissionType;
 import org.smart.erp.system.Enum.Status;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_permission")
-public class Permission {
+@TableName("sys_menu")
+public class Menu {
 
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
-    private  String name;
+    private String name;
 
-    private String code;
+    private String title;
 
-    private PermissionType type;
+    private String path;
+
+    private int visible;
+
+    private String component;
+
+    private String icon;
 
     private Long parentId;
 
-    private int sort;
-
     private Status status;
 
-    private String remark;
-
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
-    @TableLogic
-    private int deleted;
 }

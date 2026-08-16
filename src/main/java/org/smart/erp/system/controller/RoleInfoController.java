@@ -3,9 +3,9 @@ package org.smart.erp.system.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.system.dto.RoleGetDTO;
+import org.smart.erp.system.dto.RoleMenuAssignDTO;
 import org.smart.erp.system.dto.RolePermissionAssignDTO;
 import org.smart.erp.system.dto.RoleUpdateDTO;
-import org.smart.erp.system.entity.RoleInfo;
 import org.smart.erp.system.service.RoleInfoService;
 import org.smart.erp.system.vo.RoleInfoVO;
 import org.springframework.web.bind.annotation.*;
@@ -50,4 +50,21 @@ public class RoleInfoController {
         roleInfoService.assignPermissions(dto);
         return Result.success(null);
     }
+
+    @PostMapping("/{id}/menu")
+    public Result<Void> assignUsers(@PathVariable Long id,
+                                     @RequestBody RoleMenuAssignDTO dto) {
+        dto.setRoleId(id);
+        roleInfoService.assignUsers(dto);
+        return Result.success(null);
+    }
+
+
+    @DeleteMapping("/{id}")
+    public Result<Void> deleteRole(@PathVariable Long id) {
+        roleInfoService.removeRole(id);
+        return Result.success(null);
+    }
+
+
 }

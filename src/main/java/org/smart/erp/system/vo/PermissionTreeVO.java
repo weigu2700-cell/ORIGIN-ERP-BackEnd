@@ -1,6 +1,8 @@
 package org.smart.erp.system.vo;
 
 import lombok.Data;
+import org.smart.erp.system.Enum.PermissionType;
+import org.smart.erp.system.Enum.Status;
 
 import java.util.List;
 
@@ -13,7 +15,7 @@ public class PermissionTreeVO {
 
     private String code;
 
-    private Integer type;
+    private PermissionType type;
 
     private Long parentId;
 
@@ -21,7 +23,7 @@ public class PermissionTreeVO {
 
     private Integer sort;
 
-    private Integer status;
+    private Status status;
 
     private String remark;
 

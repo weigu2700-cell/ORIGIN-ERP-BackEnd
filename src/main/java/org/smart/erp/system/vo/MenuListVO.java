@@ -1,27 +1,30 @@
 package org.smart.erp.system.vo;
 
 import lombok.Data;
-import org.smart.erp.system.Enum.PermissionType;
 import org.smart.erp.system.Enum.Status;
+import org.springframework.stereotype.Component;
 
 @Data
-public class PermissionVO {
+public class MenuListVO {
 
     private Long id;
 
     private String name;
 
-    private String code;
+    private String title;
 
-    private PermissionType type;
+    private String path;
 
     private Long parentId;
 
     private String parentName;
 
-    private Integer sort;
+    private String component;
+
+    private String icon;
+
+    private Integer visible;
 
     private Status status;
 
-    private String remark;
 }

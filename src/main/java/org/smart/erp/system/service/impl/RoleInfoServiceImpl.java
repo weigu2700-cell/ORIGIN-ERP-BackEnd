@@ -5,11 +5,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.system.dto.RoleGetDTO;
+import org.smart.erp.system.dto.RoleMenuAssignDTO;
 import org.smart.erp.system.dto.RolePermissionAssignDTO;
 import org.smart.erp.system.dto.RoleUpdateDTO;
+import org.smart.erp.system.entity.Menu;
 import org.smart.erp.system.entity.RoleInfo;
+import org.smart.erp.system.entity.RoleMenu;
 import org.smart.erp.system.entity.RolePermission;
 import org.smart.erp.system.mapper.RoleInfoMapper;
+import org.smart.erp.system.mapper.RoleMenuMapper;
 import org.smart.erp.system.mapper.RolePermissionMapper;
 import org.smart.erp.system.service.RoleInfoService;
 import org.smart.erp.system.vo.RoleInfoVO;
@@ -23,11 +27,13 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
 
     private final RoleInfoMapper roleInfoMapper;
     private final RolePermissionMapper rolePermissionMapper;
+    private final RoleMenuMapper roleMenuMapper;
 
     public RoleInfoServiceImpl(RoleInfoMapper roleInfoMapper,
-                               RolePermissionMapper rolePermissionMapper) {
+                               RolePermissionMapper rolePermissionMapper, RoleMenuMapper roleMenuMapper) {
         this.roleInfoMapper = roleInfoMapper;
         this.rolePermissionMapper = rolePermissionMapper;
+        this.roleMenuMapper = roleMenuMapper;
     }
 
     /**
@@ -159,6 +165,46 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
             }).toList();
             // 逐条 insert（BaseMapper 无批量 insert，数据量小可接受）
             relations.forEach(rolePermissionMapper::insert);
+        }
+    }
+
+    @Override
+    public void removeRole(Long id) {
+        RoleInfo roleInfo = this.getById(id);
+        if (roleInfo == null) {
+            throw new BusinessException(404, "角色不存在");
+        }
+        List<RolePermission> rolePermission =
+                rolePermissionMapper.selectList(
+                        new LambdaQueryWrapper<RolePermission>().
+                                eq(RolePermission::getRoleId, id)
+                );
+        if (rolePermission != null) {
+            throw new BusinessException(400, "角色已被使用，无法删除");
+        }
+        this.removeById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void assignUsers(RoleMenuAssignDTO dto) {
+        if (this.getById(dto.getRoleId()) == null) {
+            throw new BusinessException(404, "角色不存在");
+        }
+
+        LambdaQueryWrapper<RoleMenu> deleteWrapper = new LambdaQueryWrapper<>();
+        deleteWrapper.eq(RoleMenu::getRoleId, dto.getRoleId());
+        roleMenuMapper.delete(deleteWrapper);
+
+        List<Long> menuIds = dto.getMenuIds();
+        if (menuIds != null && !menuIds.isEmpty()) {
+            List<RoleMenu> relations = menuIds.stream().map(menuId -> {
+                RoleMenu rm = new RoleMenu();
+                rm.setRoleId(dto.getRoleId());
+                rm.setMenuId(menuId);
+                return rm;
+            }).toList();
+            relations.forEach(roleMenuMapper::insert);
         }
     }
 

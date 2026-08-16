@@ -2,6 +2,8 @@ package org.smart.erp.system.dto;
 
 import jakarta.validation.constraints.Min;
 import lombok.Data;
+import org.smart.erp.system.Enum.PermissionType;
+import org.smart.erp.system.Enum.Status;
 
 @Data
 public class PermissionGetDTO {
@@ -16,9 +18,9 @@ public class PermissionGetDTO {
 
     private String code;
 
-    private Integer type;
+    private PermissionType type;
 
-    private Integer status;
+    private Status status;
 
     private Long parentId;
 

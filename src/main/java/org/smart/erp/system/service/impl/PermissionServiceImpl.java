@@ -33,7 +33,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         vo.setId(p.getId());
         vo.setName(p.getName());
         vo.setCode(p.getCode());
-        vo.setType(p.getType());
+        vo.setType( p.getType());
         vo.setParentId(p.getParentId());
         vo.setParentName(p.getParentId() != null ? parentNameById.get(p.getParentId()) : null);
         vo.setSort(p.getSort());

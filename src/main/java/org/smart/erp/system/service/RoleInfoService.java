@@ -3,6 +3,7 @@ package org.smart.erp.system.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.smart.erp.system.dto.RoleGetDTO;
+import org.smart.erp.system.dto.RoleMenuAssignDTO;
 import org.smart.erp.system.dto.RolePermissionAssignDTO;
 import org.smart.erp.system.dto.RoleUpdateDTO;
 import org.smart.erp.system.entity.RoleInfo;
@@ -20,4 +21,9 @@ public interface RoleInfoService extends IService<RoleInfo> {
     RoleInfoVO getRoleDetail(Long id);
 
     void assignPermissions(RolePermissionAssignDTO dto);
+
+
+    void removeRole(Long id);
+
+    void assignUsers(RoleMenuAssignDTO dto);
 }
