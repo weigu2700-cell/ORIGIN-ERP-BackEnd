@@ -2,7 +2,6 @@ package org.smart.erp.master.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
-import org.smart.erp.master.dto.CustomerCreateDTO;
 import org.smart.erp.master.enums.CustomerStatus;
 import org.springframework.format.annotation.DateTimeFormat;
 
