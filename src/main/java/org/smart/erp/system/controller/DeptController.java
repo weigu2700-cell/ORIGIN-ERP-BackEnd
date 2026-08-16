@@ -7,8 +7,11 @@ import org.smart.erp.system.dto.DeptDTO;
 import org.smart.erp.system.dto.DeptListDTO;
 import org.smart.erp.system.dto.DeptUpdateDTO;
 import org.smart.erp.system.service.DeptService;
+import org.smart.erp.system.vo.DeptTreeVO;
 import org.smart.erp.system.vo.DeptVO;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/system/dept")
@@ -34,6 +37,11 @@ public class DeptController {
     @GetMapping("/list")
     public Result<Page<DeptVO>> getDeptList(DeptListDTO dto) {
         return Result.success(deptService.getDeptList(dto));
+    }
+
+    @GetMapping("/tree")
+    public Result<List<DeptTreeVO>> getDeptTree() {
+        return Result.success(deptService.getDeptTree());
     }
 
     @PutMapping()

@@ -6,7 +6,10 @@ import org.smart.erp.system.dto.DeptDTO;
 import org.smart.erp.system.dto.DeptListDTO;
 import org.smart.erp.system.dto.DeptUpdateDTO;
 import org.smart.erp.system.entity.Dept;
+import org.smart.erp.system.vo.DeptTreeVO;
 import org.smart.erp.system.vo.DeptVO;
+
+import java.util.List;
 
 public interface DeptService extends IService<Dept> {
     DeptVO createDept(DeptDTO dto);
@@ -18,4 +21,6 @@ public interface DeptService extends IService<Dept> {
     DeptVO updateDept(DeptUpdateDTO dto);
 
     Boolean deleteDept(Long id);
+
+    List<DeptTreeVO> getDeptTree();
 }

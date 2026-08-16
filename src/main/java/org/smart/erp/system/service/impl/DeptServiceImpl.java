@@ -13,14 +13,13 @@ import org.smart.erp.system.entity.User;
 import org.smart.erp.system.mapper.DeptMapper;
 import org.smart.erp.system.mapper.UserMapper;
 import org.smart.erp.system.service.DeptService;
+import org.smart.erp.system.vo.DeptTreeVO;
 import org.smart.erp.system.vo.DeptVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +32,11 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
     }
 
 
+    private DeptTreeVO toTreeVO(Dept dept) {
+        DeptTreeVO vo = new DeptTreeVO();
+        BeanUtils.copyProperties(dept, vo);
+        return vo;
+    }
 
     /** 单条转换并填充父部门名 */
     private DeptVO toVOWithParent(Dept dept) {
@@ -168,6 +172,35 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
         }
         this.removeById(id);
         return true;
+    }
+
+    @Override
+    public List<DeptTreeVO> getDeptTree() {
+      List<Dept> all = this.list(new LambdaQueryWrapper<Dept>().orderByDesc(Dept::getSort));
+
+      Map<Long, DeptTreeVO> voById = all.stream()
+              .map(this::toTreeVO)
+              .collect(Collectors.toMap(DeptTreeVO::getId, vo -> vo));
+
+      List<DeptTreeVO> tree = new ArrayList<>();
+      for (DeptTreeVO node : voById.values()) {
+          Long parentId = node.getParentId();
+          if (parentId == null) {
+              tree.add(node);
+          } else {
+             DeptTreeVO parent = voById.get(parentId);
+              if (parent != null) {
+                  if (parent.getChildren() == null) {
+                      parent.setChildren(new ArrayList<>());
+                  }
+                  parent.getChildren().add(node);
+              } else {
+                  tree.add(node);
+              }
+          }
+      }
+
+      return tree;
     }
 
 }
