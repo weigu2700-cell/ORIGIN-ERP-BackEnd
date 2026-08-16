@@ -20,7 +20,7 @@ public class Menu {
 
     private String path;
 
-    private int visible;
+    private Integer visible;
 
     private String component;
 

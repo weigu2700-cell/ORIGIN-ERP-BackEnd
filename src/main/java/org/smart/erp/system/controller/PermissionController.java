@@ -10,6 +10,7 @@ import org.smart.erp.system.dto.PermissionGetDTO;
 import org.smart.erp.system.dto.PermissionUpdateDTO;
 import org.smart.erp.system.service.PermissionService;
 import org.smart.erp.system.vo.PermissionTreeVO;
+import org.smart.erp.system.vo.PermissionVO;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -54,5 +55,10 @@ public class PermissionController {
     public Result<Void> updatePermission(PermissionUpdateDTO dto) {
         permissionService.updatePermission(dto);
         return Result.success();
+    }
+
+    @GetMapping
+    public Result<List<PermissionVO>> getCurrentUserPermission() {
+        return Result.success(permissionService.getCurrentUserPermission());
     }
 }

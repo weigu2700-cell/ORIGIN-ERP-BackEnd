@@ -8,6 +8,7 @@ import org.smart.erp.system.dto.PermissionGetDTO;
 import org.smart.erp.system.dto.PermissionUpdateDTO;
 import org.smart.erp.system.entity.Permission;
 import org.smart.erp.system.vo.PermissionTreeVO;
+import org.smart.erp.system.vo.PermissionVO;
 
 import java.util.List;
 
@@ -22,4 +23,8 @@ public interface PermissionService extends IService<Permission> {
     void createPermission(@Valid PermissionCreateDTO dto);
 
     void updatePermission(PermissionUpdateDTO dto);
+
+    List<PermissionVO> getCurrentUserPermission();
+
+    List<PermissionVO> getCurrentUserPermissionById(Long id);
 }

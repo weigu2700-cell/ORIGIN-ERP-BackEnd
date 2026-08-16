@@ -27,4 +27,6 @@ public class CurrentUserImpl implements CurrentUser {
                         .getAuthentication();
         return authentication.getName();
     }
+
+
 }

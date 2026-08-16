@@ -7,19 +7,19 @@ import org.springframework.stereotype.Component;
 @Data
 public class MenuGetDTO {
 
-    private int page;
+    private Integer page;
 
-    private int pageSize;
+    private Integer pageSize;
 
-    private Long title;
+    private String title;
 
     private Long id;
 
     private String name;
 
-    private String parentId;
+    private Long parentId;
 
-    private int visible;
+    private Integer visible;
 
     private Status status;
 }

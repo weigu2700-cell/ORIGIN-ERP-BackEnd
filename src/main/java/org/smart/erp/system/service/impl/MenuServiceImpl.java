@@ -4,14 +4,20 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.jspecify.annotations.NonNull;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.security.CurrentUser;
+import org.smart.erp.common.security.CurrentUserImpl;
+import org.smart.erp.system.converter.RoleConverter;
 import org.smart.erp.system.dto.MenuCreateDTO;
 import org.smart.erp.system.dto.MenuGetDTO;
 import org.smart.erp.system.dto.MenuGetTreeDTO;
 import org.smart.erp.system.entity.Menu;
 import org.smart.erp.system.entity.RoleMenu;
+import org.smart.erp.system.entity.UserRole;
 import org.smart.erp.system.mapper.MenuMapper;
 import org.smart.erp.system.mapper.RoleMenuMapper;
+import org.smart.erp.system.mapper.UserRoleMapper;
 import org.smart.erp.system.service.MenuService;
 import org.smart.erp.system.vo.MenuListVO;
 import org.smart.erp.system.vo.MenuTreeVO;
@@ -29,10 +35,23 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
     private final MenuMapper menuMapper;
     private final RoleMenuMapper roleMenuMapper;
+    private final CurrentUser currentUser;
+    private final UserRoleMapper userRoleMapper;
+    private final RoleConverter roleConverter;
 
-    public MenuServiceImpl(MenuMapper menuMapper , RoleMenuMapper roleMenuMapper) {
+    public MenuServiceImpl(
+            MenuMapper menuMapper ,
+            RoleMenuMapper roleMenuMapper ,
+            CurrentUser currentUser,
+            UserRoleMapper userRoleMapper,
+            RoleConverter roleConverter
+    )
+    {
         this.menuMapper = menuMapper;
         this.roleMenuMapper = roleMenuMapper;
+        this.currentUser = currentUser;
+        this.userRoleMapper = userRoleMapper;
+        this.roleConverter = roleConverter;
     }
 
     private MenuListVO toVO(Menu menu, Map<Long, String> parentNameById) {
@@ -49,6 +68,36 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
         return vo;
     }
 
+    /** 获取菜单树形结构*/
+    @NonNull
+    private List<MenuTreeVO> getMenuTreeVOS(List<Long> menuIds) {
+        List<Menu> menus = menuMapper.selectList(new LambdaQueryWrapper<Menu>()
+                .in(CollectionUtils.isNotEmpty(menuIds), Menu::getId, menuIds));
+
+        Map<Long, MenuTreeVO> voById = menus.stream()
+                .collect(Collectors.toMap(Menu::getId, this::toTreeVO));
+
+        List<MenuTreeVO> tree = new ArrayList<>();
+
+        for (MenuTreeVO node : voById.values()) {
+            Long parentId = node.getParentId();
+            if (parentId == null) {
+                tree.add(node);
+            } else {
+                MenuTreeVO parent = voById.get(parentId);
+                if (parent != null) {
+                    if (parent.getChildren() == null) {
+                        parent.setChildren(new ArrayList<>());
+                    }
+                    parent.getChildren().add(node);
+                } else {
+                    tree.add(node);
+                }
+            }
+        }
+        return tree;
+    }
+
 
     @Override
     public Page<MenuListVO> getMenuPage(MenuGetDTO dto) {
@@ -58,7 +107,9 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
         queryWrapper.eq(dto.getStatus() != null, Menu::getStatus, dto.getStatus());
         queryWrapper.eq(dto.getParentId() != null, Menu::getParentId, dto.getParentId());
 
-        Page<Menu> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()), queryWrapper);
+        int current = dto.getPage() != null && dto.getPage() > 0 ? dto.getPage() : 1;
+        int size = dto.getPageSize() != null && dto.getPageSize() > 0 ? dto.getPageSize() : 10;
+        Page<Menu> page = this.page(new Page<>(current, size), queryWrapper);
 
         List<Long> parentIds = page.getRecords().stream()
                 .map(Menu::getParentId)
@@ -85,6 +136,9 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
     @Override
     public List<MenuTreeVO> getMenuTree(MenuGetTreeDTO dto) {
+        if (dto.getRoleId() == null) {
+            throw new BusinessException(400, "roleId 不能为空");
+        }
         List<RoleMenu> roleMenuList = roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenu>()
                 .eq(RoleMenu::getRoleId, dto.getRoleId()));
 
@@ -92,30 +146,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                 .map(RoleMenu::getMenuId)
                 .collect(Collectors.toList());
 
-        List<Menu> menuList = menuMapper.selectList(new LambdaQueryWrapper<Menu>()
-                .in(CollectionUtils.isNotEmpty(menuIds), Menu::getId, menuIds));
-
-        Map<Long, MenuTreeVO> voById = menuList.stream()
-                .collect(Collectors.toMap(Menu::getId, this::toTreeVO));
-
-        List<MenuTreeVO> tree = new ArrayList<>();
-        for (MenuTreeVO node : voById.values()) {
-            Long parentId = node.getParentId();
-            if (parentId == null) {
-                tree.add(node);
-            } else {
-                MenuTreeVO parent = voById.get(parentId);
-                if (parent != null) {
-                    if (parent.getChildren() == null) {
-                        parent.setChildren(new ArrayList<>());
-                    }
-                    parent.getChildren().add(node);
-                } else {
-                    tree.add(node);
-                }
-            }
-        }
-        return tree;
+        return getMenuTreeVOS(menuIds);
     }
 
     @Override
@@ -171,6 +202,23 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             throw new BusinessException(400, "菜单已被角色使用，无法删除");
         }
         this.removeById(id);
+    }
+
+    @Override
+    public List<MenuTreeVO> getCurrentUserMenu() {
+
+        Long currentUserId = currentUser.getUserId();
+        List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
+
+        List<RoleMenu> roleMenus = roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenu>()
+                .in(CollectionUtils.isNotEmpty(roleIds), RoleMenu::getRoleId, roleIds));
+
+        List<Long> menuIds = roleMenus.stream()
+                .map(RoleMenu::getMenuId)
+                .toList();
+
+        return getMenuTreeVOS(menuIds);
+
     }
 
 }

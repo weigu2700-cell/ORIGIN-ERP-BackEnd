@@ -64,4 +64,10 @@ public class MenuController {
         return Result.success();
     }
 
+    @Operation(summary = "获取当前用户的菜单树")
+    @GetMapping("/current")
+    public Result<List<MenuTreeVO>> getCurrentUserMenu() {
+        return Result.success(menuService.getCurrentUserMenu());
+    }
+
 }

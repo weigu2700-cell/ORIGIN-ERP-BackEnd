@@ -4,11 +4,15 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.security.CurrentUser;
+import org.smart.erp.system.converter.RoleConverter;
 import org.smart.erp.system.dto.PermissionCreateDTO;
 import org.smart.erp.system.dto.PermissionGetDTO;
 import org.smart.erp.system.dto.PermissionUpdateDTO;
 import org.smart.erp.system.entity.Permission;
+import org.smart.erp.system.entity.RolePermission;
 import org.smart.erp.system.mapper.PermissionMapper;
+import org.smart.erp.system.mapper.RolePermissionMapper;
 import org.smart.erp.system.service.PermissionService;
 import org.smart.erp.system.vo.PermissionTreeVO;
 import org.smart.erp.system.vo.PermissionVO;
@@ -23,6 +27,16 @@ import java.util.stream.Collectors;
 @Service
 public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permission> implements PermissionService {
 
+
+    private final CurrentUser currentUser;
+    private final RoleConverter roleConverter;
+    private final RolePermissionMapper rolePermissionMapper;
+
+    public PermissionServiceImpl(CurrentUser currentUser, RoleConverter roleConverter, RolePermissionMapper rolePermissionMapper) {
+        this.currentUser = currentUser;
+        this.roleConverter = roleConverter;
+        this.rolePermissionMapper = rolePermissionMapper;
+    }
 
     /**
      * 将权限实体转换为 VO。
@@ -41,6 +55,37 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         vo.setStatus(p.getStatus());
         vo.setRemark(p.getRemark());
         return vo;
+    }
+
+    // 获取当前用户的权限
+    @Override
+    public List<PermissionVO> getCurrentUserPermissionById(Long currentUserId) {
+        List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
+
+        List<RolePermission> rolePermissions =
+                rolePermissionMapper.selectList(
+                        new LambdaQueryWrapper<RolePermission>()
+                                .in(RolePermission::getRoleId, roleIds)
+                );
+
+        List<Long> permissionIds = rolePermissions.stream()
+                .map(RolePermission::getPermissionId)
+                .toList();
+
+        Map<Long, Permission> permissionMap = this.listByIds(permissionIds)
+                .stream()
+                .collect(Collectors.toMap(Permission::getId, p -> p));
+
+        List<PermissionVO> vos = new java.util.ArrayList<>();
+        for (RolePermission rolePermission : rolePermissions) {
+            Permission permission = permissionMap.get(rolePermission.getPermissionId());
+            if (permission != null) {
+                PermissionVO vo = new PermissionVO();
+                BeanUtils.copyProperties(permission, vo);
+                vos.add(vo);
+            }
+        }
+        return vos;
     }
 
     @Override
@@ -174,6 +219,13 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         if (dto.getRemark() != null) permission.setRemark(dto.getRemark());
 
         this.updateById(permission);
+    }
+
+    @Override
+    public List<PermissionVO> getCurrentUserPermission() {
+        Long currentUserId = currentUser.getUserId();
+       return getCurrentUserPermissionById(currentUserId);
+
     }
 
 

@@ -6,16 +6,19 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.system.entity.User;
+import org.smart.erp.system.service.PermissionService;
 import org.smart.erp.system.service.UserService;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -25,6 +28,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private PermissionService permissionService;
 
     @Override
     protected void doFilterInternal(
@@ -50,11 +56,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     user.getId(),
                     user.getUsername()
             );
+            List<String> permissions = permissionService.getCurrentUserPermissionById(user.getId())
+                    .stream()
+                    .map(org.smart.erp.system.vo.PermissionVO::getCode)
+                    .toList();
+            List<SimpleGrantedAuthority> authorities = permissions.stream()
+                    .map(SimpleGrantedAuthority::new)
+                    .toList();
             Authentication authentication =
                     new UsernamePasswordAuthenticationToken(
                             loginUser,
                             null,
-                            Collections.emptyList()
+                            authorities
                     );
             SecurityContextHolder
                     .getContext()
