@@ -1,4 +1,4 @@
-package org.smart.erp.common.util;
+package org.smart.erp.common.utils;
 
 /**
  * 雪花算法 ID 生成器（Twitter Snowflake）。

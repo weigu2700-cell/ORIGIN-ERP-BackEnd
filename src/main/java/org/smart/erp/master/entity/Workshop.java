@@ -2,27 +2,27 @@ package org.smart.erp.master.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
-import org.smart.erp.master.enums.FactoryStatus;
+import org.smart.erp.master.enums.WorkshopStatus;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 
 @Data
-@TableName("md_warehouse")
-public class Factory {
+@TableName("md_workshop")
+public class Workshop {
 
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
     private String name;
 
-    private String shortName;
-
     private String code;
 
-    private String address;
+    private String shortName;
 
-    private FactoryStatus status;
+    private Long factoryId;
+
+    private WorkshopStatus status;
 
     private String remark;
 
@@ -36,5 +36,4 @@ public class Factory {
 
     @TableLogic
     private Integer deleted;
-
 }

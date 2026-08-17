@@ -4,24 +4,37 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
-import org.smart.erp.common.util.SnowflakeIdGenerator;
+import org.smart.erp.common.utils.SnowflakeIdGenerator;
 import org.smart.erp.master.dto.FactoryCreateDTO;
 import org.smart.erp.master.dto.FactoryListDTO;
 import org.smart.erp.master.dto.FactoryUpdateDTO;
 import org.smart.erp.master.entity.Factory;
+import org.smart.erp.master.entity.Workshop;
 import org.smart.erp.master.enums.FactoryStatus;
+import org.smart.erp.master.enums.WorkshopStatus;
 import org.smart.erp.master.mapper.FactoryMapper;
+import org.smart.erp.master.mapper.WorkshopMapper;
 import org.smart.erp.master.service.FactoryService;
+import org.smart.erp.master.service.WorkshopService;
 import org.smart.erp.master.vo.FactoryVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.Collections;
+import java.util.List;
+
 @Service
 public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> implements FactoryService {
 
     private static final SnowflakeIdGenerator SNOWFLAKE = new SnowflakeIdGenerator();
+
+    private final WorkshopMapper workshopMapper;
+
+    public FactoryServiceImpl(WorkshopMapper workshopMapper) {
+        this.workshopMapper = workshopMapper;
+    }
 
     private FactoryVO toVO(Factory factory) {
         FactoryVO vo = new FactoryVO();
@@ -83,12 +96,20 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateFactoryStatus(Long id, FactoryStatus status) {
         Factory factory = this.getById(id);
         if (factory == null) {
             throw new BusinessException(400, "工厂不存在");
         }
         factory.setStatus(status);
+
+        if (status == FactoryStatus.DISABLE) {
+            Workshop workshop = new Workshop();
+            workshop.setStatus(WorkshopStatus.DISABLE);
+            workshopMapper.update(workshop, new LambdaQueryWrapper<Workshop>()
+                    .eq(Workshop::getFactoryId, factory.getId()));
+        }
         updateById(factory);
     }
 }

@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.smart.erp.common.exception.BusinessException;
-import org.smart.erp.common.util.SnowflakeIdGenerator;
+import org.smart.erp.common.utils.SnowflakeIdGenerator;
 import org.smart.erp.master.convertor.ApplyUpdate;
 import org.smart.erp.master.dto.CustomerCreateDTO;
 import org.smart.erp.master.dto.CustomerListDTO;
