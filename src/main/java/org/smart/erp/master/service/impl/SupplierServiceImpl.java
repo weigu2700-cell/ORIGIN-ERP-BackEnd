@@ -3,7 +3,9 @@ package org.smart.erp.master.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.RequiredArgsConstructor;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.util.SnowflakeIdGenerator;
 import org.smart.erp.master.convertor.ApplyUpdate;
 import org.smart.erp.master.dto.SupplierCreateDTO;
 import org.smart.erp.master.dto.SupplierListDTO;
@@ -17,44 +19,46 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.stream.Collectors;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 @Service
+@RequiredArgsConstructor
 public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> implements SupplierService {
 
-    private final SupplierMapper supplierMapper;
-
-    public SupplierServiceImpl(SupplierMapper supplierMapper) {
-        this.supplierMapper = supplierMapper;
-    }
+    private static final SnowflakeIdGenerator SNOWFLAKE = new SnowflakeIdGenerator();
 
     private SupplierVO convertToVO(Supplier supplier) {
         SupplierVO vo = new SupplierVO();
         BeanUtils.copyProperties(supplier, vo);
+        if (supplier.getStatus() != null) {
+            vo.setStatus(supplier.getStatus().getCode());
+        }
+        vo.setCreatedTime(supplier.getCreatedTime());
         return vo;
     }
-
-
-
 
     @Override
     public void createSupplier(SupplierCreateDTO dto) {
         Supplier supplier = new Supplier();
         BeanUtils.copyProperties(dto, supplier);
+        String datePrefix = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        supplier.setCode("SU"  + SNOWFLAKE.nextId());
         supplier.setStatus(SupplierStatus.ACTIVE);
-        supplierMapper.insert(supplier);
+        this.save(supplier);
     }
 
     @Override
     public Page<SupplierVO> listSupplier(SupplierListDTO dto) {
-        LambdaQueryWrapper<Supplier> queryWrapper =
-                new LambdaQueryWrapper<Supplier>()
-                        .eq(StringUtils.hasText(dto.getCode()),Supplier::getCode,  dto.getCode())
-                        .like(StringUtils.hasText(dto.getName()),Supplier::getName,  dto.getName())
-                        .like(StringUtils.hasText(dto.getContactName()),Supplier::getContactName,  dto.getContactName())
-                        .like(StringUtils.hasText(dto.getPhone()),Supplier::getPhone,  dto.getPhone())
-                        .like(StringUtils.hasText(dto.getEmail()),Supplier::getEmail,  dto.getEmail())
-                        .orderByDesc(Supplier::getCreatedTime);
+        LambdaQueryWrapper<Supplier> queryWrapper = new LambdaQueryWrapper<Supplier>()
+                .eq(StringUtils.hasText(dto.getCode()), Supplier::getCode, dto.getCode())
+                .like(StringUtils.hasText(dto.getName()), Supplier::getName, dto.getName())
+                .like(StringUtils.hasText(dto.getShortName()), Supplier::getShortName, dto.getShortName())
+                .like(StringUtils.hasText(dto.getContactName()), Supplier::getContactName, dto.getContactName())
+                .like(StringUtils.hasText(dto.getPhone()), Supplier::getPhone, dto.getPhone())
+                .like(StringUtils.hasText(dto.getEmail()), Supplier::getEmail, dto.getEmail())
+                .orderByDesc(Supplier::getCreatedTime);
+
         Page<Supplier> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()), queryWrapper);
 
         Page<SupplierVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());

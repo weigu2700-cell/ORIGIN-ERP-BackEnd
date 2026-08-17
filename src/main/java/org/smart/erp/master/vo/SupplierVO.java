@@ -1,7 +1,8 @@
 package org.smart.erp.master.vo;
 
 import lombok.Data;
-import org.smart.erp.master.entity.Supplier;
+
+import java.time.LocalDateTime;
 
 @Data
 public class SupplierVO {
@@ -23,5 +24,9 @@ public class SupplierVO {
     private String email;
 
     private String remark;
+
+    private Integer status;
+
+    private LocalDateTime createdTime;
 
 }

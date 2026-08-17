@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 public class Supplier {
 
     @TableId(value = "id" , type = IdType.ASSIGN_ID)
-    private String id;
+    private Long id;
 
     private String code;
 
@@ -39,4 +39,7 @@ public class Supplier {
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedTime;
+
+    @TableLogic
+    private int deleted;
 }

@@ -51,12 +51,14 @@ public class PermissionController {
         return Result.success();
     }
 
+    @Operation(summary = "更新权限")
     @PutMapping("/{id}")
     public Result<Void> updatePermission(PermissionUpdateDTO dto) {
         permissionService.updatePermission(dto);
         return Result.success();
     }
 
+    @Operation(summary = "当前用户权限列表")
     @GetMapping
     public Result<List<PermissionVO>> getCurrentUserPermission() {
         return Result.success(permissionService.getCurrentUserPermission());

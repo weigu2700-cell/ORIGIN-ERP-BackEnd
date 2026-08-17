@@ -3,6 +3,7 @@ package org.smart.erp.master.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.RequiredArgsConstructor;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.SnowflakeIdGenerator;
 import org.smart.erp.master.convertor.ApplyUpdate;
@@ -19,11 +20,9 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-
-
 @Service
+@RequiredArgsConstructor
 public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> implements CustomerService {
-
 
     private static final SnowflakeIdGenerator SNOWFLAKE = new SnowflakeIdGenerator();
 
@@ -49,19 +48,18 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
         Customer customer = new Customer();
         BeanUtils.copyProperties(dto, customer);
-        customer.setCode("CU"  + SNOWFLAKE.nextId());
+        customer.setCode("CU" + SNOWFLAKE.nextId());
         customer.setStatus(CustomerStatus.ACTIVE);
         this.save(customer);
     }
 
     @Override
     public Page<CustomerVO> getCustomerList(CustomerListDTO dto) {
-        LambdaQueryWrapper<Customer> wrapper =
-                new LambdaQueryWrapper<Customer>()
-                    .eq(StringUtils.hasText(dto.getCode()), Customer::getCode, dto.getCode())
-                    .like(StringUtils.hasText(dto.getName()), Customer::getName, dto.getName())
-                    .eq(dto.getStatus() != null, Customer::getStatus, dto.getStatus())
-                    .orderByDesc(Customer::getCreateTime);
+        LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<Customer>()
+                .eq(StringUtils.hasText(dto.getCode()), Customer::getCode, dto.getCode())
+                .like(StringUtils.hasText(dto.getName()), Customer::getName, dto.getName())
+                .eq(dto.getStatus() != null, Customer::getStatus, dto.getStatus())
+                .orderByDesc(Customer::getCreateTime);
 
         Page<Customer> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()), wrapper);
 
