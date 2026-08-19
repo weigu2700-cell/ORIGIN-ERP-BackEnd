@@ -5,12 +5,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.SnowflakeIdGenerator;
 import org.smart.erp.master.convertor.ApplyUpdate;
-import org.smart.erp.master.dto.CustomerCreateDTO;
-import org.smart.erp.master.dto.CustomerListDTO;
-import org.smart.erp.master.dto.CustomerStatusDTO;
-import org.smart.erp.master.dto.CustomerUpdateDTO;
+import org.smart.erp.master.dto.CustomerDTO.CustomerCreateDTO;
+import org.smart.erp.master.dto.CustomerDTO.CustomerListDTO;
+import org.smart.erp.master.dto.CustomerDTO.CustomerStatusDTO;
+import org.smart.erp.master.dto.CustomerDTO.CustomerUpdateDTO;
 import org.smart.erp.master.entity.Customer;
 import org.smart.erp.master.enums.CustomerStatus;
 import org.smart.erp.master.mapper.CustomerMapper;
@@ -62,10 +63,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .orderByDesc(Customer::getCreateTime);
 
         Page<Customer> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()), wrapper);
-
-        Page<CustomerVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        voPage.setRecords(page.getRecords().stream().map(this::toVO).toList());
-        return voPage;
+        return PageConvertUtils.convert(page, this::toVO);
     }
 
     @Override

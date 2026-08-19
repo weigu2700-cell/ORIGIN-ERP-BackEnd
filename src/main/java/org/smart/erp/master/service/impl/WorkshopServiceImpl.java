@@ -5,14 +5,16 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.utils.DateCodeRuleUtil;
-import org.smart.erp.master.convertor.ApplyUpdate;
-import org.smart.erp.master.dto.WorkshopCreateDTO;
-import org.smart.erp.master.dto.WorkshopListDTO;
-import org.smart.erp.master.dto.WorkshopUpdateDTO;
+import org.smart.erp.master.dto.WorkshopDTO.WorkshopCreateDTO;
+import org.smart.erp.master.dto.WorkshopDTO.WorkshopListDTO;
+import org.smart.erp.master.dto.WorkshopDTO.WorkshopUpdateDTO;
 import org.smart.erp.master.entity.Factory;
+import org.smart.erp.master.entity.ProductionLine;
 import org.smart.erp.master.entity.Workshop;
 import org.smart.erp.master.enums.FactoryStatus;
+import org.smart.erp.master.enums.ProductionLineStatus;
 import org.smart.erp.master.enums.WorkshopStatus;
+import org.smart.erp.master.mapper.ProductionLineMapper;
 import org.smart.erp.master.mapper.WorkshopMapper;
 import org.smart.erp.master.service.FactoryService;
 import org.smart.erp.master.service.WorkshopService;
@@ -21,7 +23,6 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -31,16 +32,19 @@ public class WorkshopServiceImpl extends ServiceImpl<WorkshopMapper, Workshop> i
     private final WorkshopMapper workshopMapper;
     private final FactoryService factoryService;
     private final DateCodeRuleUtil dateCodeRuleUtil;
+    private final ProductionLineMapper productionLineMapper;
 
     public WorkshopServiceImpl(
             WorkshopMapper workshopMapper ,
             DateCodeRuleUtil dateCodeRuleUtil,
-            FactoryService factoryService
+            FactoryService factoryService,
+            ProductionLineMapper productionLineMapper
     )
     {
         this.workshopMapper = workshopMapper;
         this.factoryService = factoryService;
         this.dateCodeRuleUtil = dateCodeRuleUtil;
+        this.productionLineMapper = productionLineMapper;
     }
 
     @Override
@@ -143,6 +147,12 @@ public class WorkshopServiceImpl extends ServiceImpl<WorkshopMapper, Workshop> i
             throw new BusinessException(404 , "车间不存在");
         }
         workshop.setStatus(status);
+        if (status == WorkshopStatus.DISABLE) {
+            ProductionLine productionLine = productionLineMapper.selectOne(new LambdaQueryWrapper<ProductionLine>()
+                    .eq(ProductionLine::getWorkshopId , workshop.getId()));
+            productionLine.setStatus(ProductionLineStatus.DISABLE);
+            productionLineMapper.updateById(productionLine);
+        }
         workshopMapper.updateById(workshop);
     }
 }

@@ -2,9 +2,9 @@ package org.smart.erp.master.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.smart.erp.master.dto.SupplierCreateDTO;
-import org.smart.erp.master.dto.SupplierListDTO;
-import org.smart.erp.master.dto.SupplierUpdateDTO;
+import org.smart.erp.master.dto.SupplierDTO.SupplierCreateDTO;
+import org.smart.erp.master.dto.SupplierDTO.SupplierListDTO;
+import org.smart.erp.master.dto.SupplierDTO.SupplierUpdateDTO;
 import org.smart.erp.master.entity.Supplier;
 import org.smart.erp.master.enums.SupplierStatus;
 import org.smart.erp.master.vo.SupplierVO;

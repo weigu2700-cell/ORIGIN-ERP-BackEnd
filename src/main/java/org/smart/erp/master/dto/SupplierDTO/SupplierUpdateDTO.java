@@ -1,4 +1,4 @@
-package org.smart.erp.master.dto;
+package org.smart.erp.master.dto.SupplierDTO;
 
 import lombok.Data;
 

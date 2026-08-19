@@ -1,4 +1,4 @@
-package org.smart.erp.master.dto;
+package org.smart.erp.master.dto.CustomerDTO;
 
 import lombok.Data;
 import org.smart.erp.master.enums.CustomerStatus;

@@ -1,15 +1,9 @@
-package org.smart.erp.master.dto;
+package org.smart.erp.master.dto.SupplierDTO;
 
 import lombok.Data;
 
 @Data
-public class SupplierListDTO {
-
-    private Integer page;
-
-    private Integer pageSize;
-
-    private String code;
+public class SupplierCreateDTO {
 
     private String name;
 
@@ -17,7 +11,11 @@ public class SupplierListDTO {
 
     private String contactName;
 
+    private String address;
+
     private String phone;
 
     private String email;
+
+    private String remark;
 }

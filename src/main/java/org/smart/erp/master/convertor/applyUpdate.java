@@ -1,7 +1,7 @@
 package org.smart.erp.master.convertor;
 
-import org.smart.erp.master.dto.CustomerUpdateDTO;
-import org.smart.erp.master.dto.SupplierUpdateDTO;
+import org.smart.erp.master.dto.CustomerDTO.CustomerUpdateDTO;
+import org.smart.erp.master.dto.SupplierDTO.SupplierUpdateDTO;
 import org.smart.erp.master.entity.Customer;
 import org.smart.erp.master.entity.Supplier;
 

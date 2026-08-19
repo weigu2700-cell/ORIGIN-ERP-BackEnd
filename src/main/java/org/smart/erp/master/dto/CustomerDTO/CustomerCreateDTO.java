@@ -1,4 +1,4 @@
-package org.smart.erp.master.dto;
+package org.smart.erp.master.dto.CustomerDTO;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

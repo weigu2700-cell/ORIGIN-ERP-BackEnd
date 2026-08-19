@@ -1,16 +1,16 @@
-package org.smart.erp.master.dto;
+package org.smart.erp.master.dto.WorkshopDTO;
 
 import lombok.Data;
 
 @Data
-public class FactoryUpdateDTO {
-
+public class WorkshopUpdateDTO {
 
     private String name;
 
     private String shortName;
 
-    private String address;
+    private Long factoryId;
 
     private String remark;
+
 }

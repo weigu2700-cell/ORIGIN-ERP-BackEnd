@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.system.Enum.UserStatus;
 import org.smart.erp.system.dto.UserCreateDTO;
 import org.smart.erp.system.dto.UserGetDTO;
@@ -214,18 +215,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         Page<User> page = new Page<>(dto.getPage(), dto.getPageSize());
         userMapper.selectPage(page, queryWrapper);
+        return PageConvertUtils.convert(page, this::toUserGetVO);
+    }
 
-        List<UserGetVO> vos = page.getRecords().stream().map(user -> {
-            UserGetVO vo = new UserGetVO();
-            BeanUtils.copyProperties(user, vo);
-            vo.setDeptName(resolveDeptName(user.getDeptId()));
-            vo.setRoles(buildUserRoles(user.getId()));
-            return vo;
-        }).toList();
-
-        Page<UserGetVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        voPage.setRecords(vos);
-        return voPage;
+    private UserGetVO toUserGetVO(User user) {
+        UserGetVO vo = new UserGetVO();
+        BeanUtils.copyProperties(user, vo);
+        vo.setDeptName(resolveDeptName(user.getDeptId()));
+        vo.setRoles(buildUserRoles(user.getId()));
+        return vo;
     }
 
 }

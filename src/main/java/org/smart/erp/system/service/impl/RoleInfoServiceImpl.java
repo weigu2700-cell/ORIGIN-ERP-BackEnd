@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.system.dto.RoleGetDTO;
 import org.smart.erp.system.dto.RoleMenuAssignDTO;
 import org.smart.erp.system.dto.RolePermissionAssignDTO;
@@ -59,10 +60,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
         queryWrapper.orderByDesc(RoleInfo::getSort);
 
         Page<RoleInfo> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()), queryWrapper);
-        List<RoleInfoVO> vos = page.getRecords().stream().map(this::toVO).toList();
-        Page<RoleInfoVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        voPage.setRecords(vos);
-        return voPage;
+        return PageConvertUtils.convert(page, this::toVO);
     }
 
     @Override
