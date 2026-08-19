@@ -13,7 +13,7 @@ import org.smart.erp.system.vo.PermissionVO;
 import java.util.List;
 
 public interface PermissionService extends IService<Permission> {
-    Page<PermissionTreeVO> getPermissionList(PermissionGetDTO dto);
+    Page<PermissionTreeVO> listPermission(PermissionGetDTO dto);
 
     List<PermissionTreeVO> getPermissionTree();
 

@@ -34,14 +34,14 @@ public class CustomerController {
     @Operation(summary = "客户分页列表")
     @GetMapping("/list")
     @PreAuthorize("hasAuthority('master:customer:list')")
-    public Result<Page<CustomerVO>> list(CustomerListDTO dto) {
+    public Result<Page<CustomerVO>> listCustomer(CustomerListDTO dto) {
         return Result.success(customerService.getCustomerList(dto));
     }
 
     @Operation(summary = "客户详情")
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('master:customer:get')")
-    public Result<CustomerVO> detail(@PathVariable Long id) {
+    public Result<CustomerVO> getCustomerDetail(@PathVariable Long id) {
         return Result.success(customerService.getCustomerDetail(id));
     }
 

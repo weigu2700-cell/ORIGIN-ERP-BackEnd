@@ -35,7 +35,7 @@ public class FactoryController {
     @Operation(summary = "工厂分页列表")
     @GetMapping
     @PreAuthorize("hasAnyAuthority('factory:list')")
-    public Result<Page<FactoryVO>> getFactoryList(@RequestParam FactoryListDTO dto) {
+    public Result<Page<FactoryVO>> listFactory(@RequestParam FactoryListDTO dto) {
         return Result.success(factoryService.getFactoryList(dto));
     }
 
@@ -50,7 +50,7 @@ public class FactoryController {
     @Operation(summary = "工厂详情")
     @GetMapping("{id}")
     @PreAuthorize("hasAnyAuthority('factory:get')")
-    public Result<FactoryVO> getFactory(@PathVariable Long id) {
+    public Result<FactoryVO> getFactoryDetail(@PathVariable Long id) {
         return Result.success(factoryService.getFactoryById(id));
     }
 

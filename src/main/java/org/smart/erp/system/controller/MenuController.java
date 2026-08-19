@@ -27,8 +27,8 @@ public class MenuController {
 
     @Operation(summary = "菜单分页列表")
     @GetMapping("/list")
-    public Result<Page<MenuListVO>> get(MenuGetDTO dto) {
-        return Result.success(menuService.getMenuPage(dto));
+    public Result<Page<MenuListVO>> listMenu(MenuGetDTO dto) {
+        return Result.success(menuService.listMenu(dto));
     }
 
     @Operation(summary = "菜单树形结构")
@@ -39,7 +39,7 @@ public class MenuController {
 
     @Operation(summary = "菜单详情")
     @GetMapping("/{id}")
-    public Result<MenuListVO> getById(@PathVariable Long id) {
+    public Result<MenuListVO> getMenuDetail(@PathVariable Long id) {
         return Result.success(menuService.getMenuDetail(id));
     }
 

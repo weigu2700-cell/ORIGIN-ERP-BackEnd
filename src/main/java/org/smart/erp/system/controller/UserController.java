@@ -57,8 +57,8 @@ public class UserController {
 
     @Operation(summary = "用户分页列表")
     @GetMapping("/list")
-    public Result<Page<UserGetVO>> getUserList(UserGetDTO dto) {
-        return Result.success(userService.getUserList(dto));
+    public Result<Page<UserGetVO>> listUser(UserGetDTO dto) {
+        return Result.success(userService.listUser(dto));
     }
 
     /**

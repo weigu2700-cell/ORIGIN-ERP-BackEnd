@@ -38,7 +38,7 @@ public class WorkshopController {
 
     @Operation(summary = "车间详情")
     @GetMapping("/{id}")
-    public Result<WorkshopVO> getWorkshop(@PathVariable Long id) {
+    public Result<WorkshopVO> getWorkshopDetail(@PathVariable Long id) {
         return Result.success(workshopService.getWorkshopDetail(id));
     }
 

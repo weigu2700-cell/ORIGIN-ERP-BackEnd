@@ -89,7 +89,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
     }
 
     @Override
-    public Page<DeptVO> getDeptList(DeptListDTO dto) {
+    public Page<DeptVO> listDept(DeptListDTO dto) {
         LambdaQueryWrapper<Dept> queryWrapper = new LambdaQueryWrapper<Dept>()
                 .like(dto.getName() != null, Dept::getName, dto.getName())
                 .like(dto.getCode() != null, Dept::getCode, dto.getCode())

@@ -43,7 +43,7 @@ public class ProductionLineController {
     @Operation(summary = "生产线详情")
     @PreAuthorize("hasAnyAuthority('master:production_line:get')")
     @GetMapping("/{id}")
-    public Result<ProductionLineVO> getProductionLine(@PathVariable Long id) {
+    public Result<ProductionLineVO> getProductionLineDetail(@PathVariable Long id) {
         return Result.success(productionLineService.getProductionLine(id));
     }
 

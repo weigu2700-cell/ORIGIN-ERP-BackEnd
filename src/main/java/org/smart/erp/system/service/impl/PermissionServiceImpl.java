@@ -89,7 +89,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     }
 
     @Override
-    public Page<PermissionTreeVO> getPermissionList(PermissionGetDTO dto) {
+    public Page<PermissionTreeVO> listPermission(PermissionGetDTO dto) {
         LambdaQueryWrapper<Permission> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.like(dto.getName() != null, Permission::getName, dto.getName());
         queryWrapper.like(dto.getCode() != null, Permission::getCode, dto.getCode());

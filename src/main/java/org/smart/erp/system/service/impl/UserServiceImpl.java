@@ -205,7 +205,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public Page<UserGetVO> getUserList(UserGetDTO dto) {
+    public Page<UserGetVO> listUser(UserGetDTO dto) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         if (dto.getUsername() != null) queryWrapper.like(User::getUsername, dto.getUsername());
         if (dto.getPhone() != null) queryWrapper.like(User::getPhone, dto.getPhone());

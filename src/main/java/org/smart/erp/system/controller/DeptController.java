@@ -28,7 +28,7 @@ public class DeptController {
 
     @Operation(summary = "新增部门")
     @PostMapping("/add")
-    public Result<Void> add(@RequestBody DeptDTO dto) {
+    public Result<Void> createDept(@RequestBody DeptDTO dto) {
         deptService.createDept(dto);
         return Result.success();
     }
@@ -41,8 +41,8 @@ public class DeptController {
 
     @Operation(summary = "部门分页列表")
     @GetMapping("/list")
-    public Result<Page<DeptVO>> getDeptList(DeptListDTO dto) {
-        return Result.success(deptService.getDeptList(dto));
+    public Result<Page<DeptVO>> listDept(DeptListDTO dto) {
+        return Result.success(deptService.listDept(dto));
     }
 
     @Operation(summary = "部门树形结构")

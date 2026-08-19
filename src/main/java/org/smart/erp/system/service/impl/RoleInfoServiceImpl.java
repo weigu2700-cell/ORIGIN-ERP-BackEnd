@@ -52,7 +52,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
     }
 
     @Override
-    public Page<RoleInfoVO> getRoleList(RoleGetDTO dto) {
+    public Page<RoleInfoVO> listRole(RoleGetDTO dto) {
         LambdaQueryWrapper<RoleInfo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.like(dto.getName() != null, RoleInfo::getName, dto.getName());
         queryWrapper.like(dto.getCode() != null, RoleInfo::getCode, dto.getCode());
@@ -84,7 +84,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void addRole(RoleUpdateDTO dto) {
+    public void createRole(RoleUpdateDTO dto) {
         RoleInfo roleInfo = new RoleInfo();
         LambdaQueryWrapper<RoleInfo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoleInfo::getCode, dto.getCode());

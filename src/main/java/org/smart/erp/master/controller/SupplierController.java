@@ -34,14 +34,14 @@ public class SupplierController {
     @Operation(summary = "供应商分页列表")
     @GetMapping("/list")
     @PreAuthorize("hasAuthority('master:supplier:list')")
-    public Result<Page<SupplierVO>> list(SupplierListDTO dto) {
+    public Result<Page<SupplierVO>> listSupplier(SupplierListDTO dto) {
         return Result.success(supplierService.listSupplier(dto));
     }
 
     @Operation(summary = "供应商详情")
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('master:supplier:get')")
-    public Result<SupplierVO> detail(@PathVariable Long id) {
+    public Result<SupplierVO> getSupplierDetail(@PathVariable Long id) {
         return Result.success(supplierService.getSupplierDetail(id));
     }
 

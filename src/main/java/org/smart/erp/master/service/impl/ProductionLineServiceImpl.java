@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
+import org.smart.erp.common.utils.DateCodeRuleUtil;
 import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineCreateDTO;
 import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineListDTO;
 import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineUpdateDTO;
@@ -30,9 +31,11 @@ public class ProductionLineServiceImpl
 {
 
     private final WorkshopMapper workshopMapper;
+    private final DateCodeRuleUtil dateCodeRuleUtil;
 
-    public ProductionLineServiceImpl(WorkshopMapper workshopMapper) {
+    public ProductionLineServiceImpl(WorkshopMapper workshopMapper, DateCodeRuleUtil dateCodeRuleUtil) {
         this.workshopMapper = workshopMapper;
+        this.dateCodeRuleUtil = dateCodeRuleUtil;
     }
 
     /**
@@ -73,6 +76,8 @@ public class ProductionLineServiceImpl
             throw new BusinessException(400 , "所属车间不存在或已停用");
         }
         BeanUtils.copyProperties(dto, productionLine);
+        productionLine.setCode(dateCodeRuleUtil.setDateCodeRule("PL" , workshop.getId()));
+        productionLine.setStatus(ProductionLineStatus.ENABLE);
         save(productionLine);
     }
 

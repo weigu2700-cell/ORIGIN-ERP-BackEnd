@@ -25,7 +25,7 @@ public interface UserService extends IService<User> {
     /** 更新用户，仅落库不返回数据 */
     void updateUser(Long id, UserUpdateDTO dto);
 
-    Page<UserGetVO> getUserList(UserGetDTO dto);
+    Page<UserGetVO> listUser(UserGetDTO dto);
 
     void assignRoles(UserRoleAssignDTO dto);
 }

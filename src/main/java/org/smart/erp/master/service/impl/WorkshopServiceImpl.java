@@ -21,6 +21,7 @@ import org.smart.erp.master.service.WorkshopService;
 import org.smart.erp.master.vo.WorkshopVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.Map;
@@ -141,6 +142,7 @@ public class WorkshopServiceImpl extends ServiceImpl<WorkshopMapper, Workshop> i
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void changeStatus(Long id, WorkshopStatus status) {
         Workshop workshop = workshopMapper.selectById(id);
         if (workshop == null) {

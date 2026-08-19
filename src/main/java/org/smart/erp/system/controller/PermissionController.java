@@ -28,8 +28,8 @@ public class PermissionController {
 
     @Operation(summary = "权限分页列表")
     @GetMapping("/list")
-    public Result<Page<PermissionTreeVO>> getPermissionList(@Valid PermissionGetDTO dto) {
-        return Result.success(permissionService.getPermissionList(dto));
+    public Result<Page<PermissionTreeVO>> listPermission(@Valid PermissionGetDTO dto) {
+        return Result.success(permissionService.listPermission(dto));
     }
 
     @Operation(summary = "权限树形结构")
@@ -46,7 +46,7 @@ public class PermissionController {
 
     @Operation(summary = "新增权限")
     @PostMapping("/add")
-    public Result<Void> add(@RequestBody @Valid PermissionCreateDTO dto) {
+    public Result<Void> createPermission(@RequestBody @Valid PermissionCreateDTO dto) {
         permissionService.createPermission(dto);
         return Result.success();
     }

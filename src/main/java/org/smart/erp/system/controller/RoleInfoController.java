@@ -26,8 +26,8 @@ public class RoleInfoController {
 
     @Operation(summary = "角色分页列表")
     @GetMapping("/list")
-    public Result<Page<RoleInfoVO>> getRoleList(RoleGetDTO dto) {
-        return Result.success(roleInfoService.getRoleList(dto));
+    public Result<Page<RoleInfoVO>> listRole(RoleGetDTO dto) {
+        return Result.success(roleInfoService.listRole(dto));
     }
 
     @Operation(summary = "角色详情")
@@ -45,8 +45,8 @@ public class RoleInfoController {
 
     @Operation(summary = "新增角色")
     @PostMapping("/add")
-    public Result<Void> addRole(@RequestBody RoleUpdateDTO dto) {
-        roleInfoService.addRole(dto);
+    public Result<Void> createRole(@RequestBody RoleUpdateDTO dto) {
+        roleInfoService.createRole(dto);
         return Result.success();
     }
 

@@ -10,13 +10,13 @@ import org.smart.erp.system.entity.RoleInfo;
 import org.smart.erp.system.vo.RoleInfoVO;
 
 public interface RoleInfoService extends IService<RoleInfo> {
-    Page<RoleInfoVO> getRoleList(RoleGetDTO dto);
+    Page<RoleInfoVO> listRole(RoleGetDTO dto);
 
     /** 更新角色，仅落库不返回数据 */
     void updateRole(RoleUpdateDTO dto);
 
     /** 新增角色，仅落库不返回数据 */
-    void addRole(RoleUpdateDTO dto);
+    void createRole(RoleUpdateDTO dto);
 
     RoleInfoVO getRoleDetail(Long id);
 

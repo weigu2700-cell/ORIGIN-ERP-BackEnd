@@ -12,7 +12,7 @@ import org.smart.erp.system.vo.MenuTreeVO;
 import java.util.List;
 
 public interface MenuService extends IService<Menu> {
-    Page<MenuListVO> getMenuPage(MenuGetDTO dto);
+    Page<MenuListVO> listMenu(MenuGetDTO dto);
 
     List<MenuTreeVO> getMenuTree(MenuGetTreeDTO dto);
 

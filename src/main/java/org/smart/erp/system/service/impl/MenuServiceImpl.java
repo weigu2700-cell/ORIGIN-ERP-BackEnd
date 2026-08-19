@@ -100,7 +100,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
 
     @Override
-    public Page<MenuListVO> getMenuPage(MenuGetDTO dto) {
+    public Page<MenuListVO> listMenu(MenuGetDTO dto) {
         LambdaQueryWrapper<Menu> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.like(dto.getName() != null, Menu::getName, dto.getName());
         queryWrapper.like(dto.getTitle() != null, Menu::getTitle, dto.getTitle());

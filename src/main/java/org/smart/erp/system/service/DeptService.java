@@ -17,7 +17,7 @@ public interface DeptService extends IService<Dept> {
 
     DeptVO getDeptDetail(Long id);
 
-    Page<DeptVO> getDeptList(DeptListDTO dto);
+    Page<DeptVO> listDept(DeptListDTO dto);
 
     /** 更新部门，仅落库不返回数据 */
     void updateDept(DeptUpdateDTO dto);

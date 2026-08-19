@@ -21,7 +21,7 @@ public class Warehouse {
 
     private WarehouseType type;
 
-    private long factoryId;
+    private Long factoryId;
 
     private WarehouseStatus status;
 
