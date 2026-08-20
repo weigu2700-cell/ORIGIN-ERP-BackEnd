@@ -1,10 +1,14 @@
 package org.smart.erp.common.util;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.BeanUtils;
 
+import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 分页对象转换工具，消除各 Service 中 "entity 分页 -> VO 分页" 的重复代码。
