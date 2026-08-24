@@ -23,7 +23,7 @@ public class Transaction {
 
     private TransactionType transactionType;
 
-    private Integer businessType;
+    private String businessType;
 
     private String businessNo;
 

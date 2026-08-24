@@ -8,13 +8,13 @@ import java.time.LocalDateTime;
 @Data
 public class TransactionVO {
 
-    private String id;
+    private Long id;
 
-    private String warehouseId;
+    private Long warehouseId;
 
     private String warehouseName;
 
-    private String materialId;
+    private Long materialId;
 
     private String materialCode;
 
