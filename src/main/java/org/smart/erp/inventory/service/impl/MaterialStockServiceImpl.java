@@ -9,8 +9,10 @@ import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.inventory.dto.materialStockDto.CreateDto;
 import org.smart.erp.inventory.dto.materialStockDto.ListDto;
 import org.smart.erp.inventory.entity.MaterialStock;
+import org.smart.erp.inventory.enums.TransactionType;
 import org.smart.erp.inventory.mapper.MaterialStockMapper;
 import org.smart.erp.inventory.service.MaterialStockService;
+import org.smart.erp.inventory.service.TransactionService;
 import org.smart.erp.inventory.vo.MaterialStockVO;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
@@ -38,11 +40,13 @@ public class MaterialStockServiceImpl
     private final MaterialStockMapper materialStockMapper;
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
+    private final TransactionService transactionService;
 
-    public MaterialStockServiceImpl(MaterialStockMapper materialStockMapper, MaterialMapper materialMapper, WarehouseMapper warehouseMapper) {
+    public MaterialStockServiceImpl(MaterialStockMapper materialStockMapper, MaterialMapper materialMapper, WarehouseMapper warehouseMapper, TransactionService transactionService) {
         this.materialStockMapper = materialStockMapper;
         this.materialMapper = materialMapper;
         this.warehouseMapper = warehouseMapper;
+        this.transactionService = transactionService;
     }
 
     /**
@@ -183,6 +187,7 @@ public class MaterialStockServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void reserveStock(Long materialId, Long warehouseId, BigDecimal quantity) {
         LambdaQueryWrapper<MaterialStock> queryWrapper = buildStockQueryWrapper(materialId, warehouseId, quantity, "预留数量必须大于 0");
 
@@ -198,9 +203,21 @@ public class MaterialStockServiceImpl
                 throw new BusinessException(400, "可用库存不足");
             }
 
+            BigDecimal beforeOnHand = materialStock.getOnHand();
+            BigDecimal beforeReserved = materialStock.getReserved();
+
             materialStock.setReserved(materialStock.getReserved().add(quantity));
 
             if (this.updateById(materialStock)) {
+                transactionService.recordTransaction(
+                        materialStock,
+                        TransactionType.RESERVE,
+                        quantity, beforeOnHand,
+                        beforeReserved,
+                        "预留库存",
+                        "预留库存",
+                        "预留库存"
+                );
                 return;
             }
         }
@@ -223,9 +240,21 @@ public class MaterialStockServiceImpl
                 throw new BusinessException(400, "预留库存不足");
             }
 
+            BigDecimal beforeOnHand = materialStock.getOnHand();
+            BigDecimal beforeReserved = materialStock.getReserved();
+
             materialStock.setReserved(materialStock.getReserved().subtract(quantity));
 
             if (this.updateById(materialStock)) {
+                transactionService.recordTransaction(
+                        materialStock,
+                        TransactionType.RELEASE,
+                        quantity, beforeOnHand,
+                        beforeReserved,
+                        "释放库存",
+                        "释放库存",
+                        "释放库存"
+                );
                 return;
             }
         }
@@ -250,10 +279,22 @@ public class MaterialStockServiceImpl
                 throw new BusinessException(400, "出库数量不能大于预留数量");
             }
 
+            BigDecimal beforeOnHand = materialStock.getOnHand();
+            BigDecimal beforeReserved = materialStock.getReserved();
+
             materialStock.setOnHand(materialStock.getOnHand().subtract(quantity));
             materialStock.setReserved(materialStock.getReserved().subtract(quantity));
 
             if (this.updateById(materialStock)) {
+                transactionService.recordTransaction(
+                        materialStock,
+                        TransactionType.OUTBOUND,
+                        quantity, beforeOnHand,
+                        beforeReserved,
+                        "SALES_ORDER",
+                        "SO202608240001",
+                        "出库"
+                );
                 return;
             }
         }
@@ -272,9 +313,21 @@ public class MaterialStockServiceImpl
                 throw new BusinessException(400, "库存记录不存在");
             }
 
+            BigDecimal beforeOnHand = materialStock.getOnHand();
+            BigDecimal beforeReserved = materialStock.getReserved();
+
             materialStock.setOnHand(materialStock.getOnHand().add(quantity));
 
             if (this.updateById(materialStock)) {
+                transactionService.recordTransaction(
+                        materialStock,
+                        TransactionType.INBOUND,
+                        quantity, beforeOnHand,
+                        beforeReserved,
+                        "PURCHASE_ORDER",
+                        "IO2026082400201",
+                        "入库"
+                );
                 return;
             }
         }
