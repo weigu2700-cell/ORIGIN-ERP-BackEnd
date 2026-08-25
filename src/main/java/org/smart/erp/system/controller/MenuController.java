@@ -38,7 +38,7 @@ public class MenuController {
     }
 
     @Operation(summary = "菜单详情")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     public Result<MenuListVO> getMenuDetail(@PathVariable Long id) {
         return Result.success(menuService.getMenuDetail(id));
     }
@@ -51,14 +51,14 @@ public class MenuController {
     }
 
     @Operation(summary = "更新菜单")
-    @PutMapping("/{id}")
+    @PutMapping("/{id:\\d+}")
     public Result<Void> update( Long id, @RequestBody MenuCreateDTO dto) {
         menuService.updateMenu(id, dto);
         return Result.success();
     }
 
     @Operation(summary = "删除菜单")
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     public Result<Void> delete(@PathVariable Long id) {
         menuService.deleteMenu(id);
         return Result.success();

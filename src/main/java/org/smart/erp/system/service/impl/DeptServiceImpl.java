@@ -35,6 +35,13 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
     private DeptTreeVO toTreeVO(Dept dept) {
         DeptTreeVO vo = new DeptTreeVO();
         BeanUtils.copyProperties(dept, vo);
+        // id/parentId 需要转成字符串，BeanUtils 对 Long -> String 类型不匹配会跳过，需手动设置
+        if (dept.getId() != null) {
+            vo.setId(String.valueOf(dept.getId()));
+        }
+        if (dept.getParentId() != null) {
+            vo.setParentId(String.valueOf(dept.getParentId()));
+        }
         return vo;
     }
 
@@ -135,6 +142,19 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
             if (this.getById(dto.getParentId()) == null) {
                 throw new BusinessException(400, "上级部门不存在");
             }
+            // 防止把上级部门设置为自己的子孙，避免树出现循环引用（序列化会栈溢出）
+            Long cur = dto.getParentId();
+            Set<Long> visited = new HashSet<>();
+            while (cur != null) {
+                if (cur.equals(dept.getId())) {
+                    throw new BusinessException(400, "上级部门不能设置为自己的下级部门");
+                }
+                if (!visited.add(cur)) {
+                    break; // 数据本身已存在环时的防御性退出
+                }
+                Dept parent = this.getById(cur);
+                cur = parent != null ? parent.getParentId() : null;
+            }
         }
         if (dto.getName() != null && !dto.getName().equals(dept.getName())
                 && this.count(new LambdaQueryWrapper<Dept>()
@@ -174,31 +194,34 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
 
     @Override
     public List<DeptTreeVO> getDeptTree() {
-      List<Dept> all = this.list(new LambdaQueryWrapper<Dept>().orderByDesc(Dept::getSort));
+        // 按 sort 升序查出全部部门，保证同级部门顺序确定（sort 越小越靠前）
+        List<Dept> all = this.list(new LambdaQueryWrapper<Dept>().orderByAsc(Dept::getSort));
 
-      Map<Long, DeptTreeVO> voById = all.stream()
-              .map(this::toTreeVO)
-              .collect(Collectors.toMap(DeptTreeVO::getId, vo -> vo));
+        // 用 LinkedHashMap 保持插入顺序，兄弟节点按 sort 升序排列
+        Map<String, DeptTreeVO> voById = all.stream()
+                .map(this::toTreeVO)
+                .collect(Collectors.toMap(DeptTreeVO::getId, vo -> vo, (a, b) -> a, LinkedHashMap::new));
 
-      List<DeptTreeVO> tree = new ArrayList<>();
-      for (DeptTreeVO node : voById.values()) {
-          Long parentId = node.getParentId();
-          if (parentId == null) {
-              tree.add(node);
-          } else {
-             DeptTreeVO parent = voById.get(parentId);
-              if (parent != null) {
-                  if (parent.getChildren() == null) {
-                      parent.setChildren(new ArrayList<>());
-                  }
-                  parent.getChildren().add(node);
-              } else {
-                  tree.add(node);
-              }
-          }
-      }
+        List<DeptTreeVO> tree = new ArrayList<>();
+        for (DeptTreeVO node : voById.values()) {
+            String parentId = node.getParentId();
+            if (parentId == null) {
+                tree.add(node);
+            } else {
+                DeptTreeVO parent = voById.get(parentId);
+                if (parent != null) {
+                    if (parent.getChildren() == null) {
+                        parent.setChildren(new ArrayList<>());
+                    }
+                    parent.getChildren().add(node);
+                } else {
+                    // 父部门不存在（孤儿节点），兜底挂到顶层
+                    tree.add(node);
+                }
+            }
+        }
 
-      return tree;
+        return tree;
     }
 
 }

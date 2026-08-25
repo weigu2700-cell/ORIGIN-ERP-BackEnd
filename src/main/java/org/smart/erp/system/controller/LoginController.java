@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/login")
+@RequestMapping("/auth/login")
 @Tag(name = "登录认证", description = "用户登录获取 Token")
 public class LoginController {
 

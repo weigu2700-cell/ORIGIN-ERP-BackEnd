@@ -31,7 +31,9 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
-                    .requestMatchers("/login", "/error").permitAll()
+                    // CORS 预检请求放行
+                    .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                    .requestMatchers("/auth/login", "/error").permitAll()
                     // Swagger / OpenAPI 相关路径放行
                     .requestMatchers(
                             "/swagger-ui.html",
@@ -49,13 +51,33 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
-        config.setAllowedMethods(List.of("*"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedOriginPatterns(
+                List.of("*")
+        );
+        config.setAllowedMethods(
+                List.of(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "DELETE",
+                        "OPTIONS"
+                )
+        );
+        config.setAllowedHeaders(
+                List.of("*")
+        );
         config.setAllowCredentials(true);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration(
+                "/**",
+                config
+        );
         return source;
     }
 

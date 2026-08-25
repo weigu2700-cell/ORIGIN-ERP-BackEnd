@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.system.Enum.UserStatus;
 import org.smart.erp.system.dto.UserCreateDTO;
@@ -34,19 +35,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final DeptMapper deptMapper;
     private final RoleInfoMapper roleInfoMapper;
     private final UserRoleMapper userRoleMapper;
+    private final CurrentUser currentUser;
 
     public UserServiceImpl(
             UserMapper userMapper ,
             PasswordEncoder passwordEncoder,
             DeptMapper deptMapper,
             RoleInfoMapper roleInfoMapper,
-            UserRoleMapper userRoleMapper)
+            UserRoleMapper userRoleMapper,
+            CurrentUser currentUser)
     {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.deptMapper = deptMapper;
         this.roleInfoMapper = roleInfoMapper;
         this.userRoleMapper = userRoleMapper;
+        this.currentUser = currentUser;
     }
 
     /**
@@ -149,6 +153,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return vo;
     }
 
+    @Override
+    public UserGetVO getCurrentUserInfo() {
+        Long userId = currentUser.getUserId();
+        if (userId == null) {
+            throw new BusinessException(401, "未登录或登录已过期");
+        }
+        return getUserDetail(userId);
+    }
+
 
     @Override
     public void updateUser(Long id, UserUpdateDTO dto) {
@@ -175,9 +188,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * 先删除该用户已有的全部角色关联，再批量插入本次传入的角色 id。
      * 既保证最终状态与前端选择一致，又避免增量更新带来的脏数据。
      *
-     * @param dto userId 用户 id；roleIds 要绑定的角色 id 列表
+     * @param id userId 用户 id；roleIds 要绑定的角色 id 列表
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteUser(Long id) {
+        if (userMapper.selectById(id) == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+        // 逻辑删除（@TableLogic -> deleted=1）
+        removeById(id);
+        // 清理用户-角色关联
+        userRoleMapper.delete(new LambdaQueryWrapper<UserRole>()
+                .eq(UserRole::getUserId, id));
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void assignRoles(UserRoleAssignDTO dto) {
         // 1. 校验用户是否存在

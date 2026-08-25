@@ -27,5 +27,11 @@ public interface UserService extends IService<User> {
 
     Page<UserGetVO> listUser(UserGetDTO dto);
 
+    /** 获取当前登录用户信息（含部门、角色） */
+    UserGetVO getCurrentUserInfo();
+
     void assignRoles(UserRoleAssignDTO dto);
+
+    /** 删除用户（逻辑删除，同时清理角色关联） */
+    void deleteUser(Long id);
 }

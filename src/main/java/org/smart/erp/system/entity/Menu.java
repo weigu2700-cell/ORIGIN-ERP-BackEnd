@@ -30,6 +30,8 @@ public class Menu {
 
     private Status status;
 
+    private String permission_code;
+
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;

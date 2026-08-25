@@ -13,9 +13,11 @@ import org.smart.erp.system.dto.MenuCreateDTO;
 import org.smart.erp.system.dto.MenuGetDTO;
 import org.smart.erp.system.dto.MenuGetTreeDTO;
 import org.smart.erp.system.entity.Menu;
+import org.smart.erp.system.entity.RoleInfo;
 import org.smart.erp.system.entity.RoleMenu;
 import org.smart.erp.system.entity.UserRole;
 import org.smart.erp.system.mapper.MenuMapper;
+import org.smart.erp.system.mapper.RoleInfoMapper;
 import org.smart.erp.system.mapper.RoleMenuMapper;
 import org.smart.erp.system.mapper.UserRoleMapper;
 import org.smart.erp.system.service.MenuService;
@@ -38,13 +40,15 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     private final CurrentUser currentUser;
     private final UserRoleMapper userRoleMapper;
     private final RoleConverter roleConverter;
+    private final RoleInfoMapper roleInfoMapper;
 
     public MenuServiceImpl(
             MenuMapper menuMapper ,
             RoleMenuMapper roleMenuMapper ,
             CurrentUser currentUser,
             UserRoleMapper userRoleMapper,
-            RoleConverter roleConverter
+            RoleConverter roleConverter,
+            RoleInfoMapper roleInfoMapper
     )
     {
         this.menuMapper = menuMapper;
@@ -52,6 +56,17 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
         this.currentUser = currentUser;
         this.userRoleMapper = userRoleMapper;
         this.roleConverter = roleConverter;
+        this.roleInfoMapper = roleInfoMapper;
+    }
+
+    /** 判断角色列表中是否包含超级管理员（角色编码为 admin） */
+    private boolean isSuperAdmin(List<Long> roleIds) {
+        if (CollectionUtils.isEmpty(roleIds)) {
+            return false;
+        }
+        List<RoleInfo> roles = roleInfoMapper.selectList(new LambdaQueryWrapper<RoleInfo>()
+                .in(RoleInfo::getId, roleIds));
+        return roles.stream().anyMatch(role -> "admin".equals(role.getCode()));
     }
 
     private MenuListVO toVO(Menu menu, Map<Long, String> parentNameById) {
@@ -71,8 +86,12 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     /** 获取菜单树形结构*/
     @NonNull
     private List<MenuTreeVO> getMenuTreeVOS(List<Long> menuIds) {
+        // 未分配任何菜单时直接返回空树，避免空条件导致查全表
+        if (CollectionUtils.isEmpty(menuIds)) {
+            return new ArrayList<>();
+        }
         List<Menu> menus = menuMapper.selectList(new LambdaQueryWrapper<Menu>()
-                .in(CollectionUtils.isNotEmpty(menuIds), Menu::getId, menuIds));
+                .in(Menu::getId, menuIds));
 
         Map<Long, MenuTreeVO> voById = menus.stream()
                 .collect(Collectors.toMap(Menu::getId, this::toTreeVO));
@@ -210,8 +229,22 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
         Long currentUserId = currentUser.getUserId();
         List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
 
+        // 超级管理员默认拥有全部菜单
+        if (isSuperAdmin(roleIds)) {
+            List<Long> allMenuIds = menuMapper.selectList(new LambdaQueryWrapper<Menu>())
+                    .stream()
+                    .map(Menu::getId)
+                    .toList();
+            return getMenuTreeVOS(allMenuIds);
+        }
+
+        // 用户没有任何角色时，不应看到任何菜单
+        if (CollectionUtils.isEmpty(roleIds)) {
+            return new ArrayList<>();
+        }
+
         List<RoleMenu> roleMenus = roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenu>()
-                .in(CollectionUtils.isNotEmpty(roleIds), RoleMenu::getRoleId, roleIds));
+                .in(RoleMenu::getRoleId, roleIds));
 
         List<Long> menuIds = roleMenus.stream()
                 .map(RoleMenu::getMenuId)
