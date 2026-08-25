@@ -2,9 +2,14 @@
 
 SmartERP 是一个面向中小型制造企业的轻量级 ERP 个人项目。
 
-项目采用 **Java 21 + Spring Boot 3.4.5 + MySQL + MyBatis-Plus** 构建后端，前端计划采用 **Vue 3 + TypeScript**。项目重点不是堆叠 CRUD 页面，而是围绕真实制造业业务逐步实现权限、主数据、库存、销售、采购、BOM、生产等模块，并在业务中实践事务、索引、乐观锁和库存并发控制。
+项目采用 **Java 21 + Spring Boot 3.4.5 + MySQL + MyBatis-Plus** 构建后端，前端采用 **Vue 3 + TypeScript**（前端仓库见[相关仓库](#相关仓库)）。项目重点不是堆叠 CRUD 页面，而是围绕真实制造业业务逐步实现权限、主数据、库存、销售、采购、BOM、生产等模块，并在业务中实践事务、索引、乐观锁和库存并发控制。
 
 > 🚧 项目持续开发中
+
+## 相关仓库
+
+- 后端：[smart-erp-server](https://github.com/weigu2700-cell/smart-erp-server)
+- 前端：[smart-erp-fond](https://github.com/weigu2700-cell/smart-erp-fond)
 
 ## 项目目标
 
@@ -61,7 +66,7 @@ BOM 物料展开
 - Springdoc OpenAPI
 - Maven
 
-### Frontend（下一阶段）
+### Frontend
 
 - Vue 3
 - TypeScript
@@ -70,6 +75,8 @@ BOM 物料展开
 - Vue Router
 - Axios
 - Element Plus
+
+前端仓库：[smart-erp-fond](https://github.com/weigu2700-cell/smart-erp-fond)
 
 ## 项目架构
 
@@ -351,7 +358,7 @@ Inventory
 ├── Inbound Stock           ✅
 └── InventoryTransaction    🚧
 
-Frontend                    ⏳
+Frontend                    🔄 前端仓库已建立，接口联调中
 Sales                       ⏳
 Purchase                    ⏳
 BOM                         ⏳
