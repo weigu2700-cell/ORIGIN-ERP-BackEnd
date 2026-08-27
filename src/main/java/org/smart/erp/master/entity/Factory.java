@@ -8,7 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("md_warehouse")
+@TableName("md_factory")
 public class Factory {
 
     @TableId(value = "id", type = IdType.ASSIGN_ID)
@@ -35,6 +35,6 @@ public class Factory {
     private LocalDateTime updateTime;
 
     @TableLogic
-    private Integer deleted;
+    private Integer deleted = 0;
 
 }

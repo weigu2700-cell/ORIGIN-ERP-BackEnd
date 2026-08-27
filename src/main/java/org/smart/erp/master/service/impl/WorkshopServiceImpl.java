@@ -50,6 +50,9 @@ public class WorkshopServiceImpl extends ServiceImpl<WorkshopMapper, Workshop> i
 
     @Override
     public void createWorkshop(WorkshopCreateDTO dto) {
+        if (dto.getFactoryId() == null) {
+            throw new BusinessException(400, "请选择所属工厂");
+        }
         Factory factory = factoryService.getById(dto.getFactoryId());
         if (factory == null) {
             throw new BusinessException(404 , "工厂不存在");
@@ -144,6 +147,9 @@ public class WorkshopServiceImpl extends ServiceImpl<WorkshopMapper, Workshop> i
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void changeStatus(Long id, WorkshopStatus status) {
+        if (status == null) {
+            throw new BusinessException(400, "状态不能为空");
+        }
         Workshop workshop = workshopMapper.selectById(id);
         if (workshop == null) {
             throw new BusinessException(404 , "车间不存在");
@@ -152,8 +158,10 @@ public class WorkshopServiceImpl extends ServiceImpl<WorkshopMapper, Workshop> i
         if (status == WorkshopStatus.DISABLE) {
             ProductionLine productionLine = productionLineMapper.selectOne(new LambdaQueryWrapper<ProductionLine>()
                     .eq(ProductionLine::getWorkshopId , workshop.getId()));
-            productionLine.setStatus(ProductionLineStatus.DISABLE);
-            productionLineMapper.updateById(productionLine);
+            if (productionLine != null) {
+                productionLine.setStatus(ProductionLineStatus.DISABLE);
+                productionLineMapper.updateById(productionLine);
+            }
         }
         workshopMapper.updateById(workshop);
     }

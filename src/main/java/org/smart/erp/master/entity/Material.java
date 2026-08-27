@@ -41,6 +41,6 @@ public class Material {
     private LocalDateTime updatedTime;
 
     @TableLogic
-    private int deleted;
+    private int deleted = 0;
 }
 

@@ -35,5 +35,5 @@ public class Permission {
     private LocalDateTime updateTime;
 
     @TableLogic
-    private int deleted;
+    private int deleted = 0;
 }

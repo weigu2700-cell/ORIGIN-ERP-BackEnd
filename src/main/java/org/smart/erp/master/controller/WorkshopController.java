@@ -6,8 +6,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.master.dto.WorkshopDTO.WorkshopCreateDTO;
 import org.smart.erp.master.dto.WorkshopDTO.WorkshopListDTO;
+import org.smart.erp.master.dto.WorkshopDTO.WorkshopStatusChangeDTO;
 import org.smart.erp.master.dto.WorkshopDTO.WorkshopUpdateDTO;
-import org.smart.erp.master.enums.WorkshopStatus;
 import org.smart.erp.master.service.WorkshopService;
 import org.smart.erp.master.vo.WorkshopVO;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +25,7 @@ public class WorkshopController {
 
     @Operation(summary = "新增车间")
     @PostMapping
-    public Result<Void> createWorkshop(WorkshopCreateDTO dto) {
+    public Result<Void> createWorkshop(@RequestBody WorkshopCreateDTO dto) {
         workshopService.createWorkshop(dto);
         return Result.success();
     }
@@ -44,15 +44,15 @@ public class WorkshopController {
 
     @Operation(summary = "更新车间")
     @PutMapping("/{id}")
-    public Result<Void> updateWorkshop(@PathVariable Long id, WorkshopUpdateDTO dto) {
+    public Result<Void> updateWorkshop(@PathVariable Long id, @RequestBody WorkshopUpdateDTO dto) {
         workshopService.updateWorkshop(id, dto);
         return Result.success();
     }
 
     @Operation(summary = "变更车间状态")
     @PutMapping("/{id}/status")
-    public Result<Void> changeStatus(@PathVariable Long id, WorkshopStatus status) {
-        workshopService.changeStatus(id, status);
+    public Result<Void> changeStatus(@PathVariable Long id, @RequestBody WorkshopStatusChangeDTO dto) {
+        workshopService.changeStatus(id, dto.getStatus());
         return Result.success();
     }
 }

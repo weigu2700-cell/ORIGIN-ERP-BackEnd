@@ -10,18 +10,9 @@ import org.smart.erp.system.dto.UserCreateDTO;
 import org.smart.erp.system.dto.UserGetDTO;
 import org.smart.erp.system.dto.UserRoleAssignDTO;
 import org.smart.erp.system.dto.UserUpdateDTO;
-import org.smart.erp.system.entity.User;
-import org.smart.erp.system.Enum.UserStatus;
-import org.smart.erp.system.mapper.UserMapper;
 import org.smart.erp.system.service.UserService;
-import org.smart.erp.system.vo.LoginVO;
-import org.smart.erp.system.vo.UserCreateVO;
 import org.smart.erp.system.vo.UserGetVO;
-import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Collections;
-import java.util.List;
 
 @RestController
 @RequestMapping("/system/user")

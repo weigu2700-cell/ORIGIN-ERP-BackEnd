@@ -28,7 +28,7 @@ public class ProductionLineController {
     @Operation(summary = "新增生产线")
     @PreAuthorize("hasAnyAuthority('master:production_line:create')")
     @PostMapping
-    public Result<Void> createProductionLine(ProductionLineCreateDTO dto) {
+    public Result<Void> createProductionLine(@RequestBody ProductionLineCreateDTO dto) {
         productionLineService.createProductionLine(dto);
         return Result.success();
     }

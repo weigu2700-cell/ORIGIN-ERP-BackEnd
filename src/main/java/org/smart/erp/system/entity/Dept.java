@@ -33,6 +33,6 @@ public class Dept {
     private LocalDateTime updateTime;
 
     @TableLogic
-    private int deleted;
+    private int deleted = 0;
 
 }

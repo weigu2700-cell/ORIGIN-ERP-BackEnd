@@ -6,8 +6,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.master.dto.WarehouseDTO.WarehouseCreateDTO;
 import org.smart.erp.master.dto.WarehouseDTO.WarehouseListDTO;
+import org.smart.erp.master.dto.WarehouseDTO.WarehouseStatusChangeDTO;
 import org.smart.erp.master.dto.WarehouseDTO.WarehouseUpdateDTO;
-import org.smart.erp.master.enums.WarehouseStatus;
 import org.smart.erp.master.service.WarehouseService;
 import org.smart.erp.master.vo.WarehouseVO;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -58,8 +58,8 @@ public class WarehouseController {
     @Operation(summary = "变更仓库状态")
     @PreAuthorize("hasAnyAuthority('master:warehouse:status')")
     @PutMapping("/{id}/status")
-    public Result<Void> changeWarehouseStatus(@PathVariable Long id, WarehouseStatus status) {
-        warehouseService.updateWarehouseStatus(id, status);
+    public Result<Void> changeWarehouseStatus(@PathVariable Long id, @RequestBody WarehouseStatusChangeDTO dto) {
+        warehouseService.updateWarehouseStatus(id, dto.getStatus());
         return Result.success();
     }
 }

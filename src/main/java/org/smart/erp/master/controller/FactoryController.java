@@ -35,7 +35,7 @@ public class FactoryController {
     @Operation(summary = "工厂分页列表")
     @GetMapping
     @PreAuthorize("hasAnyAuthority('factory:list')")
-    public Result<Page<FactoryVO>> listFactory(@RequestParam FactoryListDTO dto) {
+    public Result<Page<FactoryVO>> listFactory(FactoryListDTO dto) {
         return Result.success(factoryService.getFactoryList(dto));
     }
 

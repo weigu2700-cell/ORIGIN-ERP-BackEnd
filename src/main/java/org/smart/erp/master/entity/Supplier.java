@@ -41,5 +41,5 @@ public class Supplier {
     private LocalDateTime updatedTime;
 
     @TableLogic
-    private int deleted;
+    private int deleted = 0;
 }

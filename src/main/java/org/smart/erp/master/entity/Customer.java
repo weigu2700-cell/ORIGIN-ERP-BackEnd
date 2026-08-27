@@ -41,6 +41,6 @@ public class Customer {
     private LocalDateTime updateTime;
 
     @TableLogic
-    private Integer deleted;
+    private Integer deleted = 0;
 
 }

@@ -9,6 +9,7 @@ public class GlobalException {
 
     @ExceptionHandler(BusinessException.class)
     public Result<?> handleBusinessException(BusinessException e) {
+        e.printStackTrace();
         return Result.fail(e.getCode(), e.getMessage());
     }
 

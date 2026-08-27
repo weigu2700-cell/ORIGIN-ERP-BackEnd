@@ -35,5 +35,5 @@ public class Workshop {
     private LocalDateTime updateTime;
 
     @TableLogic
-    private Integer deleted;
+    private Integer deleted = 0;
 }

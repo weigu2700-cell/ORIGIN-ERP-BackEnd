@@ -34,6 +34,6 @@ public class User {
     private LocalDateTime updateTime;
 
     @TableLogic
-    private int deleted;
+    private int deleted = 0;
 
 }

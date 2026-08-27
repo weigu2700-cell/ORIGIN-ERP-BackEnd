@@ -56,7 +56,7 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
                 .like(StringUtils.hasText(dto.getShortName()), Factory::getShortName, dto.getShortName());
 
         Page<Factory> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()) , queryWrapper);
-        return PageConvertUtils.convert(page, FactoryVO.class);
+        return PageConvertUtils.convert(page, this::toVO);
     }
 
     @Override
@@ -81,8 +81,13 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
         if (factory == null) {
             throw new BusinessException(400, "工厂不存在");
         }
+        return toVO(factory);
+    }
+
+    private FactoryVO toVO(Factory factory) {
         FactoryVO vo = new FactoryVO();
         BeanUtils.copyProperties(factory, vo);
+        vo.setId(String.valueOf(factory.getId()));
         return vo;
     }
 
@@ -96,10 +101,10 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
         factory.setStatus(status);
 
         if (status == FactoryStatus.DISABLE) {
-           Workshop workshop = workshopMapper.selectOne(new LambdaQueryWrapper<Workshop>()
-                   .eq(Workshop::getFactoryId, factory.getId()));
-           workshop.setStatus(WorkshopStatus.DISABLE);
-           workshopMapper.updateById(workshop);
+            Workshop workshop = new Workshop();
+            workshop.setStatus(WorkshopStatus.DISABLE);
+            workshopMapper.update(workshop, new LambdaQueryWrapper<Workshop>()
+                    .eq(Workshop::getFactoryId, factory.getId()));
         }
         updateById(factory);
     }

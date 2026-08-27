@@ -30,7 +30,7 @@ public class MaterialStockController {
 
     @Operation(summary = "库存分页列表")
     @GetMapping
-    public Result<Page<MaterialStockVO>> list(@RequestParam ListDto dto) {
+    public Result<Page<MaterialStockVO>> list(ListDto dto) {
         return Result.success(materialStockService.listMaterialStock(dto));
     }
 

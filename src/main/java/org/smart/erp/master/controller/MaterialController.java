@@ -27,7 +27,7 @@ public class MaterialController {
     @Operation(summary = "新增物料")
     @PreAuthorize("hasAnyAuthority('master:material:create')")
     @PostMapping
-    public Result<Void> create(MaterialCreateDTO dto) {
+    public Result<Void> create(@RequestBody MaterialCreateDTO dto) {
         materialService.createMaterial(dto);
         return Result.success();
     }

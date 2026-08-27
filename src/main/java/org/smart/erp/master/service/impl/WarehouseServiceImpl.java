@@ -19,6 +19,7 @@ import org.smart.erp.master.service.WarehouseService;
 import org.smart.erp.master.vo.WarehouseVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -80,6 +81,9 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
 
     @Override
     public void create(WarehouseCreateDTO dto) {
+        if (dto == null || dto.getFactoryId() == null) {
+            throw new BusinessException(400, "请选择所属工厂");
+        }
         Warehouse warehouse = new Warehouse();
         Factory factory = requireEnabledFactory(dto.getFactoryId());
         BeanUtils.copyProperties(dto, warehouse);

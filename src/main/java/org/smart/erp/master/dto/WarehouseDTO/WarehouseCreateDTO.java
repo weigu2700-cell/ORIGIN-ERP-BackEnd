@@ -10,7 +10,7 @@ public class WarehouseCreateDTO {
 
     private WarehouseType type;
 
-    private long factoryId;
+    private Long factoryId;
 
     private String address;
 
