@@ -35,7 +35,7 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
         if (supplier.getStatus() != null) {
             vo.setStatus(supplier.getStatus().getCode());
         }
-        vo.setCreatedTime(supplier.getCreatedTime());
+        vo.setCreatedTime(supplier.getCreateTime());
         return vo;
     }
 
@@ -58,7 +58,7 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
                 .like(StringUtils.hasText(dto.getContactName()), Supplier::getContactName, dto.getContactName())
                 .like(StringUtils.hasText(dto.getPhone()), Supplier::getPhone, dto.getPhone())
                 .like(StringUtils.hasText(dto.getEmail()), Supplier::getEmail, dto.getEmail())
-                .orderByDesc(Supplier::getCreatedTime);
+                .orderByDesc(Supplier::getCreateTime);
 
         Page<Supplier> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()), queryWrapper);
         return PageConvertUtils.convert(page, this::convertToVO);

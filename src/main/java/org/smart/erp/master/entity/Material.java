@@ -33,12 +33,12 @@ public class Material {
     private String remark;
 
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    @TableField(value = "created_time" , fill = FieldFill.INSERT)
-    private LocalDateTime createdTime;
+    @TableField(value = "create_time" , fill = FieldFill.INSERT)
+    private LocalDateTime createTime;
 
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    @TableField(value = "created_time" , fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedTime;
+    @TableField(value = "update_time" , fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updateTime;
 
     @TableLogic
     private int deleted = 0;

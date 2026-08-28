@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
+import org.smart.erp.common.utils.SnowflakeIdGenerator;
 import org.smart.erp.master.dto.MaterialDTO.MaterialCreateDTO;
 import org.smart.erp.master.dto.MaterialDTO.MaterialListDTO;
 import org.smart.erp.master.dto.MaterialDTO.MaterialUpdateDTO;
@@ -16,12 +17,12 @@ import org.smart.erp.master.vo.MaterialVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
-
 @Service
 public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> implements MaterialService {
 
     private final MaterialMapper materialMapper;
+
+    private final SnowflakeIdGenerator snowflakeIdGenerator = new SnowflakeIdGenerator(1, 1);
 
     public MaterialServiceImpl(MaterialMapper materialMapper) {
         this.materialMapper = materialMapper;
@@ -38,7 +39,7 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
         Material material = new Material();
         BeanUtils.copyProperties(dto, material);
 
-        material.setCode(UUID.randomUUID().toString());
+        material.setCode("MM" + snowflakeIdGenerator.nextId());
         material.setStatus(MaterialStatus.ENABLE);
         materialMapper.insert(material);
     }
