@@ -6,7 +6,12 @@ spring:
     username: root
     password: MySQL6636
     driver-class-name: com.mysql.cj.jdbc.Driver
-
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+      timeout: 3000ms
 mybatis-plus:
   mapper-locations: classpath*:mapper/*.xml
   type-aliases-package: org.smart.erp.entity

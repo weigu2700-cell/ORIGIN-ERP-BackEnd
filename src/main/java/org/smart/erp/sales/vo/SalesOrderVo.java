@@ -1,7 +1,9 @@
 package org.smart.erp.sales.vo;
 
 import lombok.Data;
+import org.smart.erp.sales.enums.SalesOrderStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,9 +22,11 @@ public class SalesOrderVo {
 
     private LocalDateTime deliveryDate;
 
+    private BigDecimal totalAmount;
+
     private String remark;
 
-    private Integer status;
+    private SalesOrderStatus status;
 
     private List<SalesOrderItemVo> items;
 }

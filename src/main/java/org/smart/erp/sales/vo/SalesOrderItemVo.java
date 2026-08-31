@@ -9,9 +9,13 @@ public class SalesOrderItemVo {
 
     private Long id;
 
+    private Integer lineNo;
+
     private Long salesOrderId;
 
     private Long materialId;
+
+    private String materialCode;
 
     private String materialName;
 
@@ -22,4 +26,6 @@ public class SalesOrderItemVo {
     private Integer quantity;
 
     private BigDecimal unitPrice;
+
+    private BigDecimal amount;
 }
