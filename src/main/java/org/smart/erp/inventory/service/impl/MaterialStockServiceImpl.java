@@ -226,6 +226,7 @@ public class MaterialStockServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void releaseStock(Long materialId, Long warehouseId, BigDecimal quantity) {
         LambdaQueryWrapper<MaterialStock> queryWrapper = buildStockQueryWrapper(materialId, warehouseId, quantity, "释放数量必须大于 0");
 
@@ -263,6 +264,7 @@ public class MaterialStockServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void outboundStock(Long materialId, Long warehouseId, BigDecimal quantity) {
         LambdaQueryWrapper<MaterialStock> queryWrapper = buildStockQueryWrapper(materialId, warehouseId, quantity, "出库数量必须大于 0");
 
@@ -303,6 +305,7 @@ public class MaterialStockServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void inboundStock(Long materialId, Long warehouseId, BigDecimal quantity) {
         LambdaQueryWrapper<MaterialStock> queryWrapper = buildStockQueryWrapper(materialId, warehouseId, quantity, "入库数量必须大于 0");
 
