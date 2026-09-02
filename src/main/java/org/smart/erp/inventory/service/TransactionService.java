@@ -2,6 +2,7 @@ package org.smart.erp.inventory.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.inventory.dto.transactionDto.ListDto;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.entity.Transaction;
@@ -24,4 +25,6 @@ public interface TransactionService extends IService<Transaction> {
     );
 
     Page<TransactionVO> listTransaction(ListDto listDto);
+
+    void export(HttpServletResponse response);
 }

@@ -1,13 +1,17 @@
 package org.smart.erp.inventory.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import io.jsonwebtoken.io.IOException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.inventory.dto.transactionDto.ListDto;
 import org.smart.erp.inventory.service.TransactionService;
 import org.smart.erp.inventory.vo.TransactionVO;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,5 +30,11 @@ public class TransactionController {
     @GetMapping
     public Result<Page<TransactionVO>> list(ListDto listDto) {
         return Result.success(transactionService.listTransaction(listDto));
+    }
+
+    @GetMapping("/export")
+    public Result<Void> export(HttpServletResponse response) throws IOException {
+        transactionService.export(response);
+        return Result.success();
     }
 }

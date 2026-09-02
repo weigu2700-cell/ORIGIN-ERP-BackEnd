@@ -117,6 +117,8 @@ public class SalesOrderServiceImpl
     }
 
     @Override
+    @PreAuthorize("hasAnyAuthority('sales:order:list')")
+    @Transactional(rollbackFor = Exception.class)
     public Page<SalesOrderVo> listSalesOrderVoByPage(listDto dto) {
 
         LambdaQueryWrapper<SalesOrder> queryWrapper = new LambdaQueryWrapper<SalesOrder>()
