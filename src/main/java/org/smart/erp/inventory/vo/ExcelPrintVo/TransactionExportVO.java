@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-public class TransactionPrintVo {
+public class TransactionExportVO {
 
     @ExcelIgnore
     private Long id;

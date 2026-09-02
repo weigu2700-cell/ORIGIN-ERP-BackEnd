@@ -10,10 +10,8 @@ import org.smart.erp.common.result.Result;
 import org.smart.erp.inventory.dto.transactionDto.ListDto;
 import org.smart.erp.inventory.service.TransactionService;
 import org.smart.erp.inventory.vo.TransactionVO;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "库存流水")
 @RestController
@@ -35,6 +33,12 @@ public class TransactionController {
     @GetMapping("/export")
     public Result<Void> export(HttpServletResponse response) throws IOException {
         transactionService.export(response);
+        return Result.success();
+    }
+
+    @PostMapping("/import")
+    public Result<Void> importExcel(@RequestParam("file") MultipartFile file) throws IOException {
+        transactionService.importExcel(file);
         return Result.success();
     }
 }
