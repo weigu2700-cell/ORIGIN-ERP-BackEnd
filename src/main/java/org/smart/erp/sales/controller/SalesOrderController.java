@@ -40,4 +40,20 @@ public class SalesOrderController {
     public Result<SalesOrderVo> update(@PathVariable Long id, @RequestBody @Validated updateDto dto) {
         return Result.success(salesOrderService.updateSalesOrderVoById(id, dto));
     }
+
+    @DeleteMapping("/{id}")
+    public Result<Void> delete(@PathVariable Long id) {
+        salesOrderService.removeSalesOrderById(id);
+        return Result.success();
+    }
+
+    @PutMapping("/{id}/confirm")
+    public Result<SalesOrderVo> confirm(@PathVariable Long id, updateDto dto) {
+        return Result.success(salesOrderService.confirmSalesOrderById(id,dto));
+    }
+
+    @PutMapping("/{id}/cancel")
+    public Result<SalesOrderVo> cancel(@PathVariable Long id, updateDto dto) {
+        return Result.success(salesOrderService.cancelSalesOrderById(id,dto));
+    }
 }

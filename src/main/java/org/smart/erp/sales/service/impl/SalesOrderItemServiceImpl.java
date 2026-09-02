@@ -123,29 +123,48 @@ public class SalesOrderItemServiceImpl
         }).toList();
     }
 
+    /**
+     * 全量替换某销售订单的明细：传入项按 id 更新，未出现的存量行删除。
+     * 注意入参 items 视为该订单明细的最新全量快照。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateItemBySalesOrderId(Long salesOrderId, List<updateItemDto> items) {
+        if (items == null || items.isEmpty()) {
+            throw new BusinessException(400, "销售订单明细项不能为空");
+        }
 
-        List<SalesOrderItem> salesOrderItems = salesOrderItemMapper.selectList(
+        List<SalesOrderItem> existingItems = salesOrderItemMapper.selectList(
                 new LambdaQueryWrapper<SalesOrderItem>()
                         .eq(SalesOrderItem::getSalesOrderId, salesOrderId)
         );
 
-        SalesOrderItem updateItem =  salesOrderItems.stream()
+        // 按 id 建索引（重复 id 取首个），避免循环内嵌套遍历
+        Map<Long, updateItemDto> itemMap = items.stream()
                 .filter(Objects::nonNull)
-                .peek(salesOrderItem -> {
-                    updateItemDto item = items.stream()
-                            .filter(i -> i.getId().equals(salesOrderItem.getId()))
-                            .findFirst()
-                            .orElse(null);
-                    if (item == null) {
-                        salesOrderItemMapper.deleteById(salesOrderItem.getId());
-                    } else {
-                        BeanUtils.copyProperties(item,salesOrderItem);
-                        salesOrderItemMapper.updateById(salesOrderItem);
-                    }
-                }).findFirst().orElse(null);
+                .filter(dto -> dto.getId() != null)
+                .collect(Collectors.toMap(updateItemDto::getId, Function.identity(), (a, b) -> a));
+
+        for (SalesOrderItem existingItem : existingItems) {
+            updateItemDto dto = itemMap.get(existingItem.getId());
+            if (dto == null) {
+                // 新明细中已不存在 -> 删除该行
+                salesOrderItemMapper.deleteById(existingItem.getId());
+                continue;
+            }
+            BeanUtils.copyProperties(dto, existingItem);
+
+            existingItem.setAmount(dto.getQuantity().multiply(dto.getUnitPrice()));
+            salesOrderItemMapper.updateById(existingItem);
+        }
+    }
+
+    @Override
+    public void removeItemBySalesOrderId(Long id) {
+        salesOrderItemMapper.delete(
+                new LambdaQueryWrapper<SalesOrderItem>()
+                        .eq(SalesOrderItem::getSalesOrderId, id)
+        );
     }
 
 }

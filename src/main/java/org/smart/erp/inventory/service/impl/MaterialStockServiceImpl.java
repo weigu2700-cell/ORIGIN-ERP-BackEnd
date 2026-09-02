@@ -186,6 +186,7 @@ public class MaterialStockServiceImpl
         return getMaterialStockVO(materialStock, materialStock.getMaterialId(), materialStock.getWarehouseId());
     }
 
+    // 预留库存
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void reserveStock(Long materialId, Long warehouseId, BigDecimal quantity) {

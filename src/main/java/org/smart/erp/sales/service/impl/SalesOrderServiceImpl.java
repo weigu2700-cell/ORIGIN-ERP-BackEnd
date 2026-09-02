@@ -5,12 +5,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
+import org.smart.erp.inventory.mapper.MaterialStockMapper;
+import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.master.entity.Customer;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.mapper.CustomerMapper;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
+import org.smart.erp.master.service.MaterialService;
 import org.smart.erp.sales.dto.salesOrderDto.createDto;
 import org.smart.erp.sales.dto.salesOrderDto.listDto;
 import org.smart.erp.sales.dto.salesOrderDto.updateDto;
@@ -30,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -49,6 +53,9 @@ public class SalesOrderServiceImpl
     private final BusinessNoGenerator businessNoGenerator;
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
+    private final MaterialService materialService;
+    private final MaterialStockMapper materialStockMapper;
+    private final MaterialStockService materialStockService;
 
     public SalesOrderServiceImpl(
             SalesOrderMapper salesOrderMapper,
@@ -57,8 +64,9 @@ public class SalesOrderServiceImpl
             SalesOrderItemService salesOrderItemService,
             BusinessNoGenerator businessNoGenerator,
             MaterialMapper materialMapper,
-            WarehouseMapper warehouseMapper
-    )
+            WarehouseMapper warehouseMapper,
+            MaterialService materialService,
+            MaterialStockMapper materialStockMapper, MaterialStockService materialStockService)
     {
         this.salesOrderMapper = salesOrderMapper;
         this.salesOrderItemMapper = salesOrderItemMapper;
@@ -67,7 +75,72 @@ public class SalesOrderServiceImpl
         this.businessNoGenerator = businessNoGenerator;
         this.materialMapper = materialMapper;
         this.warehouseMapper = warehouseMapper;
+        this.materialService = materialService;
+        this.materialStockMapper = materialStockMapper;
+        this.materialStockService = materialStockService;
     }
+    //业务封装：------------------------------------------------
+
+    /**
+     * 销售订单状态流转公共逻辑：查单 -> 校验当前状态 -> 执行副作用 -> 置新状态落库 -> 返回最新视图。
+     * 由外层 public 方法的事务保证原子性（同类自调用无需再声明事务）。
+     *
+     * @param expectedStatus 要求的当前状态
+     * @param targetStatus   目标状态
+     * @param rejectMsg      当前状态不匹配时的提示语
+     * @param beforeUpdate   状态落库前执行的业务副作用（如预占/释放库存）
+     */
+    private SalesOrderVo changeStatus(
+            Long id,
+            SalesOrderStatus expectedStatus,
+            SalesOrderStatus targetStatus,
+            String rejectMsg,
+            Runnable beforeUpdate)
+    {
+        SalesOrder salesOrder = salesOrderMapper.selectById(id);
+        if (salesOrder == null) {
+            throw new BusinessException(404, "销售订单不存在");
+        }
+        if (salesOrder.getStatus() != expectedStatus) {
+            throw new BusinessException(400, rejectMsg);
+        }
+
+        beforeUpdate.run();
+
+        salesOrder.setStatus(targetStatus);
+        salesOrderMapper.updateById(salesOrder);
+
+        return getSalesOrderVoById(id);
+    }
+
+    /** 逐行预占销售订单明细库存，任一行可用库存不足则由外层事务整体回滚 */
+    private void reserveStockForOrder(Long salesOrderId) {
+        List<SalesOrderItemVo> items = salesOrderItemService.getItemBySalesOrderId(salesOrderId);
+        if (items.isEmpty()) {
+            throw new BusinessException(400, "销售订单明细项不能为空，无法确认");
+        }
+        for (SalesOrderItemVo item : items) {
+            materialStockService.reserveStock(
+                    item.getMaterialId(),
+                    item.getWarehouseId(),
+                    item.getQuantity()
+            );
+        }
+    }
+
+    /** 逐行释放销售订单明细的预占库存，任一行失败则由外层事务整体回滚 */
+    private void releaseStockForOrder(Long salesOrderId) {
+        List<SalesOrderItemVo> items = salesOrderItemService.getItemBySalesOrderId(salesOrderId);
+        for (SalesOrderItemVo item : items) {
+            materialStockService.releaseStock(
+                    item.getMaterialId(),
+                    item.getWarehouseId(),
+                    item.getQuantity()
+            );
+        }
+    }
+
+    //接口：------------------------------------------------
 
     @PreAuthorize("hasAnyAuthority('sales:order:create')")
     @Override
@@ -202,6 +275,7 @@ public class SalesOrderServiceImpl
     }
 
     @Override
+    @PreAuthorize("hasAnyAuthority('sales:order:get')")
     public SalesOrderVo getSalesOrderVoById(Long id) {
 
         SalesOrder salesOrder = salesOrderMapper.selectById(id);
@@ -220,6 +294,8 @@ public class SalesOrderServiceImpl
     }
 
     @Override
+    @PreAuthorize("hasAnyAuthority('sales:order:update')")
+    @Transactional(rollbackFor = Exception.class)
     public SalesOrderVo updateSalesOrderVoById(Long id, updateDto dto) {
         SalesOrder salesOrder = salesOrderMapper.selectById(id);
         if (salesOrder == null) {
@@ -236,6 +312,49 @@ public class SalesOrderServiceImpl
         salesOrderMapper.updateById(salesOrder);
 
         return getSalesOrderVoById(id);
+    }
+
+    @Override
+    @PreAuthorize("hasAnyAuthority('sales:order:delete')")
+    @Transactional(rollbackFor = Exception.class)
+    public void removeSalesOrderById(Long id) {
+        SalesOrder salesOrder = salesOrderMapper.selectById(id);
+        if (salesOrder == null) {
+            throw new BusinessException(404, "销售订单不存在");
+        }
+
+        if (salesOrder.getStatus() != SalesOrderStatus.DRAFT) {
+            throw new BusinessException(400, "销售订单状态不允许删除");
+        }
+
+        salesOrderItemService.removeItemBySalesOrderId(id);
+        salesOrderMapper.deleteById(id);
+    }
+
+    @Override
+    @PreAuthorize("hasAnyAuthority('sales:order:confirm')")
+    @Transactional(rollbackFor = Exception.class)
+    public SalesOrderVo confirmSalesOrderById(Long id, updateDto dto) {
+        return changeStatus(
+                id,
+                SalesOrderStatus.DRAFT,
+                SalesOrderStatus.CONFIRMED,
+                "销售订单状态不允许确认",
+                () -> reserveStockForOrder(id)
+        );
+    }
+
+    @Override
+    @PreAuthorize("hasAnyAuthority('sales:order:cancel')")
+    @Transactional(rollbackFor = Exception.class)
+    public SalesOrderVo cancelSalesOrderById(Long id, updateDto dto) {
+        return changeStatus(
+                id,
+                SalesOrderStatus.CONFIRMED,
+                SalesOrderStatus.CANCELLED,
+                "销售订单状态不允许取消",
+                () -> releaseStockForOrder(id)
+        );
     }
 
 }

@@ -15,4 +15,6 @@ public interface SalesOrderItemService extends IService<SalesOrderItem> {
     List<SalesOrderItemVo> getItemBySalesOrderId(Long salesOrderId);
 
     void updateItemBySalesOrderId(Long id, List<updateItemDto> items);
+
+    void removeItemBySalesOrderId(Long id);
 }

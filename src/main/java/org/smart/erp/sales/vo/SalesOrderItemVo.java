@@ -23,7 +23,7 @@ public class SalesOrderItemVo {
 
     private String warehouseName;
 
-    private Integer quantity;
+    private BigDecimal quantity;
 
     private BigDecimal unitPrice;
 
