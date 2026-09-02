@@ -2,7 +2,6 @@ package org.smart.erp.sales.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import jakarta.validation.Valid;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
@@ -20,8 +19,6 @@ import org.smart.erp.sales.vo.SalesOrderItemVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -68,8 +65,8 @@ public class SalesOrderItemServiceImpl
     }
 
     @Override
-    @Valid
-    public SalesOrderItemVo createItem(@RequestBody @Validated SalesOrderItem dto) {
+    @Transactional(rollbackFor = Exception.class)
+    public SalesOrderItemVo createItem(SalesOrderItem dto) {
 
         if (dto.getSalesOrderId() == null) {
             throw new BusinessException(400,"销售订单ID不能为空");
@@ -84,12 +81,13 @@ public class SalesOrderItemServiceImpl
         String warehouseName = getWarehouse(dto.getWarehouseId());
 
         SalesOrderItem salesOrderItem = new SalesOrderItem();
-        BeanUtils.copyProperties(dto,salesOrderItem);
+        BeanUtils.copyProperties(dto, salesOrderItem);
+        // 金额以数量 × 单价为准，避免调用方漏算或算错
+        salesOrderItem.setAmount(dto.getQuantity().multiply(dto.getUnitPrice()));
         salesOrderItemMapper.insert(salesOrderItem);
 
         SalesOrderItemVo salesOrderItemVo = new SalesOrderItemVo();
-
-        BeanUtils.copyProperties(salesOrderItem,salesOrderItemVo);
+        BeanUtils.copyProperties(salesOrderItem, salesOrderItemVo);
         salesOrderItemVo.setMaterialName(material.getName());
         salesOrderItemVo.setMaterialCode(material.getCode());
         salesOrderItemVo.setWarehouseName(warehouseName);
@@ -108,17 +106,26 @@ public class SalesOrderItemServiceImpl
         List<Long> materialIds = salesOrderItems.stream().map(SalesOrderItem::getMaterialId).distinct().toList();
         List<Long> warehouseIds = salesOrderItems.stream().map(SalesOrderItem::getWarehouseId).distinct().toList();
 
-        Map<Long, Material> materialMap = materialMapper.selectByIds(materialIds)
-                .stream().collect(Collectors.toMap(Material::getId, Function.identity()));
-        Map<Long, Warehouse> warehouseMap = warehouseMapper.selectByIds(warehouseIds)
-                .stream().collect(Collectors.toMap(Warehouse::getId, Function.identity()));
+        Map<Long, Material> materialMap = materialIds.isEmpty() ? Map.of()
+                : materialMapper.selectByIds(materialIds)
+                        .stream().collect(Collectors.toMap(Material::getId, Function.identity()));
+        Map<Long, Warehouse> warehouseMap = warehouseIds.isEmpty() ? Map.of()
+                : warehouseMapper.selectByIds(warehouseIds)
+                        .stream().collect(Collectors.toMap(Warehouse::getId, Function.identity()));
 
         return salesOrderItems.stream().map(salesOrderItem -> {
             SalesOrderItemVo salesOrderItemVo = new SalesOrderItemVo();
-            BeanUtils.copyProperties(salesOrderItem,salesOrderItemVo);
-            salesOrderItemVo.setMaterialName(materialMap.get(salesOrderItem.getMaterialId()).getName());
-            salesOrderItemVo.setMaterialCode(materialMap.get(salesOrderItem.getMaterialId()).getCode());
-            salesOrderItemVo.setWarehouseName(warehouseMap.get(salesOrderItem.getWarehouseId()).getName());
+            BeanUtils.copyProperties(salesOrderItem, salesOrderItemVo);
+
+            Material material = materialMap.get(salesOrderItem.getMaterialId());
+            if (material != null) {
+                salesOrderItemVo.setMaterialName(material.getName());
+                salesOrderItemVo.setMaterialCode(material.getCode());
+            }
+            Warehouse warehouse = warehouseMap.get(salesOrderItem.getWarehouseId());
+            if (warehouse != null) {
+                salesOrderItemVo.setWarehouseName(warehouse.getName());
+            }
             return salesOrderItemVo;
         }).toList();
     }
@@ -152,8 +159,15 @@ public class SalesOrderItemServiceImpl
                 salesOrderItemMapper.deleteById(existingItem.getId());
                 continue;
             }
-            BeanUtils.copyProperties(dto, existingItem);
+            // DTO 的 @NotNull 仅在 Controller 校验时生效，内部调用需自行兜底
+            if (dto.getQuantity() == null || dto.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(400, "第 " + existingItem.getLineNo() + " 行：数量必须大于 0");
+            }
+            if (dto.getUnitPrice() == null || dto.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(400, "第 " + existingItem.getLineNo() + " 行：单价必须大于 0");
+            }
 
+            BeanUtils.copyProperties(dto, existingItem);
             existingItem.setAmount(dto.getQuantity().multiply(dto.getUnitPrice()));
             salesOrderItemMapper.updateById(existingItem);
         }
