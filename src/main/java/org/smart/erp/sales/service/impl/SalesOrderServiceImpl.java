@@ -13,6 +13,7 @@ import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.sales.dto.salesOrderDto.createDto;
 import org.smart.erp.sales.dto.salesOrderDto.listDto;
+import org.smart.erp.sales.dto.salesOrderDto.updateDto;
 import org.smart.erp.sales.dto.salesOrderItemDto.createItemDto;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.entity.SalesOrderItem;
@@ -27,10 +28,10 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -202,7 +203,39 @@ public class SalesOrderServiceImpl
 
     @Override
     public SalesOrderVo getSalesOrderVoById(Long id) {
-        return null;
+
+        SalesOrder salesOrder = salesOrderMapper.selectById(id);
+        if (salesOrder == null) {
+            throw new BusinessException(404, "销售订单不存在");
+        }
+
+        String customerName = customerMapper.selectById(salesOrder.getCustomerId()).getName();
+
+        SalesOrderVo salesOrderVo = new SalesOrderVo();
+        BeanUtils.copyProperties(salesOrder,salesOrderVo);
+        salesOrderVo.setCustomerName(customerName);
+        salesOrderVo.setItems(salesOrderItemService.getItemBySalesOrderId(id));
+
+        return salesOrderVo;
+    }
+
+    @Override
+    public SalesOrderVo updateSalesOrderVoById(Long id, updateDto dto) {
+        SalesOrder salesOrder = salesOrderMapper.selectById(id);
+        if (salesOrder == null) {
+            throw new BusinessException(404, "销售订单不存在");
+        }
+
+        if (dto.getStatus() == null || dto.getStatus().equals(SalesOrderStatus.DRAFT)) {
+            throw new BusinessException(400, "销售订单状态不允许修改");
+        }
+
+        if (StringUtils.hasText(dto.getRemark())) salesOrder.setRemark(dto.getRemark());
+        if (dto.getDeliveryDate() != null) salesOrder.setDeliveryDate(dto.getDeliveryDate());
+        if (dto.getItems() != null) salesOrderItemService.updateItemBySalesOrderId(id, dto.getItems());
+        salesOrderMapper.updateById(salesOrder);
+
+        return getSalesOrderVoById(id);
     }
 
 }

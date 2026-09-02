@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.smart.erp.sales.dto.salesOrderDto.createDto;
 import org.smart.erp.sales.dto.salesOrderDto.listDto;
+import org.smart.erp.sales.dto.salesOrderDto.updateDto;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.vo.SalesOrderVo;
 
@@ -13,4 +14,6 @@ public interface SalesOrderService extends IService<SalesOrder> {
     Page<SalesOrderVo> listSalesOrderVoByPage(listDto dto);
 
     SalesOrderVo getSalesOrderVoById(Long id);
+
+    SalesOrderVo updateSalesOrderVoById(Long id, updateDto dto);
 }
