@@ -11,11 +11,16 @@ import org.smart.erp.sales.dto.salesDeliveryDto.CreateDto;
 import org.smart.erp.sales.dto.salesDeliveryDto.ListDto;
 import org.smart.erp.sales.dto.salesDeliveryItemDto.CreateItemDto;
 import org.smart.erp.sales.entity.SalesDelivery;
+import org.smart.erp.sales.entity.SalesOrder;
+import org.smart.erp.sales.entity.SalesOrderItem;
 import org.smart.erp.sales.enums.SalesDeliveryStatus;
+import org.smart.erp.sales.enums.SalesOrderStatus;
 import org.smart.erp.sales.mapper.SalesDeliveryMapper;
+import org.smart.erp.sales.mapper.SalesOrderItemMapper;
 import org.smart.erp.sales.mapper.SalesOrderMapper;
 import org.smart.erp.sales.service.SalesDeliveryItemService;
 import org.smart.erp.sales.service.SalesDeliveryService;
+import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.sales.vo.SalesDeliveryItemVo;
 import org.smart.erp.sales.vo.SalesDeliveryVo;
 import org.springframework.beans.BeanUtils;
@@ -39,26 +44,38 @@ public class SalesDeliveryServiceImpl
 
     private final SalesDeliveryMapper salesDeliveryMapper;
     private final SalesOrderMapper salesOrderMapper;
+    private final SalesOrderItemMapper salesOrderItemMapper;
     private final SalesDeliveryItemService salesDeliveryItemService;
+    private final MaterialStockService materialStockService;
     private final BusinessNoGenerator businessNoGenerator;
     private final CustomerMapper customerMapper;
 
     public SalesDeliveryServiceImpl(
             SalesDeliveryMapper salesDeliveryMapper,
             SalesDeliveryItemService salesDeliveryItemService,
+            MaterialStockService materialStockService,
             BusinessNoGenerator businessNoGenerator,
             CustomerMapper customerMapper,
-            SalesOrderMapper salesOrderMapper
+            SalesOrderMapper salesOrderMapper,
+            SalesOrderItemMapper salesOrderItemMapper
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
         this.salesDeliveryItemService = salesDeliveryItemService;
+        this.materialStockService = materialStockService;
         this.businessNoGenerator = businessNoGenerator;
         this.customerMapper = customerMapper;
         this.salesOrderMapper = salesOrderMapper;
+        this.salesOrderItemMapper = salesOrderItemMapper;
     }
 
+    //业务方法:--------------------------------------------------
 
+    /**
+     * 校验客户存在
+     * @param customerId
+     * @return
+     */
     private Customer getCustomer(Long customerId) {
         Customer customer = customerMapper.selectById(customerId);
         if (customer == null) {
@@ -68,18 +85,68 @@ public class SalesDeliveryServiceImpl
         return customer;
     }
 
+    /**
+     * 状态流转公共逻辑：查单 -> 校验当前状态 -> 执行副作用 -> 置新状态 -> 返回视图。
+     * @param id 发货单ID
+     * @param expected 期望状态
+     * @param target 目标状态
+     * @param rejectMsg 状态不匹配时返回的错误信息
+     * @param beforeUpdate 更新前执行的副作用
+     * @return 发货单视图
+     */
+    private SalesDeliveryVo changeStatus(Long id,
+                                         SalesDeliveryStatus expected,
+                                         SalesDeliveryStatus target,
+                                         String rejectMsg,
+                                         Runnable beforeUpdate) {
+        SalesDelivery delivery = salesDeliveryMapper.selectById(id);
+        if (delivery == null) {
+            throw new BusinessException(404, "发货单不存在");
+        }
+        if (delivery.getStatus() != expected) {
+            throw new BusinessException(400, rejectMsg);
+        }
+        beforeUpdate.run();
+        delivery.setStatus(target);
+        salesDeliveryMapper.updateById(delivery);
+        return getSalesDeliveryVoById(id);
+    }
+
+    /**
+     * 确认发货：逐行出库扣减库存（在库与预占同步减少），任一行不足则整体回滚
+     */
+    private void outboundStockForDelivery(Long deliveryId) {
+        List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
+        if (items.isEmpty()) {
+            throw new BusinessException(400, "发货单明细项不能为空，无法确认出库");
+        }
+        for (SalesDeliveryItemVo item : items) {
+            materialStockService.outboundStock(
+                    item.getMaterialId(),
+                    item.getWarehouseId(),
+                    item.getQuantity()
+            );
+        }
+    }
+
+    //接口实现:--------------------------------------------------
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo createSalesDeliveryVo(CreateDto dto) {
-        // 校验客户存在（@NotNull 只保证非空，不保证有效）
-        Customer customer = getCustomer(dto.getCustomerId());
+        // 销售订单必须存在，客户/订单号等信息从订单带出
+        SalesOrder salesOrder = salesOrderMapper.selectById(dto.getSalesOrderId());
+        if (salesOrder == null) {
+            throw new BusinessException(400, "销售订单不存在");
+        }
+        // 只有已确认的销售订单才允许创建发货单
+        if (salesOrder.getStatus() != SalesOrderStatus.CONFIRMED) {
+            throw new BusinessException(400, "仅已确认的销售订单可创建发货单");
+        }
+        Customer customer = getCustomer(salesOrder.getCustomerId());
 
         if (dto.getItems() == null || dto.getItems().isEmpty()) {
             throw new BusinessException(400, "发货单明细项不能为空");
-        }
-
-        if (salesOrderMapper.selectById(dto.getSalesOrderId()) == null) {
-             throw new BusinessException(400, "销售订单不存在");
         }
 
         SalesDelivery salesDelivery = new SalesDelivery();
@@ -87,34 +154,79 @@ public class SalesDeliveryServiceImpl
         salesDelivery.setDeliveryNo(
                 businessNoGenerator.generateNo("erp:sequence:sales-delivery:", "SD")
         );
-        if (!salesDelivery.getId().equals(dto.getSalesOrderId())) {
-            throw new BusinessException(400,"发货单与销售订单不一致");
-        }
         salesDelivery.setSalesOrderId(dto.getSalesOrderId());
+        salesDelivery.setSalesOrderNo(salesOrder.getOrderNo());
+        salesDelivery.setCustomerId(customer.getId());
         salesDelivery.setStatus(SalesDeliveryStatus.DRAFT);
         save(salesDelivery);
 
-        List<CreateItemDto> salesDeliveryItemList = dto.getItems();
+        // 批量加载销售订单明细，校验归属同一订单并避免逐条查询
+        List<Long> orderItemIds = dto.getItems().stream()
+                .map(CreateItemDto::getSalesOrderItemId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, SalesOrderItem> orderItemMap = orderItemIds.isEmpty() ? Collections.emptyMap()
+                : salesOrderItemMapper.selectByIds(orderItemIds).stream()
+                    .collect(Collectors.toMap(SalesOrderItem::getId, item -> item));
+
         int lineNo = 10;
-        List<SalesDeliveryItemVo> salesDeliveryItemVoList = new ArrayList<>();
-        for (CreateItemDto salesDeliveryItemDto : salesDeliveryItemList) {
-            if (!Objects.equals(salesDeliveryItemDto.getDeliveryId(), dto.getSalesOrderId())) {
-                throw new BusinessException(400, "发货单明细项与销售订单不一致");
+        List<SalesDeliveryItemVo> itemVoList = new ArrayList<>();
+        for (CreateItemDto itemDto : dto.getItems()) {
+            SalesOrderItem orderItem = orderItemMap.get(itemDto.getSalesOrderItemId());
+            if (orderItem == null || !Objects.equals(orderItem.getSalesOrderId(), dto.getSalesOrderId())) {
+                throw new BusinessException(400, "发货明细关联的销售订单明细不存在或不属于该销售订单");
             }
-            salesDeliveryItemDto.setDeliveryId(salesDelivery.getId());
-            salesDeliveryItemDto.setLineNo(lineNo);
-            salesDeliveryItemVoList.add(salesDeliveryItemService.createSalesDeliveryItemVo(salesDeliveryItemDto));
+            itemVoList.add(salesDeliveryItemService.createSalesDeliveryItemVo(itemDto, salesDelivery.getId(), lineNo));
             lineNo += 10;
         }
 
         SalesDeliveryVo salesDeliveryVo = new SalesDeliveryVo();
-
         BeanUtils.copyProperties(salesDelivery, salesDeliveryVo);
         // 与列表接口保持一致的填充程度
         salesDeliveryVo.setCustomerName(customer.getName());
-        salesDeliveryVo.setItems(salesDeliveryItemVoList);
+        salesDeliveryVo.setItems(itemVoList);
 
         return salesDeliveryVo;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SalesDeliveryVo getSalesDeliveryVoById(Long id) {
+        SalesDelivery delivery = salesDeliveryMapper.selectById(id);
+        if (delivery == null) {
+            throw new BusinessException(404, "发货单不存在");
+        }
+        SalesDeliveryVo vo = new SalesDeliveryVo();
+        BeanUtils.copyProperties(delivery, vo);
+        vo.setItems(salesDeliveryItemService.getItemVoByDeliveryIds(List.of(id)));
+        if (delivery.getCustomerId() != null) {
+            Customer customer = customerMapper.selectById(delivery.getCustomerId());
+            vo.setCustomerName(customer != null ? customer.getName() : null);
+        }
+        return vo;
+    }
+
+
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SalesDeliveryVo confirmSalesDeliveryById(Long id) {
+        return changeStatus(id,
+                SalesDeliveryStatus.DRAFT,
+                SalesDeliveryStatus.CONFIRMED,
+                "发货单状态不允许确认",
+                () -> outboundStockForDelivery(id));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SalesDeliveryVo cancelSalesDeliveryById(Long id) {
+        return changeStatus(id,
+                SalesDeliveryStatus.DRAFT,
+                SalesDeliveryStatus.CANCELLED,
+                "仅草稿态发货单可取消",
+                () -> {});
     }
 
     @Override

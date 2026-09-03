@@ -12,5 +12,11 @@ public interface SalesDeliveryService extends IService<SalesDelivery> {
 
     SalesDeliveryVo createSalesDeliveryVo(CreateDto dto);
 
+    SalesDeliveryVo getSalesDeliveryVoById(Long id);
+
+    SalesDeliveryVo confirmSalesDeliveryById(Long id);
+
+    SalesDeliveryVo cancelSalesDeliveryById(Long id);
+
     Page<SalesDeliveryVo> getPageSalesDeliveryVo(ListDto dto);
 }

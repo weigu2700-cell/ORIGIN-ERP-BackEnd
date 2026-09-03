@@ -11,7 +11,9 @@ import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.sales.dto.salesDeliveryItemDto.CreateItemDto;
 import org.smart.erp.sales.entity.SalesDeliveryItem;
+import org.smart.erp.sales.entity.SalesOrderItem;
 import org.smart.erp.sales.mapper.SalesDeliveryItemMapper;
+import org.smart.erp.sales.mapper.SalesOrderItemMapper;
 import org.smart.erp.sales.service.SalesDeliveryItemService;
 import org.smart.erp.sales.vo.SalesDeliveryItemVo;
 import org.springframework.beans.BeanUtils;
@@ -39,16 +41,19 @@ public class SalesDeliveryItemServiceImpl
     private final SalesDeliveryItemMapper salesDeliveryItemMapper;
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
+    private final SalesOrderItemMapper salesOrderItemMapper;
 
     public SalesDeliveryItemServiceImpl(
             SalesDeliveryItemMapper salesDeliveryItemMapper,
             MaterialMapper materialMapper,
-            WarehouseMapper warehouseMapper
+            WarehouseMapper warehouseMapper,
+            SalesOrderItemMapper salesOrderItemMapper
     )
     {
         this.salesDeliveryItemMapper = salesDeliveryItemMapper;
         this.materialMapper = materialMapper;
         this.warehouseMapper = warehouseMapper;
+        this.salesOrderItemMapper = salesOrderItemMapper;
     }
 
     /**
@@ -85,25 +90,41 @@ public class SalesDeliveryItemServiceImpl
 
 
 
+
+
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SalesDeliveryItemVo createSalesDeliveryItemVo(CreateItemDto dto) {
-        if (dto.getDeliveryId() == null) {
-            throw new BusinessException(400, "发货单ID不能为空");
+    public SalesDeliveryItemVo createSalesDeliveryItemVo(CreateItemDto dto, Long deliveryId, Integer lineNo) {
+        if (dto.getSalesOrderItemId() == null) {
+            throw new BusinessException(400, "销售订单明细ID不能为空");
         }
         if (dto.getQuantity() == null || dto.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(400, "发货数量必须大于 0");
         }
-        Material material = getMaterial(dto.getMaterialId());
-        Warehouse warehouse = getWarehouse(dto.getWarehouseId());
+        if (deliveryId == null) {
+            throw new BusinessException(400, "发货单ID不能为空");
+        }
+
+        // 出库明细必须能对应到一条有效的销售订单明细，并从中带出物料/仓库
+        SalesOrderItem orderItem = salesOrderItemMapper.selectById(dto.getSalesOrderItemId());
+        if (orderItem == null) {
+            throw new BusinessException(404, "销售订单明细不存在");
+        }
+
+        Material material = getMaterial(orderItem.getMaterialId());
+        Warehouse warehouse = getWarehouse(orderItem.getWarehouseId());
 
         SalesDeliveryItem salesDeliveryItem = new SalesDeliveryItem();
-        BeanUtils.copyProperties(dto, salesDeliveryItem);
+        salesDeliveryItem.setDeliveryId(deliveryId);
+        salesDeliveryItem.setLineNo(lineNo);
+        salesDeliveryItem.setSalesOrderItemId(orderItem.getId());
+        salesDeliveryItem.setMaterialId(orderItem.getMaterialId());
+        salesDeliveryItem.setWarehouseId(orderItem.getWarehouseId());
+        salesDeliveryItem.setQuantity(dto.getQuantity());
         save(salesDeliveryItem);
 
         SalesDeliveryItemVo salesDeliveryItemVo = new SalesDeliveryItemVo();
         BeanUtils.copyProperties(salesDeliveryItem, salesDeliveryItemVo);
-
         salesDeliveryItemVo.setMaterialName(material.getName());
         salesDeliveryItemVo.setMaterialCode(material.getCode());
         salesDeliveryItemVo.setWarehouseName(warehouse.getName());

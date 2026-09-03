@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface SalesDeliveryItemService extends IService<SalesDeliveryItem> {
 
-    SalesDeliveryItemVo createSalesDeliveryItemVo(CreateItemDto dto);
+    SalesDeliveryItemVo createSalesDeliveryItemVo(CreateItemDto dto, Long deliveryId, Integer lineNo);
 
     /**
      * 按发货单 id 批量查询明细 VO（含物料名称/编码、仓库名称），供列表页一次性装配。
