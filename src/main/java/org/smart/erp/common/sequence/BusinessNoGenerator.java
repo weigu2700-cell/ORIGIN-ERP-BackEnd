@@ -28,4 +28,17 @@ public class BusinessNoGenerator {
         }
         return "SO" + dataPrefix + String.format("%04d", seq);
     }
+
+    public String generateNo(String key, String NoHeader) {
+        String dataPrefix = LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String seqKey = key + dataPrefix;
+        Long seq = stringRedisTemplate.opsForValue().increment(seqKey, 1);
+        if (seq == null) {
+            throw new IllegalStateException("生成销售订单号失败");
+        }
+        if (seq == 1L) {
+            stringRedisTemplate.expire(seqKey, 3, TimeUnit.DAYS);
+        }
+        return NoHeader + dataPrefix + String.format("%04d", seq);
+    }
 }
