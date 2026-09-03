@@ -11,7 +11,9 @@ import org.smart.erp.sales.dto.salesDeliveryDto.CreateDto;
 import org.smart.erp.sales.dto.salesDeliveryDto.ListDto;
 import org.smart.erp.sales.dto.salesDeliveryItemDto.CreateItemDto;
 import org.smart.erp.sales.entity.SalesDelivery;
+import org.smart.erp.sales.enums.SalesDeliveryStatus;
 import org.smart.erp.sales.mapper.SalesDeliveryMapper;
+import org.smart.erp.sales.mapper.SalesOrderMapper;
 import org.smart.erp.sales.service.SalesDeliveryItemService;
 import org.smart.erp.sales.service.SalesDeliveryService;
 import org.smart.erp.sales.vo.SalesDeliveryItemVo;
@@ -36,6 +38,7 @@ public class SalesDeliveryServiceImpl
 {
 
     private final SalesDeliveryMapper salesDeliveryMapper;
+    private final SalesOrderMapper salesOrderMapper;
     private final SalesDeliveryItemService salesDeliveryItemService;
     private final BusinessNoGenerator businessNoGenerator;
     private final CustomerMapper customerMapper;
@@ -44,13 +47,15 @@ public class SalesDeliveryServiceImpl
             SalesDeliveryMapper salesDeliveryMapper,
             SalesDeliveryItemService salesDeliveryItemService,
             BusinessNoGenerator businessNoGenerator,
-            CustomerMapper customerMapper
+            CustomerMapper customerMapper,
+            SalesOrderMapper salesOrderMapper
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
         this.salesDeliveryItemService = salesDeliveryItemService;
         this.businessNoGenerator = businessNoGenerator;
         this.customerMapper = customerMapper;
+        this.salesOrderMapper = salesOrderMapper;
     }
 
 
@@ -73,17 +78,29 @@ public class SalesDeliveryServiceImpl
             throw new BusinessException(400, "发货单明细项不能为空");
         }
 
+        if (salesOrderMapper.selectById(dto.getSalesOrderId()) == null) {
+             throw new BusinessException(400, "销售订单不存在");
+        }
+
         SalesDelivery salesDelivery = new SalesDelivery();
         BeanUtils.copyProperties(dto, salesDelivery);
         salesDelivery.setDeliveryNo(
                 businessNoGenerator.generateNo("erp:sequence:sales-delivery:", "SD")
         );
+        if (!salesDelivery.getId().equals(dto.getSalesOrderId())) {
+            throw new BusinessException(400,"发货单与销售订单不一致");
+        }
+        salesDelivery.setSalesOrderId(dto.getSalesOrderId());
+        salesDelivery.setStatus(SalesDeliveryStatus.DRAFT);
         save(salesDelivery);
 
         List<CreateItemDto> salesDeliveryItemList = dto.getItems();
         int lineNo = 10;
         List<SalesDeliveryItemVo> salesDeliveryItemVoList = new ArrayList<>();
         for (CreateItemDto salesDeliveryItemDto : salesDeliveryItemList) {
+            if (!Objects.equals(salesDeliveryItemDto.getDeliveryId(), dto.getSalesOrderId())) {
+                throw new BusinessException(400, "发货单明细项与销售订单不一致");
+            }
             salesDeliveryItemDto.setDeliveryId(salesDelivery.getId());
             salesDeliveryItemDto.setLineNo(lineNo);
             salesDeliveryItemVoList.add(salesDeliveryItemService.createSalesDeliveryItemVo(salesDeliveryItemDto));
@@ -110,6 +127,9 @@ public class SalesDeliveryServiceImpl
                         .eq(dto.getStatus() != null, SalesDelivery::getStatus, dto.getStatus())
                         .eq(dto.getCustomerId() != null, SalesDelivery::getCustomerId, dto.getCustomerId());
 
+        if (queryWrapper == null){
+            return new Page<>();
+        }
         Page<SalesDelivery> page = this.page(new Page<>(dto.getPageNum(), dto.getPageSize()), queryWrapper);
 
         Page<SalesDeliveryVo> voPage = new Page<>(page.getCurrent(), page.getSize());

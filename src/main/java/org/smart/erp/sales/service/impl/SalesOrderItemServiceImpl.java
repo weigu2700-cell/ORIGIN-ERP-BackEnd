@@ -3,6 +3,8 @@ package org.smart.erp.sales.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.inventory.entity.MaterialStock;
+import org.smart.erp.inventory.mapper.MaterialStockMapper;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.enums.MaterialStatus;
@@ -37,16 +39,19 @@ public class SalesOrderItemServiceImpl
     private final SalesOrderItemMapper salesOrderItemMapper;
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
+    private final MaterialStockMapper materialStockMapper;
 
     public SalesOrderItemServiceImpl(
             SalesOrderItemMapper salesOrderItemMapper,
             MaterialMapper materialMapper,
-            WarehouseMapper warehouseMapper
+            WarehouseMapper warehouseMapper,
+            MaterialStockMapper materialStockMapper
     )
     {
         this.salesOrderItemMapper = salesOrderItemMapper;
         this.materialMapper = materialMapper;
         this.warehouseMapper = warehouseMapper;
+        this.materialStockMapper = materialStockMapper;
     }
 
     /**
@@ -73,6 +78,28 @@ public class SalesOrderItemServiceImpl
             throw new BusinessException(404,"仓库不存在或者仓库状态不为启用");
         }
         return warehouse.getName();
+    }
+
+    /**
+     * 校验某物料在某仓库的可用库存是否足以满足需求数量。
+     * 可用库存 = 在库量(onHand) - 已预占(reserved)；字段为 null 时按 0 处理。
+     */
+    private void checkAvailableStock(Long materialId, Long warehouseId, BigDecimal requiredQty) {
+        MaterialStock stock = materialStockMapper.selectOne(
+                new LambdaQueryWrapper<MaterialStock>()
+                        .eq(MaterialStock::getMaterialId, materialId)
+                        .eq(MaterialStock::getWarehouseId, warehouseId)
+        );
+        if (stock == null) {
+            throw new BusinessException(400, "该物料在所选仓库暂无库存档案，无法下单");
+        }
+        BigDecimal onHand = stock.getOnHand() == null ? BigDecimal.ZERO : stock.getOnHand();
+        BigDecimal reserved = stock.getReserved() == null ? BigDecimal.ZERO : stock.getReserved();
+        BigDecimal available = onHand.subtract(reserved);
+        if (available.compareTo(requiredQty) < 0) {
+            throw new BusinessException(400, "可用库存不足：物料 " + materialId
+                    + " 在仓库 " + warehouseId + " 可用 " + available + "，需求 " + requiredQty);
+        }
     }
 
     /**
@@ -112,13 +139,19 @@ public class SalesOrderItemServiceImpl
         if (dto.getUnitPrice() == null || dto.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(400,"单价不能为空且不能小于0");
         }
+
         Material material = getMaterial(dto.getMaterialId());
         String warehouseName = getWarehouse(dto.getWarehouseId());
+        // 出库需求不得超过该物料在所选仓库的可用库存（可用 = 在库量 - 已预占）
+        checkAvailableStock(dto.getMaterialId(), dto.getWarehouseId(), dto.getQuantity());
 
         SalesOrderItem salesOrderItem = new SalesOrderItem();
         BeanUtils.copyProperties(dto, salesOrderItem);
         // 金额以数量 × 单价为准，避免调用方漏算或算错
         salesOrderItem.setAmount(dto.getQuantity().multiply(dto.getUnitPrice()));
+        if (!salesOrderItem.getSalesOrderId().equals(dto.getSalesOrderId())) {
+            throw new BusinessException(409,"销售订单ID不一致");
+        }
         salesOrderItemMapper.insert(salesOrderItem);
 
         SalesOrderItemVo salesOrderItemVo = new SalesOrderItemVo();
@@ -171,6 +204,7 @@ public class SalesOrderItemServiceImpl
                         .eq(SalesOrderItem::getSalesOrderId, salesOrderId)
         );
 
+
         // 按 id 建索引（重复 id 取首个），避免循环内嵌套遍历
         Map<Long, updateItemDto> itemMap = items.stream()
                 .filter(Objects::nonNull)
@@ -196,6 +230,12 @@ public class SalesOrderItemServiceImpl
             if (dto == null) {
                 throw new BusinessException(400, "第 " + (i + 1) + " 条明细不能为空");
             }
+            if (dto.getMaterialId() == null) {
+                throw new BusinessException(400, "第 " + (i + 1) + " 条明细的物料不能为空");
+            }
+            if (dto.getWarehouseId() == null) {
+                throw new BusinessException(400, "第 " + (i + 1) + " 条明细的仓库不能为空");
+            }
             if (dto.getQuantity() == null || dto.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException(400, "第 " + (i + 1) + " 条明细的数量必须大于 0");
             }
@@ -213,6 +253,8 @@ public class SalesOrderItemServiceImpl
                 continue;
             }
 
+            // 更新数量同样受可用库存约束
+            checkAvailableStock(dto.getMaterialId(), dto.getWarehouseId(), dto.getQuantity());
             BeanUtils.copyProperties(dto, existingItem);
             existingItem.setAmount(dto.getQuantity().multiply(dto.getUnitPrice()));
             salesOrderItemMapper.updateById(existingItem);
