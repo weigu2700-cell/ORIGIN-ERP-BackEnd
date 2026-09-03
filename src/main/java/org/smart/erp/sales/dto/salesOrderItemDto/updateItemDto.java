@@ -9,7 +9,10 @@ import java.math.BigDecimal;
 @Data
 public class updateItemDto {
 
-    @NotNull(message = "id不能为空")
+    /**
+     * 明细行 id。
+     * 有值 -> 更新该行；为 null -> 视为新增行（服务端分配行号并插入）。
+     */
     private Long id;
 
     @NotNull(message = "物料不能为空")

@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -48,6 +49,11 @@ public class SalesOrderItemServiceImpl
         this.warehouseMapper = warehouseMapper;
     }
 
+    /**
+     * 获取物料信息
+     * @param materialId 物料ID
+     * @return 物料信息
+     */
     private Material getMaterial(Long materialId) {
         Material material = materialMapper.selectById(materialId);
         if (material == null || material.getStatus() != MaterialStatus.ENABLE) {
@@ -56,12 +62,41 @@ public class SalesOrderItemServiceImpl
         return material;
     }
 
+    /**
+     * 获取仓库信息
+     * @param warehouseId 仓库ID
+     * @return 仓库信息
+     */
     private String getWarehouse(Long warehouseId) {
         Warehouse warehouse = warehouseMapper.selectById(warehouseId);
         if (warehouse == null || warehouse.getStatus() != WarehouseStatus.ENABLE) {
             throw new BusinessException(404,"仓库不存在或者仓库状态不为启用");
         }
         return warehouse.getName();
+    }
+
+    /**
+     * 明细实体转 VO，并补齐物料名称/编码、仓库名称。
+     * 物料或仓库在映射中不存在时对应字段留空，不抛异常（避免历史脏数据导致整单查询失败）。
+     */
+    private SalesOrderItemVo toVo(
+            SalesOrderItem salesOrderItem,
+            Map<Long, Material> materialMap,
+            Map<Long, Warehouse> warehouseMap)
+    {
+        SalesOrderItemVo salesOrderItemVo = new SalesOrderItemVo();
+        BeanUtils.copyProperties(salesOrderItem, salesOrderItemVo);
+
+        Material material = materialMap.get(salesOrderItem.getMaterialId());
+        if (material != null) {
+            salesOrderItemVo.setMaterialName(material.getName());
+            salesOrderItemVo.setMaterialCode(material.getCode());
+        }
+        Warehouse warehouse = warehouseMap.get(salesOrderItem.getWarehouseId());
+        if (warehouse != null) {
+            salesOrderItemVo.setWarehouseName(warehouse.getName());
+        }
+        return salesOrderItemVo;
     }
 
     @Override
@@ -113,26 +148,16 @@ public class SalesOrderItemServiceImpl
                 : warehouseMapper.selectByIds(warehouseIds)
                         .stream().collect(Collectors.toMap(Warehouse::getId, Function.identity()));
 
-        return salesOrderItems.stream().map(salesOrderItem -> {
-            SalesOrderItemVo salesOrderItemVo = new SalesOrderItemVo();
-            BeanUtils.copyProperties(salesOrderItem, salesOrderItemVo);
-
-            Material material = materialMap.get(salesOrderItem.getMaterialId());
-            if (material != null) {
-                salesOrderItemVo.setMaterialName(material.getName());
-                salesOrderItemVo.setMaterialCode(material.getCode());
-            }
-            Warehouse warehouse = warehouseMap.get(salesOrderItem.getWarehouseId());
-            if (warehouse != null) {
-                salesOrderItemVo.setWarehouseName(warehouse.getName());
-            }
-            return salesOrderItemVo;
-        }).toList();
+        return salesOrderItems.stream()
+                .map(salesOrderItem -> toVo(salesOrderItem, materialMap, warehouseMap))
+                .toList();
     }
 
+
     /**
-     * 全量替换某销售订单的明细：传入项按 id 更新，未出现的存量行删除。
-     * 注意入参 items 视为该订单明细的最新全量快照。
+     * 更新明细
+     * @param salesOrderId 销售订单ID
+     * @param items 明细列表
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -152,6 +177,34 @@ public class SalesOrderItemServiceImpl
                 .filter(dto -> dto.getId() != null)
                 .collect(Collectors.toMap(updateItemDto::getId, Function.identity(), (a, b) -> a));
 
+        Set<Long> existingIds = existingItems.stream()
+                .map(SalesOrderItem::getId)
+                .collect(Collectors.toSet());
+
+        // 传入了但库中不存在：可能已被删除，或属于其他销售订单
+        List<Long> unknownIds = itemMap.keySet().stream()
+                .filter(id -> !existingIds.contains(id))
+                .sorted()
+                .toList();
+        if (!unknownIds.isEmpty()) {
+            throw new BusinessException(400, "销售订单明细项不存在，id：" + unknownIds);
+        }
+
+        // DTO 的注解校验仅在 Controller 层生效，内部调用需自行兜底（新增行没有 id，按序号定位）
+        for (int i = 0; i < items.size(); i++) {
+            updateItemDto dto = items.get(i);
+            if (dto == null) {
+                throw new BusinessException(400, "第 " + (i + 1) + " 条明细不能为空");
+            }
+            if (dto.getQuantity() == null || dto.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(400, "第 " + (i + 1) + " 条明细的数量必须大于 0");
+            }
+            if (dto.getUnitPrice() == null || dto.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(400, "第 " + (i + 1) + " 条明细的单价必须大于 0");
+            }
+        }
+
+        // 校验全部通过后才落库：先更新/删除存量行
         for (SalesOrderItem existingItem : existingItems) {
             updateItemDto dto = itemMap.get(existingItem.getId());
             if (dto == null) {
@@ -159,17 +212,30 @@ public class SalesOrderItemServiceImpl
                 salesOrderItemMapper.deleteById(existingItem.getId());
                 continue;
             }
-            // DTO 的 @NotNull 仅在 Controller 校验时生效，内部调用需自行兜底
-            if (dto.getQuantity() == null || dto.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BusinessException(400, "第 " + existingItem.getLineNo() + " 行：数量必须大于 0");
-            }
-            if (dto.getUnitPrice() == null || dto.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BusinessException(400, "第 " + existingItem.getLineNo() + " 行：单价必须大于 0");
-            }
 
             BeanUtils.copyProperties(dto, existingItem);
             existingItem.setAmount(dto.getQuantity().multiply(dto.getUnitPrice()));
             salesOrderItemMapper.updateById(existingItem);
+        }
+
+        // 再插入新增行：行号从当前最大行号往后顺延，步长 10
+        int nextLineNo = existingItems.stream()
+                .map(SalesOrderItem::getLineNo)
+                .max(Integer::compareTo)
+                .orElse(0) + 10;
+
+        for (updateItemDto dto : items) {
+            if (dto.getId() != null) {
+                continue;
+            }
+            SalesOrderItem newItem = new SalesOrderItem();
+            BeanUtils.copyProperties(dto, newItem);
+            newItem.setId(null);
+            newItem.setSalesOrderId(salesOrderId);
+            newItem.setLineNo(nextLineNo);
+            // 复用 createItem：内部会校验物料/仓库存在且启用，并重算金额
+            createItem(newItem);
+            nextLineNo += 10;
         }
     }
 
