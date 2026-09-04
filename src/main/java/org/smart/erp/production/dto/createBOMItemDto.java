@@ -9,9 +9,6 @@ import java.math.BigDecimal;
 @Data
 public class createBOMItemDto {
 
-    @NotNull(message = "BOM不能为空")
-    private Long bomId;
-
     @NotNull(message = "行号不能为空")
     private Integer lineNo;
 

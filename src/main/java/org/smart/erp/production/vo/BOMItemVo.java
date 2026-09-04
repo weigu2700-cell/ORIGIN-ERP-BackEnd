@@ -15,13 +15,14 @@ public class BOMItemVo {
 
     private Long componentMaterialId;
 
-    private String componentMaterialName;
-
     private String componentMaterialCode;
+
+    private String componentMaterialName;
 
     private BigDecimal quantity;
 
     private BigDecimal lossRate;
 
     private String remark;
+
 }
