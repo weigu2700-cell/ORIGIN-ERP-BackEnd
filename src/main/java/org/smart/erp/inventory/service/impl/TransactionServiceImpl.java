@@ -355,15 +355,20 @@ public class TransactionServiceImpl
 
     /** 按流水类型分发到库存服务动作（更新库存 + 写流水在同一事务内完成） */
     private void applyAction(ImportAction action) {
+        String businessNo = "EXCEL导入-第" + action.rowNo + "行";
         switch (action.type) {
             case INBOUND -> materialStockService.inboundStock(
-                    action.material.getId(), action.warehouse.getId(), action.quantity);
+                    action.material.getId(), action.warehouse.getId(), action.quantity,
+                    "STOCK_IMPORT", businessNo, action.remark);
             case OUTBOUND -> materialStockService.outboundStock(
-                    action.material.getId(), action.warehouse.getId(), action.quantity);
+                    action.material.getId(), action.warehouse.getId(), action.quantity,
+                    "STOCK_IMPORT", businessNo, action.remark);
             case RESERVE -> materialStockService.reserveStock(
-                    action.material.getId(), action.warehouse.getId(), action.quantity);
+                    action.material.getId(), action.warehouse.getId(), action.quantity,
+                    "STOCK_IMPORT", businessNo, action.remark);
             case RELEASE -> materialStockService.releaseStock(
-                    action.material.getId(), action.warehouse.getId(), action.quantity);
+                    action.material.getId(), action.warehouse.getId(), action.quantity,
+                    "STOCK_IMPORT", businessNo, action.remark);
         }
     }
 

@@ -124,6 +124,10 @@ public class SalesDeliveryServiceImpl
      * 完成出库：逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚
      */
     private void outboundStockForDelivery(Long deliveryId) {
+        SalesDelivery delivery = salesDeliveryMapper.selectById(deliveryId);
+        if (delivery == null) {
+            throw new BusinessException(400, "发货单不存在");
+        }
         List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
         if (items.isEmpty()) {
             throw new BusinessException(400, "发货单明细项不能为空，无法确认出库");
@@ -132,13 +136,20 @@ public class SalesDeliveryServiceImpl
             materialStockService.outboundStock(
                     item.getMaterialId(),
                     item.getWarehouseId(),
-                    item.getQuantity()
+                    item.getQuantity(),
+                    "SALES_DELIVERY_OUT",
+                    delivery.getDeliveryNo(),
+                    "销售出库 关联销售订单 " + delivery.getSalesOrderNo()
             );
         }
     }
 
     /** 确认发货时逐行预占库存（可用库存不足则整体回滚）；预占由出货单决定 */
     private void reserveStockForDelivery(Long deliveryId) {
+        SalesDelivery delivery = salesDeliveryMapper.selectById(deliveryId);
+        if (delivery == null) {
+            throw new BusinessException(400, "发货单不存在");
+        }
         List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
         if (items.isEmpty()) {
             throw new BusinessException(400, "发货单明细项不能为空，无法预占库存");
@@ -147,19 +158,29 @@ public class SalesDeliveryServiceImpl
             materialStockService.reserveStock(
                     item.getMaterialId(),
                     item.getWarehouseId(),
-                    item.getQuantity()
+                    item.getQuantity(),
+                    "SALES_DELIVERY_RESERVE",
+                    delivery.getDeliveryNo(),
+                    "销售预占 关联销售订单 " + delivery.getSalesOrderNo()
             );
         }
     }
 
     /** 取消发货时释放已预占库存（仅“已确认”发货单曾预占）；草稿态无需处理 */
     private void releaseStockForDelivery(Long deliveryId) {
+        SalesDelivery delivery = salesDeliveryMapper.selectById(deliveryId);
+        if (delivery == null) {
+            throw new BusinessException(400, "发货单不存在");
+        }
         List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
         for (SalesDeliveryItemVo item : items) {
             materialStockService.releaseStock(
                     item.getMaterialId(),
                     item.getWarehouseId(),
-                    item.getQuantity()
+                    item.getQuantity(),
+                    "SALES_DELIVERY_RELEASE",
+                    delivery.getDeliveryNo(),
+                    "释放预占 关联销售订单 " + delivery.getSalesOrderNo()
             );
         }
     }

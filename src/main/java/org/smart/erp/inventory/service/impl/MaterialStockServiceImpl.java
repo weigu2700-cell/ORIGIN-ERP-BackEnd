@@ -189,7 +189,8 @@ public class MaterialStockServiceImpl
     // 预留库存
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void reserveStock(Long materialId, Long warehouseId, BigDecimal quantity) {
+    public void reserveStock(Long materialId, Long warehouseId, BigDecimal quantity,
+                              String businessType, String businessNo, String remark) {
         LambdaQueryWrapper<MaterialStock> queryWrapper = buildStockQueryWrapper(materialId, warehouseId, quantity, "预留数量必须大于 0");
 
         int maxRetry = 3;
@@ -215,9 +216,7 @@ public class MaterialStockServiceImpl
                         TransactionType.RESERVE,
                         quantity, beforeOnHand,
                         beforeReserved,
-                        "预留库存",
-                        "预留库存",
-                        "预留库存"
+                        businessType, businessNo, remark
                 );
                 return;
             }
@@ -228,7 +227,8 @@ public class MaterialStockServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void releaseStock(Long materialId, Long warehouseId, BigDecimal quantity) {
+    public void releaseStock(Long materialId, Long warehouseId, BigDecimal quantity,
+                              String businessType, String businessNo, String remark) {
         LambdaQueryWrapper<MaterialStock> queryWrapper = buildStockQueryWrapper(materialId, warehouseId, quantity, "释放数量必须大于 0");
 
         int maxRetry = 3;
@@ -253,9 +253,7 @@ public class MaterialStockServiceImpl
                         TransactionType.RELEASE,
                         quantity, beforeOnHand,
                         beforeReserved,
-                        "释放库存",
-                        "释放库存",
-                        "释放库存"
+                        businessType, businessNo, remark
                 );
                 return;
             }
@@ -266,7 +264,8 @@ public class MaterialStockServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void outboundStock(Long materialId, Long warehouseId, BigDecimal quantity) {
+    public void outboundStock(Long materialId, Long warehouseId, BigDecimal quantity,
+                              String businessType, String businessNo, String remark) {
         LambdaQueryWrapper<MaterialStock> queryWrapper = buildStockQueryWrapper(materialId, warehouseId, quantity, "出库数量必须大于 0");
 
         int maxRetry = 3;
@@ -294,9 +293,7 @@ public class MaterialStockServiceImpl
                         TransactionType.OUTBOUND,
                         quantity, beforeOnHand,
                         beforeReserved,
-                        "SALES_ORDER",
-                        "SO202608240001",
-                        "出库"
+                        businessType, businessNo, remark
                 );
                 return;
             }
@@ -307,7 +304,8 @@ public class MaterialStockServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void inboundStock(Long materialId, Long warehouseId, BigDecimal quantity) {
+    public void inboundStock(Long materialId, Long warehouseId, BigDecimal quantity,
+                             String businessType, String businessNo, String remark) {
         LambdaQueryWrapper<MaterialStock> queryWrapper = buildStockQueryWrapper(materialId, warehouseId, quantity, "入库数量必须大于 0");
 
         int maxRetry = 3;
@@ -328,9 +326,7 @@ public class MaterialStockServiceImpl
                         TransactionType.INBOUND,
                         quantity, beforeOnHand,
                         beforeReserved,
-                        "PURCHASE_ORDER",
-                        "IO2026082400201",
-                        "入库"
+                        businessType, businessNo, remark
                 );
                 return;
             }

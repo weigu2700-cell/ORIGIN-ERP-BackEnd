@@ -299,7 +299,7 @@ public class SalesOrderServiceImpl
             throw new BusinessException(404, "销售订单不存在");
         }
 
-        if (dto.getStatus() == null || dto.getStatus().equals(SalesOrderStatus.DRAFT)) {
+        if (!salesOrder.getStatus().equals(SalesOrderStatus.DRAFT)) {
             throw new BusinessException(400, "销售订单状态不允许修改");
         }
 

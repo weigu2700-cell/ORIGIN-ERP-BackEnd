@@ -16,11 +16,15 @@ public interface MaterialStockService extends IService<MaterialStock> {
 
     MaterialStockVO getMaterialStock(Long id);
 
-    void reserveStock(Long materialId, Long warehouseId, BigDecimal quantity);
+    void reserveStock(Long materialId, Long warehouseId, BigDecimal quantity,
+                      String businessType, String businessNo, String remark);
 
-    void releaseStock(Long materialId, Long warehouseId, BigDecimal quantity);
+    void releaseStock(Long materialId, Long warehouseId, BigDecimal quantity,
+                      String businessType, String businessNo, String remark);
 
-    void outboundStock(Long materialId, Long warehouseId, BigDecimal quantity);
+    void outboundStock(Long materialId, Long warehouseId, BigDecimal quantity,
+                       String businessType, String businessNo, String remark);
 
-    void inboundStock(Long materialId, Long warehouseId, BigDecimal quantity);
+    void inboundStock(Long materialId, Long warehouseId, BigDecimal quantity,
+                      String businessType, String businessNo, String remark);
 }
