@@ -257,8 +257,8 @@ public class SalesDeliveryServiceImpl
     }
 
     /**
-     * 创建销售订单时按仓库批量生成草稿态出货单：每个仓库一张出货单，包含该仓库的全部订单明细行。
-     * 出货单为 DRAFT，预留库存仍由订单确认时统一处理；与订单创建同事务，订单创建失败则一并回滚。
+     * 销售订单确认时按仓库批量生成草稿态出货单：每个仓库一张出货单，包含该仓库的全部订单明细行。
+     * 出货单为 DRAFT，预留库存仍由订单确认时统一处理；与订单确认同事务，订单确认失败则一并回滚。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)

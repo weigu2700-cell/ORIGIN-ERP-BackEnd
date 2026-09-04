@@ -168,8 +168,6 @@ public class SalesOrderServiceImpl
         salesOrder.setTotalAmount(totalAmount);
         salesOrderMapper.updateById(salesOrder);
 
-        salesDeliveryService.createDeliveriesForOrder(salesOrder.getId());
-
         SalesOrderVo salesOrderVo = new SalesOrderVo();
         String customerName = customer.getName();
         BeanUtils.copyProperties(salesOrder,salesOrderVo);
@@ -335,6 +333,8 @@ public class SalesOrderServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesOrderVo confirmSalesOrderById(Long id, updateDto dto) {
+        // 仅确认时才按订单明细生成草稿态出库单（每个仓库一张）
+        salesDeliveryService.createDeliveriesForOrder(id);
         return changeStatus(
                 id,
                 SalesOrderStatus.DRAFT,
