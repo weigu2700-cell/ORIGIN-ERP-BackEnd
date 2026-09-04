@@ -333,14 +333,14 @@ public class SalesOrderServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesOrderVo confirmSalesOrderById(Long id, updateDto dto) {
-        // 仅确认时才按订单明细生成草稿态出库单（每个仓库一张）
-        salesDeliveryService.createDeliveriesForOrder(id);
+
         return changeStatus(
                 id,
                 SalesOrderStatus.DRAFT,
                 SalesOrderStatus.CONFIRMED,
                 "销售订单状态不允许确认",
                 () -> {
+                    salesDeliveryService.createDeliveriesForOrder(id);
                     // 级联确认所有草稿态出货单；预占库存由各出货单在确认时自行决定，订单不再直接操作库存
                     List<SalesDelivery> deliveries = salesDeliveryMapper.selectList(
                             new LambdaQueryWrapper<SalesDelivery>().eq(SalesDelivery::getSalesOrderId, id));
