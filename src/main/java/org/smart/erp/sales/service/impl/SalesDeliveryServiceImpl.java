@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
+import org.springframework.context.annotation.Lazy;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.master.entity.Customer;
 import org.smart.erp.master.mapper.CustomerMapper;
@@ -52,6 +53,7 @@ public class SalesDeliveryServiceImpl
     private final MaterialStockService materialStockService;
     private final BusinessNoGenerator businessNoGenerator;
     private final CustomerMapper customerMapper;
+    @Lazy
     private final SalesOrderService salesOrderService;
 
     public SalesDeliveryServiceImpl(
@@ -62,7 +64,7 @@ public class SalesDeliveryServiceImpl
             CustomerMapper customerMapper,
             SalesOrderMapper salesOrderMapper,
             SalesOrderItemMapper salesOrderItemMapper,
-            SalesOrderService salesOrderService
+            @Lazy SalesOrderService salesOrderService
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
