@@ -17,7 +17,8 @@ public class MaterialVO {
 
     private String type;
 
-    private String status;
+    /** 1 启用，0 停用 */
+    private Integer status;
 
     private String unit;
 

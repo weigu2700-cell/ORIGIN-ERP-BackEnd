@@ -1,7 +1,6 @@
 package org.smart.erp.master.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
@@ -68,10 +67,10 @@ public class MaterialSupplierServiceImpl
         }
 
         MaterialSupplier materialSupplier = materialSupplierMapper.selectOne(
-                new QueryWrapper<MaterialSupplier>()
-                        .eq("material_id", dto.getMaterialId())
-                        .eq("supplier_id", dto.getSupplierId())
-                        .eq("materialSupplierCode" , dto.getMaterialSupplierCode())
+                new LambdaQueryWrapper<MaterialSupplier>()
+                        .eq(MaterialSupplier::getMaterialId, dto.getMaterialId())
+                        .eq(MaterialSupplier::getSupplierId, dto.getSupplierId())
+                        .eq(MaterialSupplier::getMaterialSupplierCode, dto.getMaterialSupplierCode())
         );
 
         if (materialSupplier != null) {
@@ -80,6 +79,8 @@ public class MaterialSupplierServiceImpl
 
         MaterialSupplier entity = new MaterialSupplier();
         BeanUtils.copyProperties(dto, entity);
+        // 新建关联默认有效，避免状态字段为空后被前端显示为无效
+        entity.setStatus(MaterialSupplierStatus.ACTIVE);
         materialSupplierMapper.insert(entity);
     }
 
@@ -96,15 +97,16 @@ public class MaterialSupplierServiceImpl
 
         Page<MaterialSupplier> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()), queryWrapper);
 
-        List<Long> materialSupplierIds = page.getRecords().stream().map(MaterialSupplier::getMaterialId).toList();
+        List<Long> materialIds = page.getRecords().stream().map(MaterialSupplier::getMaterialId).distinct().toList();
+        List<Long> supplierIds = page.getRecords().stream().map(MaterialSupplier::getSupplierId).distinct().toList();
 
         Map<Long, String> materialNameMap = materialMapper
-                        .selectByIds(materialSupplierIds)
+                        .selectByIds(materialIds)
                         .stream()
                         .collect(Collectors.toMap(Material::getId, Material::getName));
 
         Map<Long, String> supplierNameMap = supplierMapper
-                        .selectByIds(materialSupplierIds)
+                        .selectByIds(supplierIds)
                         .stream()
                         .collect(Collectors.toMap(Supplier::getId, Supplier::getName));
 
@@ -113,6 +115,9 @@ public class MaterialSupplierServiceImpl
             BeanUtils.copyProperties(item, voPage);
             voPage.setMaterialName(materialNameMap.get(item.getMaterialId()));
             voPage.setSupplierName(supplierNameMap.get(item.getSupplierId()));
+            if (item.getStatus() != null) {
+                voPage.setStatus(item.getStatus().getCode());
+            }
             return voPage;
         });
     }
@@ -133,6 +138,9 @@ public class MaterialSupplierServiceImpl
         BeanUtils.copyProperties(materialSupplier, vo);
         vo.setMaterialName(materialName);
         vo.setSupplierName(supplierName);
+        if (materialSupplier.getStatus() != null) {
+            vo.setStatus(materialSupplier.getStatus().getCode());
+        }
         return vo;
     }
 

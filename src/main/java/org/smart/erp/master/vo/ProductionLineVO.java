@@ -1,7 +1,6 @@
 package org.smart.erp.master.vo;
 
 import lombok.Data;
-import org.smart.erp.master.enums.ProductionLineStatus;
 
 import java.math.BigDecimal;
 
@@ -20,7 +19,8 @@ public class ProductionLineVO {
 
     private String remark;
 
-    private ProductionLineStatus status;
+    /** 1 启用，0 停用 */
+    private Integer status;
 
     private String createTime;
 

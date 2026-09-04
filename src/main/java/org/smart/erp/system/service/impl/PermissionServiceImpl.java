@@ -11,6 +11,7 @@ import org.smart.erp.system.dto.PermissionGetDTO;
 import org.smart.erp.system.dto.PermissionUpdateDTO;
 import org.smart.erp.system.entity.Permission;
 import org.smart.erp.system.entity.RolePermission;
+import org.smart.erp.system.Enum.Status;
 import org.smart.erp.system.mapper.PermissionMapper;
 import org.smart.erp.system.mapper.RolePermissionMapper;
 import org.smart.erp.system.service.PermissionService;
@@ -191,6 +192,9 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         }
         Permission permission = new Permission();
         BeanUtils.copyProperties(dto, permission);
+        if (permission.getStatus() == null) {
+            permission.setStatus(Status.ENABLE);
+        }
         this.save(permission);
     }
 

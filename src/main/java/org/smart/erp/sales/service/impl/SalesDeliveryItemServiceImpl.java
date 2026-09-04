@@ -10,9 +10,12 @@ import org.smart.erp.master.enums.WarehouseStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.sales.dto.salesDeliveryItemDto.CreateItemDto;
+import org.smart.erp.sales.entity.SalesDelivery;
 import org.smart.erp.sales.entity.SalesDeliveryItem;
 import org.smart.erp.sales.entity.SalesOrderItem;
+import org.smart.erp.sales.enums.SalesDeliveryStatus;
 import org.smart.erp.sales.mapper.SalesDeliveryItemMapper;
+import org.smart.erp.sales.mapper.SalesDeliveryMapper;
 import org.smart.erp.sales.mapper.SalesOrderItemMapper;
 import org.smart.erp.sales.service.SalesDeliveryItemService;
 import org.smart.erp.sales.vo.SalesDeliveryItemVo;
@@ -42,18 +45,54 @@ public class SalesDeliveryItemServiceImpl
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
     private final SalesOrderItemMapper salesOrderItemMapper;
+    private final SalesDeliveryMapper salesDeliveryMapper;
 
     public SalesDeliveryItemServiceImpl(
             SalesDeliveryItemMapper salesDeliveryItemMapper,
             MaterialMapper materialMapper,
             WarehouseMapper warehouseMapper,
-            SalesOrderItemMapper salesOrderItemMapper
+            SalesOrderItemMapper salesOrderItemMapper,
+            SalesDeliveryMapper salesDeliveryMapper
     )
     {
         this.salesDeliveryItemMapper = salesDeliveryItemMapper;
         this.materialMapper = materialMapper;
         this.warehouseMapper = warehouseMapper;
         this.salesOrderItemMapper = salesOrderItemMapper;
+        this.salesDeliveryMapper = salesDeliveryMapper;
+    }
+
+    /**
+     * 汇总各销售订单明细已发货数量（仅统计未取消的发货单，DRAFT/CONFIRMED 均视为已占用可出货量）。
+     * 用于创建发货单时校验剩余可出货量，防止超发。
+     */
+    public Map<Long, BigDecimal> sumDeliveredQuantityByOrderItemIds(Collection<Long> orderItemIds) {
+        if (orderItemIds == null || orderItemIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        // 仅统计未取消的发货单
+        List<Object> deliveryIdObjs = salesDeliveryMapper.selectObjs(
+                new LambdaQueryWrapper<SalesDelivery>()
+                        .ne(SalesDelivery::getStatus, SalesDeliveryStatus.CANCELLED)
+                        .select(SalesDelivery::getId)
+        );
+        if (deliveryIdObjs.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Long> activeDeliveryIds = deliveryIdObjs.stream()
+                .map(o -> (Long) o)
+                .toList();
+
+        List<SalesDeliveryItem> deliveredItems = salesDeliveryItemMapper.selectList(
+                new LambdaQueryWrapper<SalesDeliveryItem>()
+                        .in(SalesDeliveryItem::getSalesOrderItemId, orderItemIds)
+                        .in(SalesDeliveryItem::getDeliveryId, activeDeliveryIds)
+        );
+        return deliveredItems.stream()
+                .collect(Collectors.groupingBy(
+                        SalesDeliveryItem::getSalesOrderItemId,
+                        Collectors.reducing(BigDecimal.ZERO, SalesDeliveryItem::getQuantity, BigDecimal::add)
+                ));
     }
 
     /**

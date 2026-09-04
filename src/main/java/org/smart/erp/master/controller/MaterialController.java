@@ -61,4 +61,13 @@ public class MaterialController {
         materialService.changeMaterialStatus(id, status);
         return Result.success();
     }
+
+    @Operation(summary = "切换物料状态（启用/停用互转）",
+            description = "调用一次在启用与停用之间切换，便于在前端用同一个按钮恢复启用被停用的物料")
+    @PreAuthorize("hasAnyAuthority('master:material:status')")
+    @PutMapping("/{id}/toggle-status")
+    public Result<Void> toggleMaterialStatus(@PathVariable Long id) {
+        materialService.toggleMaterialStatus(id);
+        return Result.success();
+    }
 }

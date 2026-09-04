@@ -64,6 +64,9 @@ public class ProductionLineServiceImpl
         ProductionLineVO vo = new ProductionLineVO();
         BeanUtils.copyProperties(productionLine, vo);
         vo.setWorkshopName(workshopName);
+        if (productionLine.getStatus() != null) {
+            vo.setStatus(productionLine.getStatus().getCode());
+        }
         return vo;
     }
 
@@ -105,6 +108,9 @@ public class ProductionLineServiceImpl
             ProductionLineVO vo = new ProductionLineVO();
             BeanUtils.copyProperties(line, vo);
             vo.setWorkshopName(workshopNameMap.get(line.getWorkshopId()));
+            if (line.getStatus() != null) {
+                vo.setStatus(line.getStatus().getCode());
+            }
             return vo;
         });
     }

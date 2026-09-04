@@ -11,6 +11,7 @@ import org.smart.erp.sales.dto.salesDeliveryDto.CreateDto;
 import org.smart.erp.sales.dto.salesDeliveryDto.ListDto;
 import org.smart.erp.sales.dto.salesDeliveryItemDto.CreateItemDto;
 import org.smart.erp.sales.entity.SalesDelivery;
+import org.smart.erp.sales.entity.SalesDeliveryItem;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.entity.SalesOrderItem;
 import org.smart.erp.sales.enums.SalesDeliveryStatus;
@@ -21,6 +22,7 @@ import org.smart.erp.sales.mapper.SalesOrderMapper;
 import org.smart.erp.sales.service.SalesDeliveryItemService;
 import org.smart.erp.sales.service.SalesDeliveryService;
 import org.smart.erp.inventory.service.MaterialStockService;
+import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.sales.vo.SalesDeliveryItemVo;
 import org.smart.erp.sales.vo.SalesDeliveryVo;
 import org.springframework.beans.BeanUtils;
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.math.BigDecimal;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,6 +52,7 @@ public class SalesDeliveryServiceImpl
     private final MaterialStockService materialStockService;
     private final BusinessNoGenerator businessNoGenerator;
     private final CustomerMapper customerMapper;
+    private final SalesOrderService salesOrderService;
 
     public SalesDeliveryServiceImpl(
             SalesDeliveryMapper salesDeliveryMapper,
@@ -57,7 +61,8 @@ public class SalesDeliveryServiceImpl
             BusinessNoGenerator businessNoGenerator,
             CustomerMapper customerMapper,
             SalesOrderMapper salesOrderMapper,
-            SalesOrderItemMapper salesOrderItemMapper
+            SalesOrderItemMapper salesOrderItemMapper,
+            SalesOrderService salesOrderService
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
@@ -67,6 +72,7 @@ public class SalesDeliveryServiceImpl
         this.customerMapper = customerMapper;
         this.salesOrderMapper = salesOrderMapper;
         this.salesOrderItemMapper = salesOrderItemMapper;
+        this.salesOrderService = salesOrderService;
     }
 
     //业务方法:--------------------------------------------------
@@ -113,7 +119,7 @@ public class SalesDeliveryServiceImpl
     }
 
     /**
-     * 确认发货：逐行出库扣减库存（在库与预占同步减少），任一行不足则整体回滚
+     * 完成出库：逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚
      */
     private void outboundStockForDelivery(Long deliveryId) {
         List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
@@ -122,6 +128,33 @@ public class SalesDeliveryServiceImpl
         }
         for (SalesDeliveryItemVo item : items) {
             materialStockService.outboundStock(
+                    item.getMaterialId(),
+                    item.getWarehouseId(),
+                    item.getQuantity()
+            );
+        }
+    }
+
+    /** 确认发货时逐行预占库存（可用库存不足则整体回滚）；预占由出货单决定 */
+    private void reserveStockForDelivery(Long deliveryId) {
+        List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
+        if (items.isEmpty()) {
+            throw new BusinessException(400, "发货单明细项不能为空，无法预占库存");
+        }
+        for (SalesDeliveryItemVo item : items) {
+            materialStockService.reserveStock(
+                    item.getMaterialId(),
+                    item.getWarehouseId(),
+                    item.getQuantity()
+            );
+        }
+    }
+
+    /** 取消发货时释放已预占库存（仅“已确认”发货单曾预占）；草稿态无需处理 */
+    private void releaseStockForDelivery(Long deliveryId) {
+        List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
+        for (SalesDeliveryItemVo item : items) {
+            materialStockService.releaseStock(
                     item.getMaterialId(),
                     item.getWarehouseId(),
                     item.getQuantity()
@@ -170,12 +203,22 @@ public class SalesDeliveryServiceImpl
                 : salesOrderItemMapper.selectByIds(orderItemIds).stream()
                     .collect(Collectors.toMap(SalesOrderItem::getId, item -> item));
 
+        // 已发货量（用于校验剩余可出货量，防止超发）
+        Map<Long, BigDecimal> deliveredQtyMap = salesDeliveryItemService.sumDeliveredQuantityByOrderItemIds(orderItemIds);
+
         int lineNo = 10;
         List<SalesDeliveryItemVo> itemVoList = new ArrayList<>();
         for (CreateItemDto itemDto : dto.getItems()) {
             SalesOrderItem orderItem = orderItemMap.get(itemDto.getSalesOrderItemId());
             if (orderItem == null || !Objects.equals(orderItem.getSalesOrderId(), dto.getSalesOrderId())) {
                 throw new BusinessException(400, "发货明细关联的销售订单明细不存在或不属于该销售订单");
+            }
+            // 剩余可出货量 = 订单明细数量 - 已发货量，必须 >= 本次发货数量
+            BigDecimal alreadyDelivered = deliveredQtyMap.getOrDefault(orderItem.getId(), BigDecimal.ZERO);
+            BigDecimal remaining = orderItem.getQuantity().subtract(alreadyDelivered);
+            if (itemDto.getQuantity().compareTo(remaining) > 0) {
+                throw new BusinessException(400, "发货数量超出可出货量：订单明细 " + orderItem.getId()
+                        + " 已发货 " + alreadyDelivered + "，剩余可发货 " + remaining);
             }
             itemVoList.add(salesDeliveryItemService.createSalesDeliveryItemVo(itemDto, salesDelivery.getId(), lineNo));
             lineNo += 10;
@@ -188,6 +231,56 @@ public class SalesDeliveryServiceImpl
         salesDeliveryVo.setItems(itemVoList);
 
         return salesDeliveryVo;
+    }
+
+    /**
+     * 创建销售订单时按仓库批量生成草稿态出货单：每个仓库一张出货单，包含该仓库的全部订单明细行。
+     * 出货单为 DRAFT，预留库存仍由订单确认时统一处理；与订单创建同事务，订单创建失败则一并回滚。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void createDeliveriesForOrder(Long salesOrderId) {
+        SalesOrder salesOrder = salesOrderMapper.selectById(salesOrderId);
+        if (salesOrder == null) {
+            throw new BusinessException(404, "销售订单不存在");
+        }
+        List<SalesOrderItem> orderItems = salesOrderItemMapper.selectList(
+                new LambdaQueryWrapper<SalesOrderItem>()
+                        .eq(SalesOrderItem::getSalesOrderId, salesOrderId)
+        );
+        if (orderItems.isEmpty()) {
+            return;
+        }
+        // 按仓库分组：每个仓库生成一张草稿态出货单（无仓库的明细归入 -1 组，避免空键 NPE）
+        Map<Long, List<SalesOrderItem>> byWarehouse = orderItems.stream()
+                .collect(Collectors.groupingBy(item -> item.getWarehouseId() == null ? -1L : item.getWarehouseId()));
+
+        List<SalesDeliveryItem> allDeliveryItems = new ArrayList<>();
+        for (Map.Entry<Long, List<SalesOrderItem>> entry : byWarehouse.entrySet()) {
+            SalesDelivery delivery = new SalesDelivery();
+            delivery.setDeliveryNo(businessNoGenerator.generateNo("erp:sequence:sales-delivery:", "SD"));
+            delivery.setSalesOrderId(salesOrder.getId());
+            delivery.setSalesOrderNo(salesOrder.getOrderNo());
+            delivery.setCustomerId(salesOrder.getCustomerId());
+            delivery.setStatus(SalesDeliveryStatus.DRAFT);
+            salesDeliveryMapper.insert(delivery);
+
+            int lineNo = 10;
+            for (SalesOrderItem item : entry.getValue()) {
+                SalesDeliveryItem di = new SalesDeliveryItem();
+                di.setDeliveryId(delivery.getId());
+                di.setLineNo(lineNo);
+                di.setSalesOrderItemId(item.getId());
+                di.setMaterialId(item.getMaterialId());
+                di.setWarehouseId(item.getWarehouseId());
+                di.setQuantity(item.getQuantity());
+                allDeliveryItems.add(di);
+                lineNo += 10;
+            }
+        }
+        if (!allDeliveryItems.isEmpty()) {
+            salesDeliveryItemService.saveBatch(allDeliveryItems);
+        }
     }
 
     @Override
@@ -212,21 +305,69 @@ public class SalesDeliveryServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo confirmSalesDeliveryById(Long id) {
+        // 确认即预占库存（由出货单决定）；实际扣减延迟至“完成出库”时执行
         return changeStatus(id,
                 SalesDeliveryStatus.DRAFT,
                 SalesDeliveryStatus.CONFIRMED,
                 "发货单状态不允许确认",
+                () -> reserveStockForDelivery(id));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SalesDeliveryVo completeSalesDeliveryById(Long id) {
+        SalesDelivery delivery = salesDeliveryMapper.selectById(id);
+        if (delivery == null) {
+            throw new BusinessException(404, "发货单不存在");
+        }
+        // 先完成出库：逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚
+        SalesDeliveryVo vo = changeStatus(id,
+                SalesDeliveryStatus.CONFIRMED,
+                SalesDeliveryStatus.COMPLETED,
+                "仅已确认的发货单可完成出库",
                 () -> outboundStockForDelivery(id));
+        // 仅当该订单下所有出货单均已出库完成时，才联动将销售订单置为完成
+        if (allDeliveriesCompleted(delivery.getSalesOrderId())) {
+            salesOrderService.finishSalesOrderById(delivery.getSalesOrderId());
+        }
+        return vo;
+    }
+
+    /** 该订单下的出货单是否非空且全部出库完成 */
+    private boolean allDeliveriesCompleted(Long salesOrderId) {
+        List<SalesDelivery> deliveries = salesDeliveryMapper.selectList(
+                new LambdaQueryWrapper<SalesDelivery>().eq(SalesDelivery::getSalesOrderId, salesOrderId));
+        if (deliveries.isEmpty()) {
+            return false;
+        }
+        for (SalesDelivery d : deliveries) {
+            if (d.getStatus() != SalesDeliveryStatus.COMPLETED) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo cancelSalesDeliveryById(Long id) {
-        return changeStatus(id,
-                SalesDeliveryStatus.DRAFT,
-                SalesDeliveryStatus.CANCELLED,
-                "仅草稿态发货单可取消",
-                () -> {});
+        SalesDelivery delivery = salesDeliveryMapper.selectById(id);
+        if (delivery == null) {
+            throw new BusinessException(404, "发货单不存在");
+        }
+        if (delivery.getStatus() == SalesDeliveryStatus.COMPLETED) {
+            throw new BusinessException(400, "已出库完成的发货单不可取消");
+        }
+        if (delivery.getStatus() == SalesDeliveryStatus.CANCELLED) {
+            throw new BusinessException(400, "发货单已取消");
+        }
+        // 仅“已确认”发货单此前预占了库存，取消时释放预占；草稿态无需处理
+        if (delivery.getStatus() == SalesDeliveryStatus.CONFIRMED) {
+            releaseStockForDelivery(id);
+        }
+        delivery.setStatus(SalesDeliveryStatus.CANCELLED);
+        salesDeliveryMapper.updateById(delivery);
+        return getSalesDeliveryVoById(id);
     }
 
     @Override

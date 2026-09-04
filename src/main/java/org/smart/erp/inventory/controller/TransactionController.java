@@ -33,9 +33,8 @@ public class TransactionController {
     @Operation(summary = "导出库存流水",
             description = "以 Excel 文件流形式下载全部库存流水")
     @GetMapping("/export")
-    public Result<Void> export(HttpServletResponse response) {
+    public void export(HttpServletResponse response) {
         transactionService.export(response);
-        return Result.success();
     }
 
     @Operation(summary = "导入库存流水",

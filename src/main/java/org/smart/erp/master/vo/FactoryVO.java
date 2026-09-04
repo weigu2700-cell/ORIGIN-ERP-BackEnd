@@ -1,7 +1,6 @@
 package org.smart.erp.master.vo;
 
 import lombok.Data;
-import org.smart.erp.master.enums.FactoryStatus;
 
 @Data
 public class FactoryVO {
@@ -14,7 +13,8 @@ public class FactoryVO {
 
     private String shortName;
 
-    private FactoryStatus status;
+    /** 1 启用，0 停用 */
+    private Integer status;
 
     private String address;
 

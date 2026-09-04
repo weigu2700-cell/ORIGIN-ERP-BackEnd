@@ -13,6 +13,7 @@ import org.smart.erp.system.entity.Menu;
 import org.smart.erp.system.entity.RoleInfo;
 import org.smart.erp.system.entity.RoleMenu;
 import org.smart.erp.system.entity.RolePermission;
+import org.smart.erp.system.Enum.RoleEnum;
 import org.smart.erp.system.mapper.RoleInfoMapper;
 import org.smart.erp.system.mapper.RoleMenuMapper;
 import org.smart.erp.system.mapper.RolePermissionMapper;
@@ -95,6 +96,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
         if (dto.getName() != null) roleInfo.setName(dto.getName());
         if (dto.getCode() != null) roleInfo.setCode(dto.getCode());
         if (dto.getStatus() != null) roleInfo.setStatus(dto.getStatus());
+        if (roleInfo.getStatus() == null) roleInfo.setStatus(RoleEnum.ENABLE);
         this.save(roleInfo);
     }
 

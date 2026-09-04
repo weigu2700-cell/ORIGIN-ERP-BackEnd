@@ -1,15 +1,17 @@
 package org.smart.erp.master.enums;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.baomidou.mybatisplus.annotation.EnumValue;
 import lombok.Getter;
 
 import java.util.Map;
 
 @Getter
 public enum WarehouseStatus {
-    ENABLE(0, "启用"),
-    DISABLE(1, "禁用");
+    ENABLE(1, "启用"),
+    DISABLE(0, "禁用");
 
+    @EnumValue
     private final Integer code;
     private final String desc;
 

@@ -16,6 +16,7 @@ import org.smart.erp.system.entity.Menu;
 import org.smart.erp.system.entity.RoleInfo;
 import org.smart.erp.system.entity.RoleMenu;
 import org.smart.erp.system.entity.UserRole;
+import org.smart.erp.system.Enum.Status;
 import org.smart.erp.system.mapper.MenuMapper;
 import org.smart.erp.system.mapper.RoleInfoMapper;
 import org.smart.erp.system.mapper.RoleMenuMapper;
@@ -188,6 +189,9 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     public void createMenu(MenuCreateDTO dto) {
         Menu menu = new Menu();
         BeanUtils.copyProperties(dto, menu);
+        if (menu.getStatus() == null) {
+            menu.setStatus(Status.ENABLE);
+        }
         this.save(menu);
     }
 

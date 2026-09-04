@@ -31,6 +31,9 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
     private MaterialVO convertToVO(Material material) {
         MaterialVO vo = new MaterialVO();
         BeanUtils.copyProperties(material, vo);
+        if (material.getStatus() != null) {
+            vo.setStatus(material.getStatus().getCode());
+        }
         return vo;
     }
 
@@ -55,7 +58,7 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
                         .eq(dto.getStatus() != null, Material::getStatus, dto.getStatus());
 
        Page<Material> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()), queryWrapper);
-       return PageConvertUtils.convert(page, MaterialVO.class);
+       return PageConvertUtils.convert(page, this::convertToVO);
     }
 
     @Override
@@ -88,6 +91,19 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
             throw new BusinessException(404, "物料不存在");
         }
         material.setStatus(status);
+        materialMapper.updateById(material);
+    }
+
+    @Override
+    public void toggleMaterialStatus(Long id) {
+        Material material = materialMapper.selectById(id);
+        if (material == null) {
+            throw new BusinessException(404, "物料不存在");
+        }
+        MaterialStatus target = material.getStatus() == MaterialStatus.ENABLE
+                ? MaterialStatus.DISABLE
+                : MaterialStatus.ENABLE;
+        material.setStatus(target);
         materialMapper.updateById(material);
     }
 

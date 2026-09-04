@@ -10,6 +10,7 @@ import org.smart.erp.system.dto.DeptListDTO;
 import org.smart.erp.system.dto.DeptUpdateDTO;
 import org.smart.erp.system.entity.Dept;
 import org.smart.erp.system.entity.User;
+import org.smart.erp.system.Enum.DeptStatus;
 import org.smart.erp.system.mapper.DeptMapper;
 import org.smart.erp.system.mapper.UserMapper;
 import org.smart.erp.system.service.DeptService;
@@ -83,6 +84,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
         }
         Dept dept = new Dept();
         BeanUtils.copyProperties(dto, dept);
+        dept.setStatus(DeptStatus.ENABLE);
         this.save(dept);
     }
 

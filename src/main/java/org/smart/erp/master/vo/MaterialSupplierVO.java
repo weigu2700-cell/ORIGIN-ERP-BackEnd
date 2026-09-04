@@ -1,7 +1,6 @@
 package org.smart.erp.master.vo;
 
 import lombok.Data;
-import org.smart.erp.master.enums.MaterialSupplierStatus;
 
 import java.math.BigDecimal;
 
@@ -26,5 +25,6 @@ public class MaterialSupplierVO {
 
     private String remark;
 
-    private MaterialSupplierStatus status;
+    /** 1 有效，0 无效 */
+    private Integer status;
 }

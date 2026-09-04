@@ -49,13 +49,23 @@ public class SalesDeliveryController {
     }
 
     @Operation(summary = "确认销售出库单",
-            description = "仅草稿态发货单可确认；确认时逐行出库扣减库存（在库与预占同步减少），任一行不足则整体回滚")
+            description = "仅草稿态发货单可确认；确认仅变更状态，实际库存扣减延迟至“完成出库”时执行")
     @PreAuthorize("hasAnyAuthority('sales:delivery:confirm')")
     @PutMapping("/{id}/confirm")
     public Result<SalesDeliveryVo> confirm(
             @Parameter(description = "发货单id", required = true)
             @PathVariable Long id) {
         return Result.success(salesDeliveryService.confirmSalesDeliveryById(id));
+    }
+
+    @Operation(summary = "完成销售出库单",
+            description = "仅已确认发货单可完成出库；完成时逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚")
+    @PreAuthorize("hasAnyAuthority('sales:delivery:complete')")
+    @PutMapping("/{id}/complete")
+    public Result<SalesDeliveryVo> complete(
+            @Parameter(description = "发货单id", required = true)
+            @PathVariable Long id) {
+        return Result.success(salesDeliveryService.completeSalesDeliveryById(id));
     }
 
     @Operation(summary = "取消销售出库单", description = "仅草稿态发货单可取消")

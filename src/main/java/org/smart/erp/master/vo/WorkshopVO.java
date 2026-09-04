@@ -1,7 +1,6 @@
 package org.smart.erp.master.vo;
 
 import lombok.Data;
-import org.smart.erp.master.enums.WorkshopStatus;
 
 @Data
 public class WorkshopVO {
@@ -18,5 +17,6 @@ public class WorkshopVO {
 
     private String remark;
 
-    private WorkshopStatus status;
+    /** 1 启用，0 停用 */
+    private Integer status;
 }

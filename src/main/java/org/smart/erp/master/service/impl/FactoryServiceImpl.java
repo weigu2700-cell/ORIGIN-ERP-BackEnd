@@ -88,6 +88,9 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
         FactoryVO vo = new FactoryVO();
         BeanUtils.copyProperties(factory, vo);
         vo.setId(String.valueOf(factory.getId()));
+        if (factory.getStatus() != null) {
+            vo.setStatus(factory.getStatus().getCode());
+        }
         return vo;
     }
 

@@ -12,9 +12,14 @@ public interface SalesDeliveryService extends IService<SalesDelivery> {
 
     SalesDeliveryVo createSalesDeliveryVo(CreateDto dto);
 
+    /** 创建销售订单时按仓库批量生成草稿态出货单 */
+    void createDeliveriesForOrder(Long salesOrderId);
+
     SalesDeliveryVo getSalesDeliveryVoById(Long id);
 
     SalesDeliveryVo confirmSalesDeliveryById(Long id);
+
+    SalesDeliveryVo completeSalesDeliveryById(Long id);
 
     SalesDeliveryVo cancelSalesDeliveryById(Long id);
 

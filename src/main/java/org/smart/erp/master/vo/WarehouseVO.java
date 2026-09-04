@@ -21,4 +21,7 @@ public class WarehouseVO {
     private Long factoryId;
 
     private String factoryName;
+
+    /** 1 启用，0 停用 */
+    private Integer status;
 }

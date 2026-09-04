@@ -19,4 +19,7 @@ public interface MaterialService extends IService<Material> {
     void updateMaterial(Long id, MaterialUpdateDTO dto);
 
     void changeMaterialStatus(Long id, MaterialStatus status);
+
+    /** 切换物料状态：启用/停用互转 */
+    void toggleMaterialStatus(Long id);
 }

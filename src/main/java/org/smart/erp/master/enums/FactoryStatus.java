@@ -5,8 +5,8 @@ import lombok.Getter;
 
 @Getter
 public enum FactoryStatus {
-    ENABLE(0, "启用"),
-    DISABLE(1, "禁用");
+    ENABLE(1, "启用"),
+    DISABLE(0, "禁用");
 
     @EnumValue
     private final Integer code;

@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
-import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.master.entity.Customer;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
@@ -16,11 +15,15 @@ import org.smart.erp.sales.dto.salesOrderDto.createDto;
 import org.smart.erp.sales.dto.salesOrderDto.listDto;
 import org.smart.erp.sales.dto.salesOrderDto.updateDto;
 import org.smart.erp.sales.dto.salesOrderItemDto.createItemDto;
+import org.smart.erp.sales.entity.SalesDelivery;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.entity.SalesOrderItem;
+import org.smart.erp.sales.enums.SalesDeliveryStatus;
 import org.smart.erp.sales.enums.SalesOrderStatus;
+import org.smart.erp.sales.mapper.SalesDeliveryMapper;
 import org.smart.erp.sales.mapper.SalesOrderItemMapper;
 import org.smart.erp.sales.mapper.SalesOrderMapper;
+import org.smart.erp.sales.service.SalesDeliveryService;
 import org.smart.erp.sales.service.SalesOrderItemService;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.sales.vo.SalesOrderItemVo;
@@ -50,7 +53,8 @@ public class SalesOrderServiceImpl
     private final BusinessNoGenerator businessNoGenerator;
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
-    private final MaterialStockService materialStockService;
+    private final SalesDeliveryMapper salesDeliveryMapper;
+    private final SalesDeliveryService salesDeliveryService;
 
     public SalesOrderServiceImpl(
             SalesOrderMapper salesOrderMapper,
@@ -60,7 +64,9 @@ public class SalesOrderServiceImpl
             BusinessNoGenerator businessNoGenerator,
             MaterialMapper materialMapper,
             WarehouseMapper warehouseMapper,
-            MaterialStockService materialStockService)
+            SalesDeliveryMapper salesDeliveryMapper,
+            SalesDeliveryService salesDeliveryService
+    )
     {
         this.salesOrderMapper = salesOrderMapper;
         this.salesOrderItemMapper = salesOrderItemMapper;
@@ -69,7 +75,8 @@ public class SalesOrderServiceImpl
         this.businessNoGenerator = businessNoGenerator;
         this.materialMapper = materialMapper;
         this.warehouseMapper = warehouseMapper;
-        this.materialStockService = materialStockService;
+        this.salesDeliveryMapper = salesDeliveryMapper;
+        this.salesDeliveryService = salesDeliveryService;
     }
     //业务封装：------------------------------------------------
 
@@ -105,21 +112,6 @@ public class SalesOrderServiceImpl
         return getSalesOrderVoById(id);
     }
 
-    /** 逐行预占销售订单明细库存，任一行可用库存不足则由外层事务整体回滚 */
-    private void reserveStockForOrder(Long salesOrderId) {
-        List<SalesOrderItemVo> items = salesOrderItemService.getItemBySalesOrderId(salesOrderId);
-        if (items.isEmpty()) {
-            throw new BusinessException(400, "销售订单明细项不能为空，无法确认");
-        }
-        for (SalesOrderItemVo item : items) {
-            materialStockService.reserveStock(
-                    item.getMaterialId(),
-                    item.getWarehouseId(),
-                    item.getQuantity()
-            );
-        }
-    }
-
     /** 汇总某销售订单全部明细金额，作为订单总金额 */
     private BigDecimal calculateTotalAmount(Long salesOrderId) {
         List<SalesOrderItem> items = salesOrderItemMapper.selectList(
@@ -130,18 +122,6 @@ public class SalesOrderServiceImpl
                 .map(SalesOrderItem::getAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    /** 逐行释放销售订单明细的预占库存，任一行失败则由外层事务整体回滚 */
-    private void releaseStockForOrder(Long salesOrderId) {
-        List<SalesOrderItemVo> items = salesOrderItemService.getItemBySalesOrderId(salesOrderId);
-        for (SalesOrderItemVo item : items) {
-            materialStockService.releaseStock(
-                    item.getMaterialId(),
-                    item.getWarehouseId(),
-                    item.getQuantity()
-            );
-        }
     }
 
     //接口：------------------------------------------------
@@ -187,6 +167,8 @@ public class SalesOrderServiceImpl
 
         salesOrder.setTotalAmount(totalAmount);
         salesOrderMapper.updateById(salesOrder);
+
+        salesDeliveryService.createDeliveriesForOrder(salesOrder.getId());
 
         SalesOrderVo salesOrderVo = new SalesOrderVo();
         String customerName = customer.getName();
@@ -337,6 +319,7 @@ public class SalesOrderServiceImpl
     @Transactional(rollbackFor = Exception.class)
     public void removeSalesOrderById(Long id) {
         SalesOrder salesOrder = salesOrderMapper.selectById(id);
+
         if (salesOrder == null) {
             throw new BusinessException(404, "销售订单不存在");
         }
@@ -357,7 +340,16 @@ public class SalesOrderServiceImpl
                 SalesOrderStatus.DRAFT,
                 SalesOrderStatus.CONFIRMED,
                 "销售订单状态不允许确认",
-                () -> reserveStockForOrder(id)
+                () -> {
+                    // 级联确认所有草稿态出货单；预占库存由各出货单在确认时自行决定，订单不再直接操作库存
+                    List<SalesDelivery> deliveries = salesDeliveryMapper.selectList(
+                            new LambdaQueryWrapper<SalesDelivery>().eq(SalesDelivery::getSalesOrderId, id));
+                    for (SalesDelivery d : deliveries) {
+                        if (d.getStatus() == SalesDeliveryStatus.DRAFT) {
+                            salesDeliveryService.confirmSalesDeliveryById(d.getId());
+                        }
+                    }
+                }
         );
     }
 
@@ -369,8 +361,48 @@ public class SalesOrderServiceImpl
                 SalesOrderStatus.CONFIRMED,
                 SalesOrderStatus.CANCELLED,
                 "销售订单状态不允许取消",
-                () -> releaseStockForOrder(id)
+                () -> {
+                    // 级联取消所有未完成的出货单；出货单为“已确认”时会自行释放预占，订单本身不操作库存
+                    List<SalesDelivery> deliveries = salesDeliveryMapper.selectList(
+                            new LambdaQueryWrapper<SalesDelivery>().eq(SalesDelivery::getSalesOrderId, id));
+                    for (SalesDelivery d : deliveries) {
+                        if (d.getStatus() == SalesDeliveryStatus.COMPLETED) {
+                            throw new BusinessException(400, "订单存在已完成的发货单，无法取消");
+                        }
+                        if (d.getStatus() == SalesDeliveryStatus.DRAFT
+                                || d.getStatus() == SalesDeliveryStatus.CONFIRMED) {
+                            salesDeliveryService.cancelSalesDeliveryById(d.getId());
+                        }
+                    }
+                }
         );
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void finishSalesOrderById(Long id) {
+        SalesOrder salesOrder = salesOrderMapper.selectById(id);
+        if (salesOrder == null) {
+            throw new BusinessException(404, "销售订单不存在");
+        }
+        // 幂等：已被完成出库联动置为完成时直接返回，避免重复处理
+        if (salesOrder.getStatus() == SalesOrderStatus.COMPLETED) {
+            return;
+        }
+        if (salesOrder.getStatus() != SalesOrderStatus.CONFIRMED) {
+            throw new BusinessException(400, "销售订单状态不允许完成");
+        }
+        // 订单完成的前提：所有出货单均已出库完成，否则不允许完成
+        List<SalesDelivery> deliveries = salesDeliveryMapper.selectList(
+                new LambdaQueryWrapper<SalesDelivery>().eq(SalesDelivery::getSalesOrderId, id));
+        for (SalesDelivery d : deliveries) {
+            if (d.getStatus() != SalesDeliveryStatus.COMPLETED) {
+                throw new BusinessException(400, "存在未出库完成的发货单，无法完成订单");
+            }
+        }
+        // 订单仅作里程碑展示，实际库存由出货单完成出库时扣减，此处不再操作库存
+        salesOrder.setStatus(SalesOrderStatus.COMPLETED);
+        salesOrderMapper.updateById(salesOrder);
     }
 
 }

@@ -22,4 +22,6 @@ public interface SalesOrderService extends IService<SalesOrder> {
     SalesOrderVo confirmSalesOrderById(Long id, updateDto dto);
 
     SalesOrderVo cancelSalesOrderById(Long id, updateDto dto);
+
+    void finishSalesOrderById(Long id);
 }

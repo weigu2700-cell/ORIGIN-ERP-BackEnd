@@ -9,7 +9,8 @@ create table `smart-erp`.sal_order_item
     unit_price     decimal(18, 4) not null comment '单价',
     amount         decimal(18, 4) not null comment '总价',
     warehouse_id   bigint         not null comment '仓库id',
-    delivery_date  datetime       null comment '要求交货日期'
+    delivery_date  datetime       null comment '要求交货日期',
+    create_time    datetime       not null comment '创建时间'
 )
     comment '销售订单明细表';
 
@@ -24,4 +25,3 @@ create index idx_sales_order_line
 
 create index idx_warehouse_id
     on `smart-erp`.sal_order_item (warehouse_id);
-

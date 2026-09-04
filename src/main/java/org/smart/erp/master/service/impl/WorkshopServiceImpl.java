@@ -102,6 +102,9 @@ public class WorkshopServiceImpl extends ServiceImpl<WorkshopMapper, Workshop> i
                     WorkshopVO vo = new WorkshopVO();
                     BeanUtils.copyProperties(workshop , vo);
                     vo.setFactoryName(factoryNameMap.get(workshop.getFactoryId()));
+                    if (workshop.getStatus() != null) {
+                        vo.setStatus(workshop.getStatus().getCode());
+                    }
                     return vo;
                 })
                 .toList());
@@ -124,8 +127,10 @@ public class WorkshopServiceImpl extends ServiceImpl<WorkshopMapper, Workshop> i
         }
         WorkshopVO vo = new WorkshopVO();
         BeanUtils.copyProperties(workshop , vo);
+        if (workshop.getStatus() != null) {
+            vo.setStatus(workshop.getStatus().getCode());
+        }
         vo.setFactoryName(factory.getName());
-        vo.setStatus(WorkshopStatus.DISABLE);
         return vo;
     }
 

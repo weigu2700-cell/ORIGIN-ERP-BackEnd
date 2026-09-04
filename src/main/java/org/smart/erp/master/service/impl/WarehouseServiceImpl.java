@@ -76,6 +76,9 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
     private WarehouseVO toVO(Warehouse warehouse) {
         WarehouseVO vo = new WarehouseVO();
         BeanUtils.copyProperties(warehouse, vo);
+        if (warehouse.getStatus() != null) {
+            vo.setStatus(warehouse.getStatus().getCode());
+        }
         return vo;
     }
 
@@ -88,7 +91,7 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
         Factory factory = requireEnabledFactory(dto.getFactoryId());
         BeanUtils.copyProperties(dto, warehouse);
         warehouse.setCode(dateCodeRuleUtil.setDateCodeRule("WH", factory.getId()));
-        warehouse.setStatus(WarehouseStatus.ENABLE);
+        warehouse.setStatus(dto.getStatus() == null ? WarehouseStatus.ENABLE : dto.getStatus());
         save(warehouse);
     }
 
@@ -126,6 +129,9 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
             WarehouseVO vo = new WarehouseVO();
             BeanUtils.copyProperties(warehouse, vo);
             vo.setFactoryName(factoryNameMap.get(warehouse.getFactoryId()));
+            if (warehouse.getStatus() != null) {
+                vo.setStatus(warehouse.getStatus().getCode());
+            }
             return vo;
         });
     }
@@ -153,6 +159,9 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
 
     @Override
     public void updateWarehouseStatus(Long id, WarehouseStatus status) {
+        if (status == null) {
+            throw new BusinessException(400, "仓库状态不能为空");
+        }
         Warehouse warehouse = getCheckedEntity(id);
         warehouse.setStatus(status);
         updateById(warehouse);
