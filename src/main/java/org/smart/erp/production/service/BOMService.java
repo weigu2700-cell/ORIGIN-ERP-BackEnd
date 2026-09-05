@@ -9,9 +9,13 @@ import org.smart.erp.production.vo.BOMVo;
 
 public interface BOMService extends IService<BOM> {
 
+    void activeBOM(Long id);
+
     void createBOM(creatBOMDto dto);
 
     BOMVo getBOMDetailById(Long id);
 
     Page<BOMVo> getPageBOMVo(pageBOMDto dto);
+
+    void disableBOM(Long id);
 }

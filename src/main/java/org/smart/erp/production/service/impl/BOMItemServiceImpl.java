@@ -70,6 +70,7 @@ public class BOMItemServiceImpl
 
         BOMItem bomItem = new BOMItem();
         BeanUtils.copyProperties(dto,bomItem);
+        bomItem.setBomId(bomId);
         bomItem.setLineNo(lineNo);
         bomItem.setLossRate(lossRate);
         save(bomItem);
@@ -104,6 +105,9 @@ public class BOMItemServiceImpl
 
     @Override
     public Map<Long, List<BOMItemVo>> getBOMItemMap(List<Long> bomIds) {
+        if (bomIds == null || bomIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
         List<BOMItem> bomItems = list(
                 new LambdaQueryWrapper<BOMItem>().in(BOMItem::getBomId, bomIds)
         );

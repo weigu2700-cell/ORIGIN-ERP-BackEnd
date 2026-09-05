@@ -12,6 +12,7 @@ import org.smart.erp.production.dto.creatBOMDto;
 import org.smart.erp.production.dto.createBOMItemDto;
 import org.smart.erp.production.dto.pageBOMDto;
 import org.smart.erp.production.entity.BOM;
+import org.smart.erp.production.entity.BOMItem;
 import org.smart.erp.production.enums.BOMStatus;
 import org.smart.erp.production.mapper.BOMItemMapper;
 import org.smart.erp.production.mapper.BOMMapper;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class BOMServiceImpl
@@ -126,14 +128,70 @@ public class BOMServiceImpl
         List<Long> bomIds = page.getRecords().stream().map(BOM::getId).toList();
         Map<Long, List<BOMItemVo>> bomItemMap = bomItemService.getBOMItemMap(bomIds);
 
+        // 批量反查 BOM 头所属物料，补全编码与名称（避免逐行查库）
+        List<Long> materialIds = page.getRecords().stream()
+                .map(BOM::getMaterialId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, Material> materialMap = materialIds.isEmpty()
+                ? Collections.emptyMap()
+                : materialMapper.selectByIds(materialIds).stream()
+                .collect(Collectors.toMap(Material::getId, m -> m));
+
         Page<BOMVo> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         voPage.setRecords(page.getRecords().stream().map(bom -> {
             BOMVo bomVo = new BOMVo();
             BeanUtils.copyProperties(bom, bomVo);
+            Material material = materialMap.get(bom.getMaterialId());
+            if (material != null) {
+                bomVo.setMaterialCode(material.getCode());
+                bomVo.setMaterialName(material.getName());
+            }
             bomVo.setBomItems(bomItemMap.get(bom.getId()));
             return bomVo;
         }).toList());
 
         return voPage;
+    }
+
+    @Override
+    public void disableBOM(Long id) {
+        BOM bom = baseMapper.selectById(id);
+        if (Objects.isNull(bom)) {
+            throw new BusinessException(404,"BOM不存在");
+        }
+        if (bom.getStatus() != BOMStatus.ACTIVE) {
+            throw new BusinessException(400, "仅启用状态BOM允许停用");
+        }
+        bom.setStatus(BOMStatus.INACTIVE);
+        baseMapper.updateById(bom);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void activeBOM(Long id) {
+        BOM bom = baseMapper.selectById(id);
+        if (Objects.isNull(bom)) {
+            throw new BusinessException(404,"BOM不存在");
+        }
+        if (bom.getStatus().equals(BOMStatus.ACTIVE)) {
+            throw new BusinessException(400,"BOM已激活");
+        }
+
+        BOM latestBom = baseMapper.selectOne(
+                new LambdaQueryWrapper<BOM>()
+                        .eq(BOM::getMaterialId, bom.getMaterialId())
+                        .orderByDesc(BOM::getVersion)
+                        .last("limit 1")
+        );
+        if (latestBom != null && latestBom.getVersion() >= bom.getVersion()) {
+            throw new BusinessException(400,"BOM版本号必须大于当前物料的BOM版本号");
+        }
+        List<BOMItem> bomItems = bomItemMapper.selectList(
+                new LambdaQueryWrapper<BOMItem>().eq(BOMItem::getBomId, bom.getId())
+        );
+        if (bomItems.isEmpty()) {
+            throw new BusinessException(400,"BOM明细不能为空");
+        }
+        bom.setStatus(BOMStatus.ACTIVE);
+        baseMapper.updateById(bom);
     }
 }
