@@ -8,9 +8,14 @@ import org.smart.erp.common.result.Result;
 import org.smart.erp.production.dto.creatBOMDto;
 import org.smart.erp.production.dto.pageBOMDto;
 import org.smart.erp.production.service.BOMService;
+import org.smart.erp.production.vo.BOMExplosionVo;
 import org.smart.erp.production.vo.BOMVo;
+import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("prd/bom")
@@ -55,5 +60,21 @@ public class BOMController {
     public Result<Void> disableBOM(@PathVariable @Parameter(description = "BOM 主键 ID") Long id) {
         bomService.disableBOM(id);
         return Result.success();
+    }
+
+    @GetMapping("/{id}/explosion")
+    @Operation(summary = "BOM拆解", description = "BOM拆解")
+    public Result<List<BOMExplosionVo>> getBOMExplosion(
+            @PathVariable @Parameter(description = "BOM 主键 ID") Long id,
+            @RequestParam @Parameter(description = "需求数量") BigDecimal quantity) {
+        return Result.success(bomService.getBOMExplosion(id, quantity));
+    }
+
+    @GetMapping("/{id}/requirement")
+    @Operation(summary = "物料需求", description = "物料需求")
+    public Result<List<MaterialRequirementVo>> getMaterialRequirement(
+            @PathVariable @Parameter(description = "BOM 主键 ID") Long id,
+            @RequestParam @Parameter(description = "需求数量") BigDecimal quantity) {
+        return Result.success(bomService.calculateMaterialRequirement(id, quantity));
     }
 }
