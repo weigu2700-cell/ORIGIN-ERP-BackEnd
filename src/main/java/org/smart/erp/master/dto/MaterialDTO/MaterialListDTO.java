@@ -5,9 +5,9 @@ import lombok.Data;
 @Data
 public class MaterialListDTO {
 
-    private Integer page;
+    private int page = 1;
 
-    private Integer pageSize;
+    private int pageSize = 10;
 
     private String name;
 

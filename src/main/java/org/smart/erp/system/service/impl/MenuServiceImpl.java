@@ -23,14 +23,17 @@ import org.smart.erp.system.mapper.RoleMenuMapper;
 import org.smart.erp.system.mapper.UserRoleMapper;
 import org.smart.erp.system.service.MenuService;
 import org.smart.erp.system.vo.MenuListVO;
+import org.smart.erp.system.vo.MenuSearchVO;
 import org.smart.erp.system.vo.MenuTreeVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -256,6 +259,81 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
         return getMenuTreeVOS(menuIds);
 
+    }
+
+    @Override
+    public List<MenuSearchVO> searchCurrentUserMenu(String keyword) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        if (normalizedKeyword.isEmpty()) {
+            return List.of();
+        }
+
+        Long currentUserId = currentUser.getUserId();
+        List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
+        if (CollectionUtils.isEmpty(roleIds)) {
+            return List.of();
+        }
+
+        LambdaQueryWrapper<Menu> queryWrapper = new LambdaQueryWrapper<Menu>()
+                .eq(Menu::getStatus, Status.ENABLE)
+                .eq(Menu::getVisible, 0)
+                .apply("deleted = 0")
+                .orderByAsc(Menu::getId);
+
+        if (!isSuperAdmin(roleIds)) {
+            List<Long> menuIds = roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenu>()
+                            .in(RoleMenu::getRoleId, roleIds))
+                    .stream()
+                    .map(RoleMenu::getMenuId)
+                    .distinct()
+                    .toList();
+            if (CollectionUtils.isEmpty(menuIds)) {
+                return List.of();
+            }
+            queryWrapper.in(Menu::getId, menuIds);
+        }
+
+        List<Menu> accessibleMenus = menuMapper.selectList(queryWrapper);
+        Set<Long> parentIds = accessibleMenus.stream()
+                .map(Menu::getParentId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Menu> menuById = accessibleMenus.stream()
+                .collect(Collectors.toMap(Menu::getId, menu -> menu));
+
+        return accessibleMenus.stream()
+                .filter(menu -> !parentIds.contains(menu.getId()))
+                .filter(menu -> matchesKeyword(menu, normalizedKeyword, menuById))
+                .limit(20)
+                .map(menu -> toSearchVO(menu, menuById))
+                .toList();
+    }
+
+    private boolean matchesKeyword(Menu menu, String keyword, Map<Long, Menu> menuById) {
+        Menu current = menu;
+        while (current != null) {
+            if (containsIgnoreCase(current.getTitle(), keyword)
+                    || containsIgnoreCase(current.getName(), keyword)) {
+                return true;
+            }
+            current = current.getParentId() == null ? null : menuById.get(current.getParentId());
+        }
+        return false;
+    }
+
+    private boolean containsIgnoreCase(String value, String keyword) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(keyword);
+    }
+
+    private MenuSearchVO toSearchVO(Menu menu, Map<Long, Menu> menuById) {
+        MenuSearchVO vo = new MenuSearchVO();
+        vo.setId(menu.getId());
+        vo.setTitle(menu.getTitle());
+        vo.setPath(menu.getPath());
+        vo.setIcon(menu.getIcon());
+        Menu parent = menu.getParentId() == null ? null : menuById.get(menu.getParentId());
+        vo.setParentTitle(parent == null ? null : parent.getTitle());
+        return vo;
     }
 
 }

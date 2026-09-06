@@ -12,6 +12,8 @@ public class UserUpdateDTO {
 
     private String username;
 
+    private String realName;
+
     private String password;
 
     private List<Long> roleIds;

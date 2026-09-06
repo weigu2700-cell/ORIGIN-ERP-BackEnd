@@ -7,9 +7,9 @@ import org.smart.erp.production.enums.ProductionStatus;
 @Data
 public class pageProductionDemandDto {
 
-    private Integer pageNum;
+    private Integer pageNum = 1;
 
-    private Integer pageSize;
+    private Integer pageSize = 10;
 
     private ProductionSourceType sourceType;
 

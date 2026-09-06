@@ -6,9 +6,9 @@ import org.smart.erp.sales.enums.SalesDeliveryStatus;
 @Data
 public class ListDto {
 
-    private Integer pageNum;
+    private Integer pageNum = 1;
 
-    private Integer pageSize;
+    private Integer pageSize = 10;
 
     private String deliveryNo;
 

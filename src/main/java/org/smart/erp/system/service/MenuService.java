@@ -7,6 +7,7 @@ import org.smart.erp.system.dto.MenuGetDTO;
 import org.smart.erp.system.dto.MenuGetTreeDTO;
 import org.smart.erp.system.entity.Menu;
 import org.smart.erp.system.vo.MenuListVO;
+import org.smart.erp.system.vo.MenuSearchVO;
 import org.smart.erp.system.vo.MenuTreeVO;
 
 import java.util.List;
@@ -25,4 +26,6 @@ public interface MenuService extends IService<Menu> {
     void deleteMenu(Long id);
 
     List<MenuTreeVO> getCurrentUserMenu();
+
+    List<MenuSearchVO> searchCurrentUserMenu(String keyword);
 }

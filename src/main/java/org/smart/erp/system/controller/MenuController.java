@@ -9,6 +9,7 @@ import org.smart.erp.system.dto.MenuGetDTO;
 import org.smart.erp.system.dto.MenuGetTreeDTO;
 import org.smart.erp.system.service.MenuService;
 import org.smart.erp.system.vo.MenuListVO;
+import org.smart.erp.system.vo.MenuSearchVO;
 import org.smart.erp.system.vo.MenuTreeVO;
 import org.springframework.web.bind.annotation.*;
 
@@ -68,6 +69,12 @@ public class MenuController {
     @GetMapping("/current")
     public Result<List<MenuTreeVO>> getCurrentUserMenu() {
         return Result.success(menuService.getCurrentUserMenu());
+    }
+
+    @Operation(summary = "模糊搜索当前用户可访问的菜单")
+    @GetMapping("/search")
+    public Result<List<MenuSearchVO>> searchCurrentUserMenu(@RequestParam(required = false) String keyword) {
+        return Result.success(menuService.searchCurrentUserMenu(keyword));
     }
 
 }

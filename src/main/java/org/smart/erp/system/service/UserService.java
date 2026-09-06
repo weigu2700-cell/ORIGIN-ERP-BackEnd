@@ -6,6 +6,7 @@ import org.smart.erp.system.dto.LoginDTO;
 import org.smart.erp.system.dto.UserCreateDTO;
 import org.smart.erp.system.dto.UserGetDTO;
 import org.smart.erp.system.dto.UserRoleAssignDTO;
+import org.smart.erp.system.dto.UserStatusUpdateDTO;
 import org.smart.erp.system.dto.UserUpdateDTO;
 import org.smart.erp.system.entity.User;
 import org.smart.erp.system.vo.LoginVO;
@@ -24,6 +25,9 @@ public interface UserService extends IService<User> {
 
     /** 更新用户，仅落库不返回数据 */
     void updateUser(Long id, UserUpdateDTO dto);
+
+    /** 修改用户状态 */
+    void updateUserStatus(Long id, UserStatusUpdateDTO dto);
 
     Page<UserGetVO> listUser(UserGetDTO dto);
 

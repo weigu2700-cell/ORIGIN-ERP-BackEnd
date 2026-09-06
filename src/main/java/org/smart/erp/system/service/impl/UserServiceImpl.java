@@ -10,6 +10,7 @@ import org.smart.erp.system.Enum.UserStatus;
 import org.smart.erp.system.dto.UserCreateDTO;
 import org.smart.erp.system.dto.UserGetDTO;
 import org.smart.erp.system.dto.UserRoleAssignDTO;
+import org.smart.erp.system.dto.UserStatusUpdateDTO;
 import org.smart.erp.system.dto.UserUpdateDTO;
 import org.smart.erp.system.entity.Dept;
 import org.smart.erp.system.entity.User;
@@ -119,6 +120,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         User newUser = new User();
         newUser.setUsername(dto.getUsername());
+        newUser.setRealName(dto.getRealName());
         newUser.setPassword(passwordEncoder.encode(dto.getPassword()));
         newUser.setStatus(UserStatus.NORMAL);
         newUser.setDeptId(dto.getDeptId());
@@ -171,12 +173,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         if (dto.getUsername() != null) user.setUsername(dto.getUsername());
+        if (dto.getRealName() != null) user.setRealName(dto.getRealName());
         if (dto.getPhone() != null) user.setPhone(dto.getPhone());
         if (dto.getDeptId() != null) user.setDeptId(dto.getDeptId());
         // 密码更新时用 BCrypt 加密存储
         if (dto.getPassword() != null) user.setPassword(passwordEncoder.encode(dto.getPassword()));
         if (dto.getStatus() != null) user.setStatus(dto.getStatus());
 
+        userMapper.updateById(user);
+    }
+
+    @Override
+    public void updateUserStatus(Long id, UserStatusUpdateDTO dto) {
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+        if (dto.getStatus() == null) {
+            throw new BusinessException(400, "用户状态不能为空");
+        }
+        user.setStatus(dto.getStatus());
         userMapper.updateById(user);
     }
 
@@ -233,6 +249,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public Page<UserGetVO> listUser(UserGetDTO dto) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         if (dto.getUsername() != null) queryWrapper.like(User::getUsername, dto.getUsername());
+        if (dto.getRealName() != null) queryWrapper.like(User::getRealName, dto.getRealName());
         if (dto.getPhone() != null) queryWrapper.like(User::getPhone, dto.getPhone());
         if (dto.getDeptId() != null) queryWrapper.eq(User::getDeptId, dto.getDeptId());
         if (dto.getStatus() != null) queryWrapper.eq(User::getStatus, dto.getStatus());

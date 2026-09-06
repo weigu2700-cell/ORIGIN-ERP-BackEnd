@@ -13,10 +13,8 @@ import org.smart.erp.production.dto.pageProductionDemandDto;
 import org.smart.erp.production.entity.ProductionDemand;
 import org.smart.erp.production.enums.ProductionStatus;
 import org.smart.erp.production.mapper.ProductionDemandMapper;
-import org.smart.erp.production.service.BOMService;
 import org.smart.erp.production.service.ProductionDemandService;
 import org.smart.erp.production.service.ProductionOrderService;
-import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionDemandVo;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.mapper.SalesOrderMapper;
@@ -39,21 +37,18 @@ public class ProductionDemandServiceImpl
 
     private final SalesOrderMapper salesOrderMapper;
     private final MaterialMapper materialMapper;
-    private final BOMService bomService;
     private final BusinessNoGenerator businessNoGenerator;
     private final ProductionOrderService productionOrderService;
 
     public ProductionDemandServiceImpl(
             SalesOrderMapper salesOrderMapper,
             MaterialMapper materialMapper,
-            BOMService bomService,
             BusinessNoGenerator businessNoGenerator,
             ProductionOrderService productionOrderService
     )
     {
         this.salesOrderMapper = salesOrderMapper;
         this.materialMapper = materialMapper;
-        this.bomService = bomService;
         this.businessNoGenerator = businessNoGenerator;
         this.productionOrderService = productionOrderService;
     }
@@ -82,7 +77,7 @@ public class ProductionDemandServiceImpl
             throw new BusinessException(404, "来源单据不存在");
         }
 
-        // 先保存需求单（拿到需求ID，便于后续生产订单回链）
+        // 保存需求单
         ProductionDemand productionDemand = new ProductionDemand();
         BeanUtils.copyProperties(dto, productionDemand);
         productionDemand.setDemandNo(
@@ -90,20 +85,12 @@ public class ProductionDemandServiceImpl
         productionDemand.setStatus(ProductionStatus.PENDING);
         save(productionDemand);
 
-        // 按成品物料 + 数量展开净需求，为每个缺料组件生成生产订单
-        List<MaterialRequirementVo> materialRequirementVos =
-                bomService.calculateMaterialRequirement(dto.getMaterialId(), dto.getQuantity());
-
-        for (MaterialRequirementVo vo : materialRequirementVos) {
-            // 库存已满足（净需求<=0）的组件无需下单
-            if (vo.getShortageQuantity() == null || vo.getShortageQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-                continue;
-            }
-            createProductionOrderDto orderDto = new createProductionOrderDto();
-            orderDto.setMaterialId(vo.getMaterialId());
-            orderDto.setPlannedQuantity(vo.getShortageQuantity());
-            productionOrderService.createProductionOrder(orderDto);
-        }
+        // ProductionDemand → 生成成品生产订单（草稿态，下达时再算 BOM 净需求）
+        createProductionOrderDto orderDto = new createProductionOrderDto();
+        orderDto.setMaterialId(dto.getMaterialId());
+        orderDto.setPlannedQuantity(dto.getQuantity());
+        orderDto.setProductionDemandId(productionDemand.getId());
+        productionOrderService.createProductionOrder(orderDto);
     }
 
     @Override

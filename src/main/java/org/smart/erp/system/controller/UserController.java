@@ -9,6 +9,7 @@ import org.smart.erp.system.dto.LoginDTO;
 import org.smart.erp.system.dto.UserCreateDTO;
 import org.smart.erp.system.dto.UserGetDTO;
 import org.smart.erp.system.dto.UserRoleAssignDTO;
+import org.smart.erp.system.dto.UserStatusUpdateDTO;
 import org.smart.erp.system.dto.UserUpdateDTO;
 import org.smart.erp.system.service.UserService;
 import org.smart.erp.system.vo.UserGetVO;
@@ -63,6 +64,13 @@ public class UserController {
     @RequestMapping(value = "/update/{id:\\d+}", method = {RequestMethod.PUT, RequestMethod.POST})
     public Result<Void> updateUserCompat(@PathVariable Long id, @RequestBody UserUpdateDTO dto) {
         userService.updateUser(id, dto);
+        return Result.success();
+    }
+
+    @Operation(summary = "修改用户状态")
+    @PutMapping("/{id:\\d+}/status")
+    public Result<Void> updateUserStatus(@PathVariable Long id, @RequestBody UserStatusUpdateDTO dto) {
+        userService.updateUserStatus(id, dto);
         return Result.success();
     }
 

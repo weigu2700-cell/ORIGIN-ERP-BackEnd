@@ -12,6 +12,8 @@ public class UserGetDTO {
 
     private String username;
 
+    private String realName;
+
     private Long deptId;
 
     private UserStatus status;

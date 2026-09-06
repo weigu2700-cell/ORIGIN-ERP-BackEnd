@@ -112,11 +112,11 @@ VALUES
     (900000000000333, '菜单查询', 'system:menu:view', 2, 900000000000303, 1, 3, NULL, NOW(), NOW(), 0);
 
 INSERT IGNORE INTO sys_user
-    (id, username, password, phone, status, create_time, update_time, deleted, dept_id)
+    (id, username, real_name, password, phone, status, create_time, update_time, deleted, dept_id)
 VALUES
-    (900000000000401, 'admin', '$2a$10$2aW9eqG0B.PAEKLvrtfsHupDdnNouZyqLxDxlAoLp3PJ6NaM0CSa.', '13800000001', 1, NOW(), NOW(), 0, 900000000000001),
-    (900000000000402, 'sales.demo', '$2a$10$2aW9eqG0B.PAEKLvrtfsHupDdnNouZyqLxDxlAoLp3PJ6NaM0CSa.', '13800000002', 1, NOW(), NOW(), 0, 900000000000002),
-    (900000000000403, 'warehouse.demo', '$2a$10$2aW9eqG0B.PAEKLvrtfsHupDdnNouZyqLxDxlAoLp3PJ6NaM0CSa.', '13800000003', 1, NOW(), NOW(), 0, 900000000000003);
+    (900000000000401, 'admin', '系统管理员', '$2a$10$2aW9eqG0B.PAEKLvrtfsHupDdnNouZyqLxDxlAoLp3PJ6NaM0CSa.', '13800000001', 1, NOW(), NOW(), 0, 900000000000001),
+    (900000000000402, 'sales.demo', '销售演示', '$2a$10$2aW9eqG0B.PAEKLvrtfsHupDdnNouZyqLxDxlAoLp3PJ6NaM0CSa.', '13800000002', 1, NOW(), NOW(), 0, 900000000000002),
+    (900000000000403, 'warehouse.demo', '仓库演示', '$2a$10$2aW9eqG0B.PAEKLvrtfsHupDdnNouZyqLxDxlAoLp3PJ6NaM0CSa.', '13800000003', 1, NOW(), NOW(), 0, 900000000000003);
 
 INSERT IGNORE INTO sys_user_role (id, user_id, role_id) VALUES
     (900000000000411, 900000000000401, 900000000000101),

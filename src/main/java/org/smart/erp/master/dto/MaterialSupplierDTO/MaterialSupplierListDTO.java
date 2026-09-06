@@ -6,9 +6,9 @@ import org.smart.erp.master.enums.MaterialSupplierStatus;
 @Data
 public class MaterialSupplierListDTO {
 
-    private Integer page;
+    private Integer page = 1;
 
-    private Integer pageSize;
+    private Integer pageSize = 10;
 
     private String materialSupplierCode;
 

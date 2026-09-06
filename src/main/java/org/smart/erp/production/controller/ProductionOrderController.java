@@ -8,8 +8,11 @@ import org.smart.erp.common.result.Result;
 import org.smart.erp.production.dto.createProductionOrderDto;
 import org.smart.erp.production.dto.pageProductionOrderDto;
 import org.smart.erp.production.service.ProductionOrderService;
+import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionOrderVo;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/production/order")
@@ -62,6 +65,13 @@ public class ProductionOrderController {
     public Result<Void> cancel(@PathVariable @Parameter(description = "生产订单ID") Long id) {
         productionOrderService.cancelProductionOrder(id);
         return Result.success();
+    }
+
+    @PutMapping("/{id}/release")
+    @Operation(summary = "下达生产订单（计算 BOM 净需求，返回物料需求结果）")
+    public Result<List<MaterialRequirementVo>> release(
+            @PathVariable @Parameter(description = "生产订单ID") Long id) {
+        return Result.success(productionOrderService.releaseProductionOrder(id));
     }
 
 }

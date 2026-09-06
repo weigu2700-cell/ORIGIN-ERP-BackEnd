@@ -7,9 +7,9 @@ import org.smart.erp.master.enums.WarehouseType;
 @Data
 public class WarehouseListDTO {
 
-    private Integer page;
+    private Integer page = 1;
 
-    private Integer pageSize;
+    private Integer pageSize = 10;
 
     private String name;
 

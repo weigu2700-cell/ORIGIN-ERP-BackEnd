@@ -14,7 +14,9 @@ import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.enums.ProductionOrderStatus;
 import org.smart.erp.production.mapper.ProductionDemandMapper;
 import org.smart.erp.production.mapper.ProductionOrderMapper;
+import org.smart.erp.production.service.BOMService;
 import org.smart.erp.production.service.ProductionOrderService;
+import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionOrderVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -35,16 +37,19 @@ public class ProductionOrderServiceImpl
     private final BusinessNoGenerator businessNoGenerator;
     private final ProductionDemandMapper productionDemandMapper;
     private final MaterialMapper materialMapper;
+    private final BOMService bomService;
 
     public ProductionOrderServiceImpl(
             BusinessNoGenerator businessNoGenerator,
             MaterialMapper materialMapper,
-            ProductionDemandMapper productionDemandMapper
+            ProductionDemandMapper productionDemandMapper,
+            BOMService bomService
     )
     {
         this.businessNoGenerator = businessNoGenerator;
         this.productionDemandMapper = productionDemandMapper;
         this.materialMapper = materialMapper;
+        this.bomService = bomService;
     }
 
     @Override
@@ -210,6 +215,18 @@ public class ProductionOrderServiceImpl
     public void cancelProductionOrder(Long id) {
         transition(id, ProductionOrderStatus.DRAFT, ProductionOrderStatus.CANCELLED,
                 "生产单状态不为草稿，无法取消", null);
+    }
+
+    @Override
+    public List<MaterialRequirementVo> releaseProductionOrder(Long id) {
+        ProductionOrder order = getOrderOrThrow(id);
+        if (order.getStatus() != ProductionOrderStatus.DRAFT) {
+            throw new BusinessException(400, "生产单状态不为草稿，无法下达");
+        }
+        order.setStatus(ProductionOrderStatus.RELEASED);
+        baseMapper.updateById(order);
+        // 下达时按成品 + 计划数量计算 BOM 净需求，仅返回物料需求结果（不建单）
+        return bomService.calculateMaterialRequirement(order.getMaterialId(), order.getPlannedQuantity());
     }
 
     /** 校验状态后执行生产单状态流转；extra 用于设置开始/结束时间等附加字段 */
