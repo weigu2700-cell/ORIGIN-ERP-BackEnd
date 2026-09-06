@@ -63,9 +63,9 @@ public class BOMController {
     }
 
     @GetMapping("/{id}/explosion")
-    @Operation(summary = "BOM拆解", description = "BOM拆解")
+    @Operation(summary = "BOM树查询", description = "按 BOM 结构树形展开")
     public Result<List<BOMExplosionVo>> getBOMExplosion(
-            @PathVariable @Parameter(description = "BOM 主键 ID") Long id,
+            @PathVariable @Parameter(description = "物料 ID") Long id,
             @RequestParam @Parameter(description = "需求数量") BigDecimal quantity) {
         return Result.success(bomService.getBOMExplosion(id, quantity));
     }

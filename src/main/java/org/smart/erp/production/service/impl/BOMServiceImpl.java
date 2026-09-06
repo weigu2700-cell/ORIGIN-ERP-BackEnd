@@ -215,71 +215,71 @@ public class BOMServiceImpl
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(400, "展开数量必须大于0");
         }
-        List<BOMExplosionVo> result = explodeBOM(materialId, quantity, 1, new HashSet<>(), true);
-        enrichExplosionMaterial(result);
-        return result;
-    }
 
-    /** 批量反查组件物料，补全编码与名称（避免逐行查库） */
-    private void enrichExplosionMaterial(List<BOMExplosionVo> vos) {
-        Set<Long> ids = vos.stream()
-                .map(BOMExplosionVo::getMaterialId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        if (ids.isEmpty()) {
-            return;
+        BOM bom = baseMapper.selectOne(new LambdaQueryWrapper<BOM>()
+                .eq(BOM::getMaterialId, materialId)
+                .eq(BOM::getStatus, BOMStatus.ACTIVE)
+                .orderByDesc(BOM::getVersion)
+                .last("limit 1"));
+        if (Objects.isNull(bom)) {
+            throw new BusinessException(404, "BOM不存在");
         }
-        Map<Long, Material> materialMap = materialMapper.selectByIds(ids).stream()
-                .collect(Collectors.toMap(Material::getId, m -> m));
-        vos.forEach(vo -> {
-            Material material = materialMap.get(vo.getMaterialId());
-            if (material != null) {
-                vo.setMaterialCode(material.getCode());
-                vo.setMaterialName(material.getName());
-            }
-        });
+
+        Material material = materialMapper.selectById(materialId);
+        if (Objects.isNull(material)) {
+            throw new BusinessException(404, "BOM所属物料不存在");
+        }
+
+        BOMExplosionVo root = new BOMExplosionVo();
+        root.setMaterialId(material.getId());
+        root.setMaterialCode(material.getCode());
+        root.setMaterialName(material.getName());
+        root.setQuantity(quantity);
+        root.setLevel(0);
+        root.setChildren(buildExplosionChildren(bom, quantity, 1, new HashSet<>()));
+        return List.of(root);
     }
 
-    /**
-     * 分解 BOM（纯结构展开，不考虑库存）
-     * @param level  当前层级（直接子件为 1）
-     * @param path   递归路径，用于循环引用检测
-     * @param isRoot 是否顶层入口（仅顶层缺 BOM 才报错）
-     */
-    private List<BOMExplosionVo> explodeBOM(
-            Long materialId, BigDecimal quantity, int level, Set<Long> path, boolean isRoot) {
-        // 循环引用保护，避免无限递归
-        if (!path.add(materialId)) {
+    /** 将 BOM 明细按父子关系递归构造成树，并在每条路径上检测循环引用。 */
+    private List<BOMExplosionVo> buildExplosionChildren(
+            BOM parentBom, BigDecimal parentQuantity, int level, Set<Long> path) {
+        if (!path.add(parentBom.getMaterialId())) {
             throw new BusinessException(400, "BOM存在循环引用");
-        }
-        BOM parentBom = bomMapper.selectOne(
-                new LambdaQueryWrapper<BOM>()
-                        .eq(BOM::getMaterialId, materialId)
-                        .eq(BOM::getStatus, BOMStatus.ACTIVE)
-                        .last("limit 1"));
-        // 叶子节点（如采购件）无 BOM 属正常情况，仅顶层入口才报错
-        if (Objects.isNull(parentBom)) {
-            if (isRoot) {
-                throw new BusinessException(404, "BOM不存在");
-            }
-            return Collections.emptyList();
         }
         List<BOMItem> bomItems = bomItemMapper.selectList(
                 new LambdaQueryWrapper<BOMItem>().eq(BOMItem::getBomId, parentBom.getId()));
+        if (bomItems.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<Long, Material> materials = materialMapper.selectByIds(bomItems.stream()
+                        .map(BOMItem::getComponentMaterialId).distinct().toList())
+                .stream().collect(Collectors.toMap(Material::getId, Function.identity()));
+        Map<Long, BOM> activeBoms = bomMapper.selectList(new LambdaQueryWrapper<BOM>()
+                        .in(BOM::getMaterialId, materials.keySet())
+                        .eq(BOM::getStatus, BOMStatus.ACTIVE))
+                .stream().collect(Collectors.toMap(BOM::getMaterialId, Function.identity(),
+                        (first, second) -> first));
 
         List<BOMExplosionVo> result = new ArrayList<>();
         for (BOMItem bomItem : bomItems) {
             BOMExplosionVo vo = new BOMExplosionVo();
-            BeanUtils.copyProperties(bomItem, vo);
             vo.setMaterialId(bomItem.getComponentMaterialId());
+            Material material = materials.get(bomItem.getComponentMaterialId());
+            if (material != null) {
+                vo.setMaterialCode(material.getCode());
+                vo.setMaterialName(material.getName());
+            }
             BigDecimal unitQty = bomItem.getQuantity() == null ? BigDecimal.ZERO : bomItem.getQuantity();
             BigDecimal lossRate = bomItem.getLossRate() == null ? BigDecimal.ZERO : bomItem.getLossRate();
-            BigDecimal explodedQty = unitQty.multiply(quantity).multiply(BigDecimal.ONE.add(lossRate));
+            BigDecimal explodedQty = unitQty.multiply(parentQuantity).multiply(BigDecimal.ONE.add(lossRate));
             vo.setQuantity(explodedQty);
             vo.setLevel(level);
+            BOM childBom = activeBoms.get(bomItem.getComponentMaterialId());
+            if (childBom != null) {
+                vo.setChildren(buildExplosionChildren(childBom, explodedQty, level + 1, new HashSet<>(path)));
+            }
             result.add(vo);
-            result.addAll(explodeBOM(
-                    bomItem.getComponentMaterialId(), explodedQty, level + 1, new HashSet<>(path), false));
         }
         return result;
     }
