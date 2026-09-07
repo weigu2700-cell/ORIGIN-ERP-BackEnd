@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>org.example</groupId>
-    <artifactId>smart-erp-server</artifactId>
+    <artifactId>origin-erp-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>smart-erp-server</name>
     <description>smart-erp-server</description>

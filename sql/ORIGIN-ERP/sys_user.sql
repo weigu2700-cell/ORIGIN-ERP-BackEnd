@@ -3,7 +3,6 @@ create table `smart-erp`.sys_user
     id          bigint            not null comment '用户id'
         primary key,
     username    varchar(50)       not null comment '用户昵称',
-    real_name   varchar(50)       null comment '真实姓名',
     password    varchar(255)      not null comment '用户密码',
     phone       varchar(20)       null comment '用户手机号',
     status      tinyint default 1 null comment '用户状态',
@@ -11,7 +10,9 @@ create table `smart-erp`.sys_user
     update_time datetime          null comment '修改时间',
     deleted     tinyint default 0 null comment '删除',
     dept_id     bigint            null comment '部门id',
+    real_name   varchar(50)       null comment '用户真实姓名',
     constraint username
         unique (username)
 )
     comment '用户信息表';
+

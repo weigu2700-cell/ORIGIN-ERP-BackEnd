@@ -57,8 +57,101 @@ public class PurchaseOrderServiceImpl
         this.supplierMapper = supplierMapper;
     }
 
+    /**
+     * 如果为空则抛异常
+     * @param value 值
+     * @param message 异常消息
+     * @param <T> 值类型
+     */
     private static <T> void require(T value, String message) {
         Optional.ofNullable(value).orElseThrow(() -> new BusinessException(400, message));
+    }
+
+    /**
+     * 将采购订单转换为VO
+     * @param orders 采购订单列表
+     * @return 采购订单VO列表
+     */
+    private List<PurchaseOrderVo> toVoList(List<PurchaseOrder> orders) {
+        Set<Long> materialIds = orders.stream().map(PurchaseOrder::getMaterialId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Set<Long> supplierIds = orders.stream().map(PurchaseOrder::getSupplierId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Set<Long> demandIds = orders.stream().map(PurchaseOrder::getPurchaseDemandId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Map<Long, Material> materialMap = materialIds.isEmpty() ? Collections.emptyMap()
+                : materialMapper.selectByIds(materialIds).stream()
+                .collect(Collectors.toMap(Material::getId, Function.identity()));
+
+        Map<Long, Supplier> supplierMap = supplierIds.isEmpty() ? Collections.emptyMap()
+                : supplierMapper.selectByIds(supplierIds).stream()
+                .collect(Collectors.toMap(Supplier::getId, Function.identity()));
+
+        Map<Long, PurchaseDemand> demandMap = demandIds.isEmpty() ? Collections.emptyMap()
+                : purchaseDemandMapper.selectByIds(demandIds).stream()
+                .collect(Collectors.toMap(PurchaseDemand::getId, Function.identity()));
+
+        List<PurchaseOrderVo> vos = new ArrayList<>();
+
+        for (PurchaseOrder o : orders) {
+            PurchaseOrderVo vo = new PurchaseOrderVo();
+            BeanUtils.copyProperties(o, vo);
+
+            Material material = materialMap.get(o.getMaterialId());
+            if (material != null) {
+                vo.setMaterialCode(material.getCode());
+                vo.setMaterialName(material.getName());
+            }
+
+            Supplier supplier = supplierMap.get(o.getSupplierId());
+            if (supplier != null) {
+                vo.setSupplierCode(supplier.getCode());
+                vo.setSupplierName(supplier.getName());
+            }
+
+            PurchaseDemand demand = demandMap.get(o.getPurchaseDemandId());
+            if (demand != null) {
+                vo.setPurchaseDemandNo(demand.getPurchaseDemandNo());
+            }
+
+            vos.add(vo);
+        }
+        return vos;
+    }
+
+    /**
+     * 状态转换
+     * @param id 采购订单ID
+     * @param expected 期望状态
+     * @param next 下一个状态
+     * @param errorMsg 错误消息
+     */
+    private void transition(Long id, PurchaseOrderStatus expected, PurchaseOrderStatus next, String errorMsg) {
+        PurchaseOrder order = getOrderOrThrow(id);
+        if (order.getStatus() != expected) {
+            throw new BusinessException(400, errorMsg);
+        }
+        order.setStatus(next);
+        purchaseOrderMapper.updateById(order);
+    }
+
+    /**
+     * 获取采购订单，如果不存在则抛出异常
+     * @param id 采购订单ID
+     * @return 采购订单
+     */
+    private PurchaseOrder getOrderOrThrow(Long id) {
+        if (id == null) {
+            throw new BusinessException(400, "采购订单ID不能为空");
+        }
+        PurchaseOrder order = purchaseOrderMapper.selectById(id);
+        if (order == null) {
+            throw new BusinessException(404, "采购订单不存在");
+        }
+        return order;
     }
 
     @Override
@@ -135,25 +228,13 @@ public class PurchaseOrderServiceImpl
     @Transactional(rollbackFor = Exception.class)
     public void updatePurchaseOrder(Long id, UpdatePurchaseOrderDto dto) {
         PurchaseOrder order = getOrderOrThrow(id);
-        if (order.getStatus() != PurchaseOrderStatus.DRAFT) {
-            throw new BusinessException(400, "仅草稿状态采购订单可编辑");
-        }
-        if (dto.getSupplierId() != null) {
-            order.setSupplierId(dto.getSupplierId());
-        }
-        if (dto.getUnitPrice() != null) {
-            order.setUnitPrice(dto.getUnitPrice());
-        }
-        if (dto.getPlannedQuantity() != null) {
-            order.setPlannedQuantity(dto.getPlannedQuantity());
-        }
-        if (dto.getExpectedDeliveryDate() != null) {
-            order.setExpectedDeliveryDate(dto.getExpectedDeliveryDate());
-        }
-        if (order.getUnitPrice() != null && order.getPlannedQuantity() != null) {
-            order.setTotalAmount(order.getUnitPrice()
-                    .multiply(order.getPlannedQuantity()).setScale(2, RoundingMode.HALF_UP));
-        }
+        Optional.ofNullable(dto.getSupplierId()).ifPresent(order::setSupplierId);
+        Optional.ofNullable(dto.getUnitPrice()).ifPresent(order::setUnitPrice);
+        Optional.ofNullable(dto.getPlannedQuantity()).ifPresent(order::setPlannedQuantity);
+        Optional.ofNullable(dto.getExpectedDeliveryDate()).ifPresent(order::setExpectedDeliveryDate);
+        Optional.ofNullable(dto.getUnitPrice())
+                .flatMap(up -> Optional.ofNullable(dto.getPlannedQuantity()).map(up::multiply))
+                .ifPresent(total -> order.setTotalAmount(total.setScale(2, RoundingMode.HALF_UP)));
         purchaseOrderMapper.updateById(order);
     }
 
@@ -200,75 +281,5 @@ public class PurchaseOrderServiceImpl
         }
         order.setStatus(PurchaseOrderStatus.CLOSED);
         purchaseOrderMapper.updateById(order);
-    }
-
-    private void transition(Long id, PurchaseOrderStatus expected, PurchaseOrderStatus next, String errorMsg) {
-        PurchaseOrder order = getOrderOrThrow(id);
-        if (order.getStatus() != expected) {
-            throw new BusinessException(400, errorMsg);
-        }
-        order.setStatus(next);
-        purchaseOrderMapper.updateById(order);
-    }
-
-    private PurchaseOrder getOrderOrThrow(Long id) {
-        if (id == null) {
-            throw new BusinessException(400, "采购订单ID不能为空");
-        }
-        PurchaseOrder order = purchaseOrderMapper.selectById(id);
-        if (order == null) {
-            throw new BusinessException(404, "采购订单不存在");
-        }
-        return order;
-    }
-
-    private List<PurchaseOrderVo> toVoList(List<PurchaseOrder> orders) {
-        Set<Long> materialIds = orders.stream().map(PurchaseOrder::getMaterialId)
-                .filter(Objects::nonNull).collect(Collectors.toSet());
-
-        Set<Long> supplierIds = orders.stream().map(PurchaseOrder::getSupplierId)
-                .filter(Objects::nonNull).collect(Collectors.toSet());
-
-        Set<Long> demandIds = orders.stream().map(PurchaseOrder::getPurchaseDemandId)
-                .filter(Objects::nonNull).collect(Collectors.toSet());
-
-        Map<Long, Material> materialMap = materialIds.isEmpty() ? Collections.emptyMap()
-                : materialMapper.selectByIds(materialIds).stream()
-                .collect(Collectors.toMap(Material::getId, Function.identity()));
-
-        Map<Long, Supplier> supplierMap = supplierIds.isEmpty() ? Collections.emptyMap()
-                : supplierMapper.selectByIds(supplierIds).stream()
-                .collect(Collectors.toMap(Supplier::getId, Function.identity()));
-
-        Map<Long, PurchaseDemand> demandMap = demandIds.isEmpty() ? Collections.emptyMap()
-                : purchaseDemandMapper.selectByIds(demandIds).stream()
-                .collect(Collectors.toMap(PurchaseDemand::getId, Function.identity()));
-
-        List<PurchaseOrderVo> vos = new ArrayList<>();
-
-        for (PurchaseOrder o : orders) {
-            PurchaseOrderVo vo = new PurchaseOrderVo();
-            BeanUtils.copyProperties(o, vo);
-
-            Material material = materialMap.get(o.getMaterialId());
-            if (material != null) {
-                vo.setMaterialCode(material.getCode());
-                vo.setMaterialName(material.getName());
-            }
-
-            Supplier supplier = supplierMap.get(o.getSupplierId());
-            if (supplier != null) {
-                vo.setSupplierCode(supplier.getCode());
-                vo.setSupplierName(supplier.getName());
-            }
-
-            PurchaseDemand demand = demandMap.get(o.getPurchaseDemandId());
-            if (demand != null) {
-                vo.setPurchaseDemandNo(demand.getPurchaseDemandNo());
-            }
-
-            vos.add(vo);
-        }
-        return vos;
     }
 }

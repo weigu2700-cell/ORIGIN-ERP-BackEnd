@@ -11,6 +11,7 @@ create table `smart-erp`.sal_order
     remark        varchar(255)                null comment '备注',
     create_time   datetime                    not null comment '创建时间',
     update_time   datetime                    null comment '更新时间',
+    deleted       tinyint        default 0    not null comment '删除',
     constraint uk_order_no
         unique (order_no)
 )
