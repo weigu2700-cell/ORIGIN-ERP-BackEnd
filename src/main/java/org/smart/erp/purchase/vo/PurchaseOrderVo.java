@@ -1,27 +1,34 @@
-package org.smart.erp.purchase.entity;
+package org.smart.erp.purchase.vo;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 import org.smart.erp.purchase.enums.PurchaseOrderStatus;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.cglib.core.Local;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("pur_purchase_order")
-public class PurchaseOrder {
+public class PurchaseOrderVo {
 
-    @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
     private String purchaseOrderNo;
 
     private Long purchaseDemandId;
 
+    private String purchaseDemandNo;
+
     private Long materialId;
 
+    private String materialName;
+
+    private String materialCode;
+
     private Long supplierId;
+
+    private String supplierName;
+
+    private String supplierCode;
 
     private BigDecimal plannedQuantity;
 
@@ -31,6 +38,7 @@ public class PurchaseOrder {
 
     private BigDecimal totalAmount;
 
+    // 订单日期
     private LocalDateTime orderDate;
 
     // 预计交货日期
@@ -39,14 +47,5 @@ public class PurchaseOrder {
     private LocalDateTime actualDeliveryDate;
 
     private PurchaseOrderStatus status;
-
-    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    @TableField(value = "create_time", fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
-
-    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updateTime;
-
 
 }
