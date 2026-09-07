@@ -1,6 +1,6 @@
 create table `smart-erp`.sys_permission
 (
-    id          bigint            not null comment '权限id'
+    id          bigint auto_increment comment '权限id'
         primary key,
     name        varchar(20)       not null comment '权限名称',
     code        varchar(50)       not null comment '权限编码',
