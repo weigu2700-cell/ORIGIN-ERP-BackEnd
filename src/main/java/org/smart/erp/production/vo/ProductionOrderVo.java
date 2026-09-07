@@ -22,7 +22,7 @@ public class ProductionOrderVo {
 
     private BigDecimal plannedQuantity;
 
-    private BigDecimal actualQuantity;
+    private BigDecimal completedQuantity;
 
     private LocalDateTime plannedStartTime;
 

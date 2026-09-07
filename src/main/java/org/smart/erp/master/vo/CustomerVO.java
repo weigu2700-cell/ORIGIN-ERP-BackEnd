@@ -19,8 +19,6 @@ public class CustomerVO {
 
     private String address;
 
-    private String contact;
-
     private String phone;
 
     private String email;

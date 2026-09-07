@@ -19,8 +19,6 @@ public class ProductionDemand {
 
     private String demandNo;
 
-    private String demandQuantity;
-
     private ProductionSourceType sourceType;
 
     private String sourceNo;

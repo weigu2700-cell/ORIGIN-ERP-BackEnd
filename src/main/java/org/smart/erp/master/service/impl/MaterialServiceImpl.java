@@ -34,6 +34,9 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
         if (material.getStatus() != null) {
             vo.setStatus(material.getStatus().getCode());
         }
+        if (material.getType() != null) {
+            vo.setType(material.getType().getCode());
+        }
         return vo;
     }
 

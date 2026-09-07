@@ -2,7 +2,6 @@ package org.smart.erp.purchase.vo;
 
 import lombok.Data;
 import org.smart.erp.purchase.enums.PurchaseOrderStatus;
-import org.springframework.cglib.core.Local;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

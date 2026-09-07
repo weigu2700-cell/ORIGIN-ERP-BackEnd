@@ -6,7 +6,7 @@ create table `smart-erp`.inv_transaction
     material_id      bigint         not null comment '物料id',
     transaction_type tinyint        not null comment '库存业务类型',
     business_type    tinyint        not null comment '来源业务类型',
-    business_no      tinyint        not null comment '来源业务单号',
+    business_no      varchar(50)    not null comment '来源业务单号',
     quantity         decimal(18, 4) not null comment '本次数量变化',
     before_on_hand   decimal(18, 4) not null comment '变动前在库库存',
     after_on_hand    decimal(18, 4) not null comment '变动后在库库存',

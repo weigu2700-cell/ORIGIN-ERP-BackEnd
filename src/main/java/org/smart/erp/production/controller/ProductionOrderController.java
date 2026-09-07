@@ -68,7 +68,7 @@ public class ProductionOrderController {
     }
 
     @PutMapping("/{id}/release")
-    @Operation(summary = "下达生产订单（计算 BOM 净需求，返回物料需求结果）")
+    @Operation(summary = "下达生产订单（按 BOM 净需求自动生成采购需求与草稿采购订单，并返回物料需求结果）")
     public Result<List<MaterialRequirementVo>> release(
             @PathVariable @Parameter(description = "生产订单ID") Long id) {
         return Result.success(productionOrderService.releaseProductionOrder(id));

@@ -15,7 +15,7 @@ public class MaterialVO {
 
     private String spec;
 
-    private String type;
+    private Integer type;
 
     /** 1 启用，0 停用 */
     private Integer status;

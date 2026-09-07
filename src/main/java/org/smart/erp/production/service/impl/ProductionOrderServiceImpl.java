@@ -18,6 +18,11 @@ import org.smart.erp.production.service.BOMService;
 import org.smart.erp.production.service.ProductionOrderService;
 import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionOrderVo;
+import org.smart.erp.purchase.dto.CreatePurchaseDemandDto;
+import org.smart.erp.purchase.entity.PurchaseDemand;
+import org.smart.erp.purchase.enums.PurchaseDemandSourceType;
+import org.smart.erp.purchase.service.PurchaseDemandService;
+import org.smart.erp.purchase.service.PurchaseOrderService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,18 +44,24 @@ public class ProductionOrderServiceImpl
     private final ProductionDemandMapper productionDemandMapper;
     private final MaterialMapper materialMapper;
     private final BOMService bomService;
+    private final PurchaseDemandService purchaseDemandService;
+    private final PurchaseOrderService purchaseOrderService;
 
     public ProductionOrderServiceImpl(
             BusinessNoGenerator businessNoGenerator,
             MaterialMapper materialMapper,
             ProductionDemandMapper productionDemandMapper,
-            BOMService bomService
+            BOMService bomService,
+            PurchaseDemandService purchaseDemandService,
+            PurchaseOrderService purchaseOrderService
     )
     {
         this.businessNoGenerator = businessNoGenerator;
         this.productionDemandMapper = productionDemandMapper;
         this.materialMapper = materialMapper;
         this.bomService = bomService;
+        this.purchaseDemandService = purchaseDemandService;
+        this.purchaseOrderService = purchaseOrderService;
     }
 
     @Override
@@ -227,8 +238,28 @@ public class ProductionOrderServiceImpl
         }
         order.setStatus(ProductionOrderStatus.RELEASED);
         baseMapper.updateById(order);
-        // 下达时按成品 + 计划数量计算 BOM 净需求，仅返回物料需求结果（不建单）
-        return bomService.calculateMaterialRequirement(order.getMaterialId(), order.getPlannedQuantity());
+
+        // 下达时按成品 + 计划数量计算 BOM 净需求
+        List<MaterialRequirementVo> requirements =
+                bomService.calculateMaterialRequirement(order.getMaterialId(), order.getPlannedQuantity());
+
+        // 对每种净缺物料自动生成一张采购需求，并据此生成一张草稿采购订单
+        // （供应商 / 单价 / 预计交货日期由采购员在审批前补全）
+        String sourceNo = order.getProductionOrderNo();
+        for (MaterialRequirementVo req : requirements) {
+            if (req.getShortageQuantity() == null || req.getShortageQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            CreatePurchaseDemandDto demandDto = new CreatePurchaseDemandDto();
+            demandDto.setMaterialId(req.getMaterialId());
+            demandDto.setSourceType(PurchaseDemandSourceType.PRODUCTION_ORDER);
+            demandDto.setSourceNo(sourceNo);
+            demandDto.setPurchaseQuantity(req.getShortageQuantity());
+            PurchaseDemand demand = purchaseDemandService.createPurchaseDemand(demandDto);
+
+            purchaseOrderService.createPurchaseOrderFromDemand(demand.getId());
+        }
+        return requirements;
     }
 
     /** 校验状态后执行生产单状态流转；extra 用于设置开始/结束时间等附加字段 */
