@@ -27,7 +27,7 @@ public class ProductionDemandController {
     @GetMapping
     @Operation(summary = "分页查询生产需求")
     public Result<Page<ProductionDemandVo>> page(
-            @RequestBody @Parameter(description = "分页查询生产需求") pageProductionDemandDto dto) {
+            @Parameter(description = "分页查询生产需求") pageProductionDemandDto dto) {
         return Result.success(productionDemandService.pageProductionDemand(dto));
     }
 

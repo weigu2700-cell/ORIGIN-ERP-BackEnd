@@ -20,6 +20,7 @@ import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionOrderVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -218,6 +219,7 @@ public class ProductionOrderServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public List<MaterialRequirementVo> releaseProductionOrder(Long id) {
         ProductionOrder order = getOrderOrThrow(id);
         if (order.getStatus() != ProductionOrderStatus.DRAFT) {
