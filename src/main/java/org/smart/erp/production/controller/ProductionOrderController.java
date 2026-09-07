@@ -10,6 +10,7 @@ import org.smart.erp.production.dto.pageProductionOrderDto;
 import org.smart.erp.production.service.ProductionOrderService;
 import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionOrderVo;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +27,7 @@ public class ProductionOrderController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyAuthority('production:order:create')")
     @Operation(summary = "创建生产订单")
     public Result<Void> create(
             @RequestBody @Parameter(description = "创建生产订单参数") createProductionOrderDto dto) {
@@ -34,6 +36,7 @@ public class ProductionOrderController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('production:order:list')")
     @Operation(summary = "分页获取生产订单")
     public Result<Page<ProductionOrderVo>> page(
             @ModelAttribute @Parameter(description = "分页获取生产订单") pageProductionOrderDto dto) {
@@ -41,12 +44,14 @@ public class ProductionOrderController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('production:order:get')")
     @Operation(summary = "获取生产订单详情")
     public Result<ProductionOrderVo> getById(@PathVariable @Parameter(description = "生产订单ID") Long id) {
         return Result.success(productionOrderService.DetailProductionOrder(id));
     }
 
     @PutMapping("/{id}/start")
+    @PreAuthorize("hasAnyAuthority('production:order:start')")
     @Operation(summary = "开始生产订单")
     public Result<Void> start(@PathVariable @Parameter(description = "生产订单ID") Long id) {
         productionOrderService.startProductionOrder(id);
@@ -54,6 +59,7 @@ public class ProductionOrderController {
     }
 
     @PutMapping("/{id}/complete")
+    @PreAuthorize("hasAnyAuthority('production:order:complete')")
     @Operation(summary = "完成生产订单")
     public Result<Void> complete(@PathVariable @Parameter(description = "生产订单ID") Long id) {
         productionOrderService.completeProductionOrder(id);
@@ -61,6 +67,7 @@ public class ProductionOrderController {
     }
 
     @PutMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyAuthority('production:order:cancel')")
     @Operation(summary = "取消生产订单")
     public Result<Void> cancel(@PathVariable @Parameter(description = "生产订单ID") Long id) {
         productionOrderService.cancelProductionOrder(id);
@@ -68,6 +75,7 @@ public class ProductionOrderController {
     }
 
     @PutMapping("/{id}/release")
+    @PreAuthorize("hasAnyAuthority('production:order:release')")
     @Operation(summary = "下达生产订单（按 BOM 净需求自动生成采购需求与草稿采购订单，并返回物料需求结果）")
     public Result<List<MaterialRequirementVo>> release(
             @PathVariable @Parameter(description = "生产订单ID") Long id) {

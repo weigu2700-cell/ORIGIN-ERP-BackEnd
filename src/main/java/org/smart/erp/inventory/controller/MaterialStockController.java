@@ -8,6 +8,7 @@ import org.smart.erp.inventory.dto.materialStockDto.CreateDto;
 import org.smart.erp.inventory.dto.materialStockDto.ListDto;
 import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.inventory.vo.MaterialStockVO;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,18 +25,21 @@ public class MaterialStockController {
 
     @Operation(summary = "新增库存记录")
     @PostMapping
+    @PreAuthorize("hasAnyAuthority('inventory:material-stock:create')")
     public Result<MaterialStockVO> create(@RequestBody @Validated CreateDto dto) {
         return Result.success(materialStockService.createMaterialStock(dto));
     }
 
     @Operation(summary = "库存分页列表")
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('inventory:material-stock:list')")
     public Result<Page<MaterialStockVO>> list(ListDto dto) {
         return Result.success(materialStockService.listMaterialStock(dto));
     }
 
     @Operation(summary = "库存详情")
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('inventory:material-stock:get')")
     public Result<MaterialStockVO> get(@PathVariable Long id) {
         return Result.success(materialStockService.getMaterialStock(id));
     }
