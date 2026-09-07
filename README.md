@@ -4,6 +4,7 @@
 
 - 后端仓库：[ORIGIN-ERP-BackEnd](https://github.com/weigu2700-cell/ORIGIN-ERP-BackEnd)
 - 前端仓库：[ORIGIN-ERP--FrontEnd](https://github.com/weigu2700-cell/ORIGIN-ERP--FrontEnd)
+- 移动端仓库: [ORIGIN-ERP-Moblie](https://github.com/weigu2700-cell/ORIGIN-ERP-Moblie.git)
 
 ## 当前功能
 

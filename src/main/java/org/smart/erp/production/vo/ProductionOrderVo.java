@@ -33,4 +33,8 @@ public class ProductionOrderVo {
     private LocalDateTime actualEndTime;
 
     private String remark;
+
+    private String productionOrderNo;
+
+    private Integer status;
 }

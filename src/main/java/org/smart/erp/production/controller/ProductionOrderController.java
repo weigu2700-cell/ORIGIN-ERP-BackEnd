@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/production/order")
+@RequestMapping({"prd/order", "/production/order"})
 @Tag(name="生产订单管理", description="生产订单管理")
 public class ProductionOrderController {
 
@@ -36,7 +36,7 @@ public class ProductionOrderController {
     @GetMapping
     @Operation(summary = "分页获取生产订单")
     public Result<Page<ProductionOrderVo>> page(
-            @RequestParam @Parameter(description = "分页获取生产订单") pageProductionOrderDto dto) {
+            @ModelAttribute @Parameter(description = "分页获取生产订单") pageProductionOrderDto dto) {
         return Result.success(productionOrderService.pageProductionOrder(dto));
     }
 

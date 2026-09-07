@@ -106,9 +106,6 @@ public class ProductionOrderServiceImpl
 
         LambdaQueryWrapper<ProductionOrder> queryWrapper =
                 new LambdaQueryWrapper<ProductionOrder>()
-                        .eq(Objects.nonNull(dto.getMaterialId()),
-                                ProductionOrder::getMaterialId, dto.getMaterialId())
-
                         .like(StringUtils.hasText(dto.getProductionOrderNo()),
                                 ProductionOrder::getProductionOrderNo, dto.getProductionOrderNo())
 
@@ -128,6 +125,10 @@ public class ProductionOrderServiceImpl
                                 ProductionOrder::getActualEndTime, dto.getActualEndTime())
 
                         .orderBy(true, false, ProductionOrder::getCreateTime);
+
+        if (StringUtils.hasText(dto.getMaterialId())) {
+            queryWrapper.eq(ProductionOrder::getMaterialId, Long.valueOf(dto.getMaterialId()));
+        }
 
         Page<ProductionOrder> page = this.page(new Page<>(dto.getPageNum(), dto.getPageSize()), queryWrapper);
 
@@ -161,6 +162,9 @@ public class ProductionOrderServiceImpl
 
             ProductionOrderVo vo = new ProductionOrderVo();
             BeanUtils.copyProperties(order, vo);
+            if (order.getStatus() != null) {
+                vo.setStatus(order.getStatus().getCode());
+            }
 
             Material material = materialMap.get(order.getMaterialId());
             if (material != null) {
@@ -193,6 +197,9 @@ public class ProductionOrderServiceImpl
 
         ProductionOrderVo vo = new ProductionOrderVo();
         BeanUtils.copyProperties(order, vo);
+        if (order.getStatus() != null) {
+            vo.setStatus(order.getStatus().getCode());
+        }
 
         Material material = materialMapper.selectById(order.getMaterialId());
         if (material != null) {
