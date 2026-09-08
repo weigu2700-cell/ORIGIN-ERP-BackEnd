@@ -62,12 +62,20 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     @Override
     public List<PermissionVO> getCurrentUserPermissionById(Long currentUserId) {
         List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
+        // 用户没有角色时直接返回空权限：in() 传入空集合会拼出 "IN ()"，导致 SQL 语法错误
+        if (roleIds.isEmpty()) {
+            return List.of();
+        }
 
         List<RolePermission> rolePermissions =
                 rolePermissionMapper.selectList(
                         new LambdaQueryWrapper<RolePermission>()
                                 .in(RolePermission::getRoleId, roleIds)
                 );
+        // 角色没有配置任何权限时同样短路，避免 listByIds 拼出空 IN
+        if (rolePermissions.isEmpty()) {
+            return List.of();
+        }
 
         List<Long> permissionIds = rolePermissions.stream()
                 .map(RolePermission::getPermissionId)
