@@ -235,6 +235,9 @@ public class PurchaseOrderServiceImpl
         Optional.ofNullable(dto.getUnitPrice())
                 .flatMap(up -> Optional.ofNullable(dto.getPlannedQuantity()).map(up::multiply))
                 .ifPresent(total -> order.setTotalAmount(total.setScale(2, RoundingMode.HALF_UP)));
+        if (order.getStatus() != PurchaseOrderStatus.DRAFT) {
+            throw new BusinessException(400, "仅草稿状态采购订单可编辑");
+        }
         purchaseOrderMapper.updateById(order);
     }
 
@@ -249,8 +252,13 @@ public class PurchaseOrderServiceImpl
         require(order.getUnitPrice(), "单价未填写，无法审批");
         require(order.getExpectedDeliveryDate(), "预计交货日期未填写，无法审批");
         require(order.getPlannedQuantity(), "计划数量未填写，无法审批");
-        order.setTotalAmount(order.getUnitPrice()
-                .multiply(order.getPlannedQuantity()).setScale(2, RoundingMode.HALF_UP));
+        if (order.getUnitPrice() != null && order.getPlannedQuantity() != null) {
+            order.setTotalAmount(
+                    order.getUnitPrice()
+                            .multiply(order.getPlannedQuantity())
+                            .setScale(2, RoundingMode.HALF_UP)
+            );
+        }
         order.setStatus(PurchaseOrderStatus.APPROVED);
         purchaseOrderMapper.updateById(order);
     }

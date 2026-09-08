@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.purchase.dto.CreatePurchaseDemandDto;
 import org.smart.erp.purchase.dto.PagePurchaseDemandDto;
 import org.smart.erp.purchase.entity.PurchaseDemand;
@@ -25,9 +26,15 @@ public class PurchaseDemandServiceImpl
         implements PurchaseDemandService {
 
     private final PurchaseDemandMapper purchaseDemandMapper;
+    private final BusinessNoGenerator businessNoGenerator;
 
-    public PurchaseDemandServiceImpl(PurchaseDemandMapper purchaseDemandMapper) {
+    public PurchaseDemandServiceImpl(
+            PurchaseDemandMapper purchaseDemandMapper,
+            BusinessNoGenerator businessNoGenerator
+    )
+    {
         this.purchaseDemandMapper = purchaseDemandMapper;
+        this.businessNoGenerator = businessNoGenerator;
     }
 
     /**
@@ -78,6 +85,12 @@ public class PurchaseDemandServiceImpl
 
         PurchaseDemand purchaseDemand = new PurchaseDemand();
         BeanUtils.copyProperties(dto, purchaseDemand);
+        purchaseDemand.setPurchaseDemandNo(
+                businessNoGenerator.generateNo(
+                        "erp:sequence:purchase-demand:",
+                        "PR"
+                )
+        );
         purchaseDemand.setStatus(PurchaseDemandStatus.DRAFT);
         purchaseDemandMapper.insert(purchaseDemand);
         return purchaseDemand;
