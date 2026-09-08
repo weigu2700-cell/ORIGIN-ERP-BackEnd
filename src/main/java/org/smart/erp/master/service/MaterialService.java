@@ -2,12 +2,15 @@ package org.smart.erp.master.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.master.dto.MaterialDTO.MaterialCreateDTO;
 import org.smart.erp.master.dto.MaterialDTO.MaterialListDTO;
 import org.smart.erp.master.dto.MaterialDTO.MaterialUpdateDTO;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.vo.MaterialVO;
+
+import java.util.List;
 
 public interface MaterialService extends IService<Material> {
     void createMaterial(MaterialCreateDTO dto);
@@ -22,4 +25,6 @@ public interface MaterialService extends IService<Material> {
 
     /** 切换物料状态：启用/停用互转 */
     void toggleMaterialStatus(Long id);
+
+    void exportMaterial(List<Long> ids, HttpServletResponse response);
 }

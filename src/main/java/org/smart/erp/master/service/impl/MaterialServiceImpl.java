@@ -1,8 +1,10 @@
 package org.smart.erp.master.service.impl;
 
+import cn.idev.excel.FastExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.SnowflakeIdGenerator;
@@ -13,10 +15,18 @@ import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.service.MaterialService;
+import org.smart.erp.master.vo.ExcelPrintVo.MaterialExportVO;
 import org.smart.erp.master.vo.MaterialVO;
 import org.springframework.beans.BeanUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+@Slf4j
 @Service
 public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> implements MaterialService {
 
@@ -109,6 +119,45 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
         material.setStatus(target);
         materialMapper.updateById(material);
     }
+
+    @Override
+    public void exportMaterial(List<Long> ids, HttpServletResponse response) {
+        LambdaQueryWrapper<Material> queryWrapper = new LambdaQueryWrapper<>();
+        if (ids != null && !ids.isEmpty()) {
+            queryWrapper.in(Material::getId, ids);
+        }
+        List<Material> materials = materialMapper.selectList(queryWrapper);
+
+        List<MaterialExportVO> data = materials.stream()
+                .map(material -> {
+                    MaterialExportVO vo = new MaterialExportVO();
+                    BeanUtils.copyProperties(material, vo);
+                    if (material.getStatus() != null) {
+                        vo.setStatusDesc(material.getStatus().getDesc());
+                    }
+                    if (material.getType() != null) {
+                        vo.setTypeDesc(material.getType().getDesc());
+                    }
+                    return vo;
+                })
+                .toList();
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+
+        try {
+            String fileName = URLEncoder.encode("物料列表", StandardCharsets.UTF_8).replace("+", "%20");
+            response.setHeader("Content-Disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+
+            FastExcel.write(response.getOutputStream(), MaterialExportVO.class)
+                    .sheet("物料列表")
+                    .doWrite(data);
+        } catch (IOException e) {
+            log.error("导出物料列表失败", e);
+            throw new BusinessException(500, "导出物料列表失败");
+        }
+    }
+
 
 
 }

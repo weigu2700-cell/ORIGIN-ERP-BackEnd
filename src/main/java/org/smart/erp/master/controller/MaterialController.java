@@ -3,6 +3,7 @@ package org.smart.erp.master.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.master.dto.MaterialDTO.MaterialCreateDTO;
 import org.smart.erp.master.dto.MaterialDTO.MaterialListDTO;
@@ -12,6 +13,8 @@ import org.smart.erp.master.service.MaterialService;
 import org.smart.erp.master.vo.MaterialVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/master/material")
@@ -69,5 +72,17 @@ public class MaterialController {
     public Result<Void> toggleMaterialStatus(@PathVariable Long id) {
         materialService.toggleMaterialStatus(id);
         return Result.success();
+    }
+
+    /**
+     * 物料导出
+     * @param ids 物料ID列表
+     * @param response 响应对象
+     */
+    @Operation(summary = "物料导出")
+    @PreAuthorize("hasAnyAuthority('master:material:export')")
+    @GetMapping("/export")
+    public void export(List<Long> ids, HttpServletResponse response) {
+        materialService.exportMaterial(ids, response);
     }
 }

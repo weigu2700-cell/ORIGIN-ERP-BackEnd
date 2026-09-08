@@ -2,11 +2,14 @@ package org.smart.erp.master.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierCreateDTO;
 import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierListDTO;
 import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierUpdateDTO;
 import org.smart.erp.master.entity.MaterialSupplier;
 import org.smart.erp.master.vo.MaterialSupplierVO;
+
+import java.util.List;
 
 public interface MaterialSupplierService extends IService<MaterialSupplier> {
     void createMaterialSupplier(MaterialSupplierCreateDTO dto);
@@ -20,4 +23,6 @@ public interface MaterialSupplierService extends IService<MaterialSupplier> {
     void changeMaterialSupplierStatus(Long id);
 
     void changeMaterialSupplierPreferred(Long materialId , Long supplierId);
+
+    void exportMaterialSupplier(List<Long> ids, HttpServletResponse response);
 }

@@ -3,6 +3,7 @@ package org.smart.erp.master.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.master.dto.FactoryDTO.FactoryCreateDTO;
 import org.smart.erp.master.dto.FactoryDTO.FactoryListDTO;
@@ -12,6 +13,8 @@ import org.smart.erp.master.service.FactoryService;
 import org.smart.erp.master.vo.FactoryVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("master/factory")
@@ -59,6 +62,16 @@ public class FactoryController {
     @PreAuthorize("hasAnyAuthority('factory:status:update')")
     public Result<Void> updateFactoryStatus(@PathVariable Long id, @RequestParam FactoryStatus status) {
         factoryService.updateFactoryStatus(id, status);
+        return Result.success();
+    }
+
+    @Operation(summary = "导出工厂数据")
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyAuthority('factory:export')")
+    public Result<Void> exportFactory(
+            @RequestParam(required = false) List<Long> ids,
+            HttpServletResponse response) {
+        factoryService.exportFactory(ids, response);
         return Result.success();
     }
 }
