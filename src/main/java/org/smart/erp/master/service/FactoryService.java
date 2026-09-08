@@ -2,12 +2,15 @@ package org.smart.erp.master.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.master.dto.FactoryDTO.FactoryCreateDTO;
 import org.smart.erp.master.dto.FactoryDTO.FactoryListDTO;
 import org.smart.erp.master.dto.FactoryDTO.FactoryUpdateDTO;
 import org.smart.erp.master.entity.Factory;
 import org.smart.erp.master.enums.FactoryStatus;
 import org.smart.erp.master.vo.FactoryVO;
+
+import java.util.List;
 
 public interface FactoryService extends IService<Factory> {
     void createFactory(FactoryCreateDTO dto);
@@ -19,4 +22,6 @@ public interface FactoryService extends IService<Factory> {
     FactoryVO getFactoryById(Long id);
 
     void updateFactoryStatus(Long id, FactoryStatus status);
+
+    void exportFactory(List<Long> ids, HttpServletResponse response);
 }

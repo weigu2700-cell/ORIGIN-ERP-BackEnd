@@ -21,6 +21,17 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import cn.idev.excel.FastExcel;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.smart.erp.master.vo.ExcelPrintVo.CustomerExportVO;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> implements CustomerService {
@@ -94,5 +105,39 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
         customer.setStatus(dto.getStatus());
         this.updateById(customer);
+    }
+
+    @Override
+    public void exportCustomer(List<Long> ids, HttpServletResponse response) {
+        LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<>();
+        if (ids != null && !ids.isEmpty()) {
+            wrapper.in(Customer::getId, ids);
+        }
+        List<Customer> customers = this.list(wrapper);
+
+        List<CustomerExportVO> data = customers.stream()
+                .map(customer -> {
+                    CustomerExportVO vo = new CustomerExportVO();
+                    BeanUtils.copyProperties(customer, vo);
+                    if (customer.getStatus() != null) {
+                        vo.setStatusDesc(customer.getStatus().getDesc());
+                    }
+                    return vo;
+                })
+                .toList();
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        try {
+            String fileName = URLEncoder.encode("客户信息", StandardCharsets.UTF_8).replace("+", "%20");
+            response.setHeader("Content-Disposition",
+                    "attachment;filename*=utf-8''" + fileName + ".xlsx");
+            FastExcel.write(response.getOutputStream(), CustomerExportVO.class)
+                    .sheet("客户信息")
+                    .doWrite(data);
+        } catch (IOException e) {
+            log.error("导出客户信息失败", e);
+            throw new BusinessException(500, "导出客户信息失败");
+        }
     }
 }

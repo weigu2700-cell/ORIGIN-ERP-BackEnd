@@ -3,6 +3,7 @@ package org.smart.erp.master.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierCreateDTO;
 import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierListDTO;
@@ -11,6 +12,8 @@ import org.smart.erp.master.service.MaterialSupplierService;
 import org.smart.erp.master.vo.MaterialSupplierVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("master/material-supplier")
@@ -63,6 +66,13 @@ public class MaterialSupplierController {
     @PutMapping("/{id}/preferred")
     public Result<Void> preferred(@PathVariable Long masterId, Long supplier) {
         materialSupplierService.changeMaterialSupplierPreferred(masterId, supplier);
+        return Result.success();
+    }
+
+    @Operation(summary = "物料供应商关联导出")
+    @GetMapping("/export")
+    public Result<Void> export(List<Long> ids, HttpServletResponse response) {
+        materialSupplierService.exportMaterialSupplier(ids, response);
         return Result.success();
     }
 

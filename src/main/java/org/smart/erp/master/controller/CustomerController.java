@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.master.dto.CustomerDTO.CustomerCreateDTO;
 import org.smart.erp.master.dto.CustomerDTO.CustomerListDTO;
@@ -14,6 +15,8 @@ import org.smart.erp.master.service.CustomerService;
 import org.smart.erp.master.vo.CustomerVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/master/customer")
@@ -58,5 +61,11 @@ public class CustomerController {
     public Result<Void> changeStatus(@PathVariable Long id, @RequestBody CustomerStatusDTO dto) {
         customerService.changeCustomerStatus(id, dto);
         return Result.success();
+    }
+
+    @GetMapping("/export")
+    @PreAuthorize("hasAuthority('master:customer:export')")
+    public void exportCustomer(@RequestParam(required = false) List<Long> ids, HttpServletResponse response) {
+        customerService.exportCustomer(ids, response);
     }
 }

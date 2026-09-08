@@ -1,8 +1,11 @@
 package org.smart.erp.master.service.impl;
 
+import cn.idev.excel.FastExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.SnowflakeIdGenerator;
@@ -22,6 +25,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+@Slf4j
 @Service
 public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> implements FactoryService {
 
@@ -110,5 +119,32 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
                     .eq(Workshop::getFactoryId, factory.getId()));
         }
         updateById(factory);
+    }
+
+    @Override
+    public void exportFactory(List<Long> ids, HttpServletResponse response) {
+        LambdaQueryWrapper<Factory> queryWrapper = new LambdaQueryWrapper<>();
+
+        if (ids != null && !ids.isEmpty()) {
+            queryWrapper.in(Factory::getId, ids);
+        }
+        List<Factory> factories = this.list(queryWrapper);
+        List<FactoryVO> data = factories.stream().map(this::toVO).toList();
+
+        response.setContentType("application/vnd.ms-excel");
+        response.setCharacterEncoding("UTF-8");
+
+        try {
+            String filed = URLEncoder
+                    .encode("工厂信息", StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            response.setHeader("Content-Disposition", "attachment;filename=" + filed + ".xlsx");
+            FastExcel.write(response.getOutputStream(), FactoryVO.class).sheet().doWrite(data);
+        }
+        catch (IOException e) {
+            log.error("导出工厂信息失败", e);
+            throw new BusinessException(500, "导出失败");
+        }
+
     }
 }
