@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping({"prd/order", "/production/order"})
+@RequestMapping({"prd/order"})
 @Tag(name="生产订单管理", description="生产订单管理")
 public class ProductionOrderController {
 
