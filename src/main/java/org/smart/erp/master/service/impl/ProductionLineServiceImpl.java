@@ -20,10 +20,19 @@ import org.smart.erp.master.vo.ProductionLineVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
+import cn.idev.excel.FastExcel;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.smart.erp.master.vo.ExcelPrintVo.ProductionLineExportVO;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class ProductionLineServiceImpl
         extends ServiceImpl<ProductionLineMapper, ProductionLine>
@@ -135,6 +144,50 @@ public class ProductionLineServiceImpl
         ProductionLine productionLine = getProductionLineOrThrow(id);
         productionLine.setStatus(status);
         updateById(productionLine);
+    }
+
+    @Override
+    public void exportProductionLine(List<Long> ids, HttpServletResponse response) {
+        LambdaQueryWrapper<ProductionLine> queryWrapper = new LambdaQueryWrapper<>();
+        if (ids != null && !ids.isEmpty()) {
+            queryWrapper.in(ProductionLine::getId, ids);
+        }
+        List<ProductionLine> lines = this.list(queryWrapper);
+
+        List<Long> workshopIds = lines.stream()
+                .map(ProductionLine::getWorkshopId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> workshopNameMap = workshopIds.isEmpty()
+                ? java.util.Collections.emptyMap()
+                : workshopMapper.selectByIds(workshopIds).stream()
+                        .collect(Collectors.toMap(Workshop::getId, Workshop::getName));
+
+        List<ProductionLineExportVO> data = lines.stream()
+                .map(line -> {
+                    ProductionLineExportVO vo = new ProductionLineExportVO();
+                    BeanUtils.copyProperties(line, vo);
+                    vo.setWorkshopName(workshopNameMap.get(line.getWorkshopId()));
+                    if (line.getStatus() != null) {
+                        vo.setStatusDesc(line.getStatus().getDesc());
+                    }
+                    return vo;
+                })
+                .toList();
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        try {
+            String fileName = URLEncoder.encode("生产线", StandardCharsets.UTF_8).replace("+", "%20");
+            response.setHeader("Content-Disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+            FastExcel.write(response.getOutputStream(), ProductionLineExportVO.class)
+                    .sheet("生产线")
+                    .doWrite(data);
+        } catch (IOException e) {
+            log.error("导出生产线失败", e);
+            throw new BusinessException(500, "导出生产线失败");
+        }
     }
 
 

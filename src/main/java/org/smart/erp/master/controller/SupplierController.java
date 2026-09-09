@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.master.dto.SupplierDTO.SupplierCreateDTO;
 import org.smart.erp.master.dto.SupplierDTO.SupplierListDTO;
@@ -14,6 +15,8 @@ import org.smart.erp.master.service.SupplierService;
 import org.smart.erp.master.vo.SupplierVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/master/supplier")
@@ -61,5 +64,12 @@ public class SupplierController {
                                      @Valid @RequestBody SupplierStatus status) {
         supplierService.changeSupplierStatus(id, status);
         return Result.success();
+    }
+
+    @Operation(summary = "导出供应商")
+    @GetMapping("/export")
+    @PreAuthorize("hasAuthority('master:supplier:export')")
+    public void export(@RequestParam(required = false) List<Long> ids, HttpServletResponse response) {
+        supplierService.exportSupplier(ids, response);
     }
 }

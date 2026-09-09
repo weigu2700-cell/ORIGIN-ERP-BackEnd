@@ -20,9 +20,19 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import cn.idev.excel.FastExcel;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.smart.erp.master.vo.ExcelPrintVo.SupplierExportVO;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> implements SupplierService {
@@ -91,5 +101,38 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
         }
         supplier.setStatus(status);
         this.updateById(supplier);
+    }
+
+    @Override
+    public void exportSupplier(List<Long> ids, HttpServletResponse response) {
+        LambdaQueryWrapper<Supplier> queryWrapper = new LambdaQueryWrapper<>();
+        if (ids != null && !ids.isEmpty()) {
+            queryWrapper.in(Supplier::getId, ids);
+        }
+        List<Supplier> suppliers = this.list(queryWrapper);
+
+        List<SupplierExportVO> data = suppliers.stream()
+                .map(supplier -> {
+                    SupplierExportVO vo = new SupplierExportVO();
+                    BeanUtils.copyProperties(supplier, vo);
+                    if (supplier.getStatus() != null) {
+                        vo.setStatusDesc(supplier.getStatus().getDesc());
+                    }
+                    return vo;
+                })
+                .toList();
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        try {
+            String fileName = URLEncoder.encode("供应商", StandardCharsets.UTF_8).replace("+", "%20");
+            response.setHeader("Content-Disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+            FastExcel.write(response.getOutputStream(), SupplierExportVO.class)
+                    .sheet("供应商")
+                    .doWrite(data);
+        } catch (IOException e) {
+            log.error("导出供应商失败", e);
+            throw new BusinessException(500, "导出供应商失败");
+        }
     }
 }

@@ -3,6 +3,7 @@ package org.smart.erp.master.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineCreateDTO;
 import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineListDTO;
@@ -13,6 +14,8 @@ import org.smart.erp.master.service.ProductionLineService;
 import org.smart.erp.master.vo.ProductionLineVO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/master/production_line")
@@ -61,5 +64,12 @@ public class ProductionLineController {
     public Result<Void> updateProductionLineStatus(@PathVariable Long id, ProductionLineStatus status) {
         productionLineService.updateProductionLineStatus(id, status);
         return Result.success();
+    }
+
+    @Operation(summary = "导出生产线")
+    @PreAuthorize("hasAnyAuthority('master:production_line:export')")
+    @GetMapping("/export")
+    public void exportProductionLine(@RequestParam(required = false) List<Long> ids, HttpServletResponse response) {
+        productionLineService.exportProductionLine(ids, response);
     }
 }
