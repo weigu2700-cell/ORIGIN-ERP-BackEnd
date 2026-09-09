@@ -12,12 +12,14 @@ import org.smart.erp.master.mapper.SupplierMapper;
 import org.smart.erp.purchase.dto.CreatePurchaseOrderDto;
 import org.smart.erp.purchase.dto.PagePurchaseOrderDto;
 import org.smart.erp.purchase.dto.UpdatePurchaseOrderDto;
+import org.smart.erp.purchase.dto.CreatePurchaseInStockDto;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.entity.PurchaseOrder;
 import org.smart.erp.purchase.enums.PurchaseDemandStatus;
 import org.smart.erp.purchase.enums.PurchaseOrderStatus;
 import org.smart.erp.purchase.mapper.PurchaseDemandMapper;
 import org.smart.erp.purchase.mapper.PurchaseOrderMapper;
+import org.smart.erp.purchase.service.PurchaseInStockService;
 import org.smart.erp.purchase.service.PurchaseOrderService;
 import org.smart.erp.purchase.vo.PurchaseOrderVo;
 import org.springframework.beans.BeanUtils;
@@ -42,19 +44,22 @@ public class PurchaseOrderServiceImpl
     private final PurchaseDemandMapper purchaseDemandMapper;
     private final MaterialMapper materialMapper;
     private final SupplierMapper supplierMapper;
+    private final PurchaseInStockService purchaseInStockService;
 
     public PurchaseOrderServiceImpl(
             BusinessNoGenerator businessNoGenerator,
             PurchaseOrderMapper purchaseOrderMapper,
             PurchaseDemandMapper purchaseDemandMapper,
             MaterialMapper materialMapper,
-            SupplierMapper supplierMapper
+            SupplierMapper supplierMapper,
+            PurchaseInStockService purchaseInStockService
     ) {
         this.businessNoGenerator = businessNoGenerator;
         this.purchaseOrderMapper = purchaseOrderMapper;
         this.purchaseDemandMapper = purchaseDemandMapper;
         this.materialMapper = materialMapper;
         this.supplierMapper = supplierMapper;
+        this.purchaseInStockService = purchaseInStockService;
     }
 
     /**
@@ -261,6 +266,27 @@ public class PurchaseOrderServiceImpl
         }
         order.setStatus(PurchaseOrderStatus.APPROVED);
         purchaseOrderMapper.updateById(order);
+
+        // 审批通过后自动生成采购入库单（草稿，仓库等信息待实际收货时补充）
+        createInStockForOrder(order);
+    }
+
+    /**
+     * 采购订单审批通过后自动生成采购入库单。
+     * 只负责组装数据，创建逻辑（校验、单号生成、状态/类型默认值、落库）复用 PurchaseInStockService。
+     *
+     * @param order 已审批的采购订单
+     */
+    private void createInStockForOrder(PurchaseOrder order) {
+        CreatePurchaseInStockDto dto = new CreatePurchaseInStockDto();
+        dto.setPurchaseOrderId(order.getId());
+        dto.setSupplierId(order.getSupplierId());
+        dto.setMaterialId(order.getMaterialId());
+        dto.setInQuantity(order.getPlannedQuantity());
+        dto.setUnitPrice(order.getUnitPrice());
+        dto.setTotalAmount(order.getTotalAmount());
+        dto.setDeliveryDate(order.getExpectedDeliveryDate());
+        purchaseInStockService.createPurchaseInStock(dto);
     }
 
     @Override
