@@ -8,6 +8,7 @@ import jakarta.validation.Validator;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.common.util.PageConvertUtils;
+import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Supplier;
 import org.smart.erp.master.entity.Warehouse;
@@ -16,6 +17,7 @@ import org.smart.erp.master.mapper.SupplierMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.purchase.dto.CreatePurchaseInStockDto;
 import org.smart.erp.purchase.dto.PagePurchaseInStockDto;
+import org.smart.erp.purchase.dto.UploadPurchaseInStockDto;
 import org.smart.erp.purchase.entity.PurchaseInStock;
 import org.smart.erp.purchase.entity.PurchaseOrder;
 import org.smart.erp.purchase.enums.PurchaseInStockStatus;
@@ -26,8 +28,10 @@ import org.smart.erp.purchase.service.PurchaseInStockService;
 import org.smart.erp.purchase.vo.PurchaseInStockVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,34 +44,36 @@ public class PurchaseInStockServiceImpl
     implements PurchaseInStockService
 {
 
-    private final PurchaseInStockMapper purchaseInStockMapper;
     private final Validator validator;
     private final BusinessNoGenerator businessNoGenerator;
     private final MaterialMapper materialMapper;
     private final SupplierMapper supplierMapper;
     private final WarehouseMapper warehouseMapper;
     private final PurchaseOrderMapper purchaseOrderMapper;
+    private final MaterialStockService materialStockService;
 
-    public PurchaseInStockServiceImpl(PurchaseInStockMapper purchaseInStockMapper,
-                                      Validator validator,
-                                      BusinessNoGenerator businessNoGenerator,
-                                      MaterialMapper materialMapper,
-                                      SupplierMapper supplierMapper,
-                                      WarehouseMapper warehouseMapper,
-                                      PurchaseOrderMapper purchaseOrderMapper) {
-        this.purchaseInStockMapper = purchaseInStockMapper;
+    public PurchaseInStockServiceImpl(
+                    Validator validator,
+                    BusinessNoGenerator businessNoGenerator,
+                    MaterialMapper materialMapper,
+                    SupplierMapper supplierMapper,
+                    WarehouseMapper warehouseMapper,
+                    PurchaseOrderMapper purchaseOrderMapper,
+                    MaterialStockService materialStockService
+            ) {
         this.validator = validator;
         this.businessNoGenerator = businessNoGenerator;
         this.materialMapper = materialMapper;
         this.supplierMapper = supplierMapper;
         this.warehouseMapper = warehouseMapper;
         this.purchaseOrderMapper = purchaseOrderMapper;
+        this.materialStockService = materialStockService;
     }
 
     /**
      * 判断对象是否为空，为空则抛出异常
+     *
      * @param obj 对象
-     * @param msg 异常信息
      */
     private void checkNull(Object obj, String msg) {
         if (obj == null || (obj instanceof String s && s.isBlank())) {
@@ -75,9 +81,29 @@ public class PurchaseInStockServiceImpl
         }
     }
 
+    /**
+     * 修改入库单状态
+     * @param id 入库单id
+     * @param checkStatus 检查状态
+     * @param status 修改为的状态
+     */
+    private void changePurchaseInStockStatus(
+            Long id,
+            PurchaseInStockStatus checkStatus,
+            PurchaseInStockStatus status)
+    {
+        PurchaseInStock purchaseInStock = this.getById(id);
+        checkNull(purchaseInStock,"入库信息不存在");
+        if (purchaseInStock.getStatus() != checkStatus) {
+            throw new BusinessException(400, "入库信息状态不为草稿，无法审核");
+        }
+        purchaseInStock.setStatus(status);
+        this.updateById(purchaseInStock);
+    }
+
     @Override
     public void createPurchaseInStock(CreatePurchaseInStockDto dto) {
-        checkNull(dto, "入库信息不能为空");
+        checkNull(dto,"入库信息不能为空");
 
         // 只校验 DTO 上标注了约束的字段，未标注的（备注、库位、各日期等）允许为空
         Set<ConstraintViolation<CreatePurchaseInStockDto>> violations = validator.validate(dto);
@@ -185,4 +211,69 @@ public class PurchaseInStockServiceImpl
             return vo;
         });
     }
+
+    @Override
+    public void approvePurchaseInStock(Long id) {
+        changePurchaseInStockStatus(
+                id,
+                PurchaseInStockStatus.DRAFT,
+                PurchaseInStockStatus.APPROVED
+        );
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void uploadPurchaseInStock(Long id, UploadPurchaseInStockDto dto) {
+        checkNull(dto, "上架信息不能为空");
+        Set<ConstraintViolation<UploadPurchaseInStockDto>> violations = validator.validate(dto);
+        if (!violations.isEmpty()) {
+            throw new BusinessException(400, violations.iterator().next().getMessage());
+        }
+
+        PurchaseInStock purchaseInStock = this.getById(id);
+        checkNull(purchaseInStock, "入库单不存在");
+
+        if (purchaseInStock.getStatus() != PurchaseInStockStatus.APPROVED) {
+            throw new BusinessException(400, "入库单状态不为已审核，无法上架");
+        }
+
+        if (purchaseInStock.getMaterialId() == null) {
+            throw new BusinessException(400, "入库单未关联物料，无法上架");
+        }
+        if (purchaseInStock.getInQuantity() == null) {
+            throw new BusinessException(400, "入库数量未填写，无法上架");
+        }
+
+        //仓库：优先用本次指定的，回退到入库单上已有的
+        Long warehouseId = dto.getWarehouseId() != null
+                ? dto.getWarehouseId()
+                : purchaseInStock.getWarehouseId();
+        if (warehouseId == null) {
+            throw new BusinessException(400, "仓库未指定，无法上架");
+        }
+
+        materialStockService.inboundStock(
+                purchaseInStock.getMaterialId(),
+                warehouseId,
+                purchaseInStock.getInQuantity(),
+                "PURCHASE_IN_STOCK",
+                purchaseInStock.getInStockNo(),
+                "采购入库上架"
+        );
+
+        purchaseInStock.setWarehouseId(warehouseId);
+        purchaseInStock.setStorageLocation(dto.getStorageLocation());
+        purchaseInStock.setBatchNo(dto.getBatchNo());
+        if (dto.getProductionDate() != null) {
+            purchaseInStock.setProductionDate(dto.getProductionDate());
+        }
+        if (dto.getExpiryDate() != null) {
+            purchaseInStock.setExpiryDate(dto.getExpiryDate());
+        }
+        purchaseInStock.setInDate(LocalDateTime.now());
+        purchaseInStock.setStatus(PurchaseInStockStatus.UPLOADED);
+        this.updateById(purchaseInStock);
+    }
+
+
 }
