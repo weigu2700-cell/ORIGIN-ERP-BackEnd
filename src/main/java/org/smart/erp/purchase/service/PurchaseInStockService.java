@@ -17,4 +17,6 @@ public interface PurchaseInStockService extends IService<PurchaseInStock> {
     void approvePurchaseInStock(Long id);
 
     void uploadPurchaseInStock(Long id, UploadPurchaseInStockDto dto);
+
+    PurchaseInStockVo getPurchaseInStock(Long id);
 }

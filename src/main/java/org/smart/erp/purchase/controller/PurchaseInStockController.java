@@ -29,6 +29,13 @@ public class PurchaseInStockController {
         return Result.success(purchaseInStockService.getPagePurchaseInStock(queryDto));
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('purchase:in:stock:detail')")
+    @Operation(summary = "查询入库单详情")
+    public Result<PurchaseInStockVo> get(@PathVariable Long id) {
+        return Result.success(purchaseInStockService.getPurchaseInStock(id));
+    }
+
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasAnyAuthority('purchase:in:stock:approve')")
     @Operation(summary = "审核入库单")

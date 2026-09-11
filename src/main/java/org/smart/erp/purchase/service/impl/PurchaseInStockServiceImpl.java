@@ -32,10 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -81,31 +78,10 @@ public class PurchaseInStockServiceImpl
         }
     }
 
-    /**
-     * 修改入库单状态
-     * @param id 入库单id
-     * @param checkStatus 检查状态
-     * @param status 修改为的状态
-     */
-    private void changePurchaseInStockStatus(
-            Long id,
-            PurchaseInStockStatus checkStatus,
-            PurchaseInStockStatus status)
-    {
-        PurchaseInStock purchaseInStock = this.getById(id);
-        checkNull(purchaseInStock,"入库信息不存在");
-        if (purchaseInStock.getStatus() != checkStatus) {
-            throw new BusinessException(400, "入库信息状态不为草稿，无法审核");
-        }
-        purchaseInStock.setStatus(status);
-        this.updateById(purchaseInStock);
-    }
-
     @Override
     public void createPurchaseInStock(CreatePurchaseInStockDto dto) {
         checkNull(dto,"入库信息不能为空");
 
-        // 只校验 DTO 上标注了约束的字段，未标注的（备注、库位、各日期等）允许为空
         Set<ConstraintViolation<CreatePurchaseInStockDto>> violations = validator.validate(dto);
         if (!violations.isEmpty()) {
             throw new BusinessException(400, violations.iterator().next().getMessage());
@@ -158,21 +134,18 @@ public class PurchaseInStockServiceImpl
                 this.page(new Page<>(pageNum, pageSize), qw);
         List<PurchaseInStock> records = mpPage.getRecords();
 
-        // 物料名称/编码
         List<Long> materialIds = records.stream().map(PurchaseInStock::getMaterialId)
                 .filter(Objects::nonNull).distinct().toList();
         Map<Long, Material> materialMap = materialIds.isEmpty() ? Map.of()
                 : materialMapper.selectByIds(materialIds).stream()
                         .collect(Collectors.toMap(Material::getId, m -> m));
 
-        // 仓库名称/编码
         List<Long> warehouseIds = records.stream().map(PurchaseInStock::getWarehouseId)
                 .filter(Objects::nonNull).distinct().toList();
         Map<Long, Warehouse> warehouseMap = warehouseIds.isEmpty() ? Map.of()
                 : warehouseMapper.selectByIds(warehouseIds).stream()
                         .collect(Collectors.toMap(Warehouse::getId, w -> w));
 
-        // 供应商名称/编码：入库单无 supplierId，经采购订单反查
         List<Long> orderIds = records.stream().map(PurchaseInStock::getPurchaseOrderId)
                 .filter(Objects::nonNull).distinct().toList();
         Map<Long, Long> orderSupplierMap = orderIds.isEmpty() ? Map.of()
@@ -214,11 +187,13 @@ public class PurchaseInStockServiceImpl
 
     @Override
     public void approvePurchaseInStock(Long id) {
-        changePurchaseInStockStatus(
-                id,
-                PurchaseInStockStatus.DRAFT,
-                PurchaseInStockStatus.APPROVED
-        );
+        PurchaseInStock purchaseInStock = this.getById(id);
+        checkNull(purchaseInStock,"入库信息不存在");
+        if (purchaseInStock.getStatus() != PurchaseInStockStatus.DRAFT) {
+            throw new BusinessException(400, "入库信息状态不为草稿，无法审核");
+        }
+        purchaseInStock.setStatus(PurchaseInStockStatus.APPROVED);
+        this.updateById(purchaseInStock);
     }
 
     @Override
@@ -275,5 +250,45 @@ public class PurchaseInStockServiceImpl
         this.updateById(purchaseInStock);
     }
 
+    @Override
+    public PurchaseInStockVo getPurchaseInStock(Long id) {
+        PurchaseInStock purchaseInStock = this.getById(id);
+        checkNull(purchaseInStock, "入库单不存在");
+
+        // 关联数据：外键为空时不查库，避免无意义的查询
+        Material material = purchaseInStock.getMaterialId() == null ? null
+                : materialMapper.selectById(purchaseInStock.getMaterialId());
+        PurchaseOrder purchaseOrder = purchaseInStock.getPurchaseOrderId() == null ? null
+                : purchaseOrderMapper.selectById(purchaseInStock.getPurchaseOrderId());
+        Warehouse warehouse = purchaseInStock.getWarehouseId() == null ? null
+                : warehouseMapper.selectById(purchaseInStock.getWarehouseId());
+        // 供应商挂在采购订单上，订单可能为空
+        Supplier supplier = (purchaseOrder == null || purchaseOrder.getSupplierId() == null) ? null
+                : supplierMapper.selectById(purchaseOrder.getSupplierId());
+
+        PurchaseInStockVo vo = new PurchaseInStockVo();
+        BeanUtils.copyProperties(purchaseInStock, vo);
+        vo.setPurchaseInStockNo(purchaseInStock.getInStockNo());
+
+        Optional.ofNullable(material).ifPresent(m -> {
+            vo.setMaterialName(m.getName());
+            vo.setMaterialCode(m.getCode());
+        });
+
+        Optional.ofNullable(warehouse).ifPresent(w -> {
+            vo.setWarehouseName(w.getName());
+            vo.setWarehouseCode(w.getCode());
+        });
+
+        Optional.ofNullable(supplier).ifPresent(s -> {
+            vo.setSupplierId(s.getId());
+            vo.setSupplierName(s.getName());
+            vo.setSupplierCode(s.getCode());
+        });
+
+        checkNull(purchaseOrder, "采购订单不存在");
+        vo.setPurchaseOrderNo(purchaseOrder.getPurchaseOrderNo());
+        return vo;
+    }
 
 }
