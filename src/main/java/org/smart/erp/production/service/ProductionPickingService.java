@@ -1,16 +1,22 @@
 package org.smart.erp.production.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.smart.erp.production.dto.ProductionPickingAddDto;
+import org.smart.erp.production.dto.ProductionPickingPageDto;
 import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.entity.ProductionPicking;
 import org.smart.erp.production.vo.MaterialRequirementVo;
+import org.smart.erp.production.vo.ProductionPickingVo;
 
 import java.util.List;
 import java.util.Map;
 
 public interface ProductionPickingService extends IService<ProductionPicking> {
     void addProductionPicking(ProductionPickingAddDto dto);
+
+    /** 按条件分页查询领料单（返回展示 Vo） */
+    Page<ProductionPickingVo> pageProductionPicking(ProductionPickingPageDto dto);
 
     /**
      * 由生产订单按 BOM 生成领料单：
@@ -21,8 +27,10 @@ public interface ProductionPickingService extends IService<ProductionPicking> {
      * @param requirements        BOM 物料净需求（含毛需求/缺口量）
      * @param demandIdByMaterial  物料ID -> 采购需求ID（仅缺料物料，用于一一对应）
      */
-    void generatePickingFromOrder(ProductionOrder order, List<MaterialRequirementVo> requirements,
-                                  Map<Long, Long> demandIdByMaterial);
+    void generatePickingFromOrder(
+            ProductionOrder order,
+            List<MaterialRequirementVo> requirements,
+            Map<Long, Long> demandIdByMaterial);
 
     /** 领料确认：库存出库、状态置“已领料”，若同订单全部领完则下达生产 */
     void confirmPicking(Long id);

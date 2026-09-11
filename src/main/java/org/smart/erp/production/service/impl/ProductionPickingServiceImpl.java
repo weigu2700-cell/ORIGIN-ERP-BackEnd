@@ -1,14 +1,18 @@
 package org.smart.erp.production.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.service.MaterialStockService;
+import org.smart.erp.master.entity.Material;
+import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.production.dto.ProductionPickingAddDto;
+import org.smart.erp.production.dto.ProductionPickingPageDto;
 import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.entity.ProductionPicking;
 import org.smart.erp.production.enums.ProductionOrderStatus;
@@ -19,16 +23,24 @@ import org.smart.erp.production.service.BOMService;
 import org.smart.erp.production.service.ProductionPickingService;
 import org.smart.erp.production.vo.BOMExplosionVo;
 import org.smart.erp.production.vo.MaterialRequirementVo;
+import org.smart.erp.production.vo.ProductionPickingVo;
+import org.smart.erp.purchase.entity.PurchaseDemand;
+import org.smart.erp.purchase.mapper.PurchaseDemandMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.util.StringUtils;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class ProductionPickingServiceImpl
@@ -40,6 +52,7 @@ public class ProductionPickingServiceImpl
     private final ProductionOrderMapper productionOrderMapper;
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
+    private final PurchaseDemandMapper purchaseDemandMapper;
     private final BOMService bomService;
     private final MaterialStockService materialStockService;
 
@@ -48,6 +61,7 @@ public class ProductionPickingServiceImpl
             ProductionOrderMapper productionOrderMapper,
             MaterialMapper materialMapper,
             WarehouseMapper warehouseMapper,
+            PurchaseDemandMapper purchaseDemandMapper,
             BOMService bomService,
             MaterialStockService materialStockService)
     {
@@ -55,6 +69,7 @@ public class ProductionPickingServiceImpl
         this.productionOrderMapper = productionOrderMapper;
         this.materialMapper = materialMapper;
         this.warehouseMapper = warehouseMapper;
+        this.purchaseDemandMapper = purchaseDemandMapper;
         this.bomService = bomService;
         this.materialStockService = materialStockService;
     }
@@ -279,6 +294,100 @@ public class ProductionPickingServiceImpl
                 productionOrderMapper.updateById(order);
             }
         }
+    }
+
+    @Override
+    public Page<ProductionPickingVo> pageProductionPicking(ProductionPickingPageDto dto) {
+        LambdaQueryWrapper<ProductionPicking> queryWrapper =
+                new LambdaQueryWrapper<ProductionPicking>()
+                    .eq(Objects.nonNull(dto.getProductionOrderId()),
+                            ProductionPicking::getProductionOrderId, dto.getProductionOrderId())
+
+                    .eq(Objects.nonNull(dto.getPurchaseDemandId()),
+                            ProductionPicking::getPurchaseDemandId, dto.getPurchaseDemandId())
+
+                    .eq(Objects.nonNull(dto.getMaterialId()),
+                            ProductionPicking::getMaterialId, dto.getMaterialId())
+
+                    .eq(Objects.nonNull(dto.getWarehouseId()),
+                            ProductionPicking::getWarehouseId, dto.getWarehouseId())
+
+                    .eq(Objects.nonNull(dto.getStatus()),
+                            ProductionPicking::getStatus, dto.getStatus())
+
+                    .ge(Objects.nonNull(dto.getPickingTimeStart()),
+                            ProductionPicking::getPickingTime, dto.getPickingTimeStart())
+
+                    .le(Objects.nonNull(dto.getPickingTimeEnd()),
+                            ProductionPicking::getPickingTime, dto.getPickingTimeEnd())
+
+                    .orderByAsc(ProductionPicking::getCreateTime);
+
+        Page<ProductionPicking> page = this.page(new Page<>(dto.getPageNum(), dto.getPageSize()), queryWrapper);
+
+        Set<Long> materialIds = page.getRecords().stream()
+                .map(ProductionPicking::getMaterialId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Set<Long> warehouseIds = page.getRecords().stream()
+                .map(ProductionPicking::getWarehouseId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Set<Long> orderIds = page.getRecords().stream()
+                .map(ProductionPicking::getProductionOrderId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Set<Long> demandIds = page.getRecords().stream()
+                .map(ProductionPicking::getPurchaseDemandId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Map<Long, Material> materialMap = materialIds.isEmpty()
+                ? Collections.emptyMap()
+                : materialMapper.selectByIds(materialIds).stream()
+                    .collect(Collectors.toMap(Material::getId, m -> m));
+
+        Map<Long, Warehouse> warehouseMap = warehouseIds.isEmpty()
+                ? Collections.emptyMap()
+                : warehouseMapper.selectByIds(warehouseIds).stream()
+                    .collect(Collectors.toMap(Warehouse::getId, w -> w));
+
+        Map<Long, ProductionOrder> orderMap = orderIds.isEmpty()
+                ? Collections.emptyMap()
+                : productionOrderMapper.selectByIds(orderIds).stream()
+                    .collect(Collectors.toMap(ProductionOrder::getId, o -> o));
+
+        Map<Long, PurchaseDemand> demandMap = demandIds.isEmpty()
+                ? Collections.emptyMap()
+                : purchaseDemandMapper.selectByIds(demandIds).stream()
+                    .collect(Collectors.toMap(PurchaseDemand::getId, d -> d));
+
+        List<ProductionPickingVo> voList = page.getRecords().stream().map(picking -> {
+            ProductionPickingVo vo = new ProductionPickingVo();
+            BeanUtils.copyProperties(picking, vo);
+
+            Material material = materialMap.get(picking.getMaterialId());
+            if (material != null) {
+                vo.setMaterialCode(material.getCode());
+                vo.setMaterialName(material.getName());
+            }
+            Warehouse warehouse = warehouseMap.get(picking.getWarehouseId());
+            if (warehouse != null) {
+                vo.setWarehouseName(warehouse.getName());
+            }
+            ProductionOrder order = orderMap.get(picking.getProductionOrderId());
+            if (order != null) {
+                vo.setProductionOrderNo(order.getProductionOrderNo());
+            }
+            PurchaseDemand demand = demandMap.get(picking.getPurchaseDemandId());
+            if (demand != null) {
+                vo.setPurchaseDemandNo(demand.getPurchaseDemandNo());
+            }
+            return vo;
+        }).toList();
+
+        Page<ProductionPickingVo> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        voPage.setRecords(voList);
+        return voPage;
     }
 
     @Override

@@ -3,6 +3,7 @@ package org.smart.erp.purchase.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.purchase.dto.PurchaseInStockPageDto;
 import org.smart.erp.purchase.dto.PurchaseInStockUploadDto;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/purchase/in/stock")
+@Tag(name = "采购入库", description = "采购入库相关接口")
 public class PurchaseInStockController {
 
     private final PurchaseInStockService purchaseInStockService;
