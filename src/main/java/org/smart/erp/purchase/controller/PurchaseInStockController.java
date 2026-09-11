@@ -38,7 +38,7 @@ public class PurchaseInStockController {
 
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasAnyAuthority('purchase:in:stock:approve')")
-    @Operation(summary = "审核入库单")
+    @Operation(summary = "审核入库单(移动端接口)")
     public Result<Void> approve(
             @Parameter(description = "入库单ID") @PathVariable  Long id) {
         purchaseInStockService.approvePurchaseInStock(id);
@@ -47,7 +47,7 @@ public class PurchaseInStockController {
 
     @PutMapping("/{id}/upload")
     @PreAuthorize("hasAnyAuthority('purchase:in:stock:upload')")
-    @Operation(summary = "上架入库单")
+    @Operation(summary = "上架入库单(移动端接口)")
     public Result<Void> upload(
             @Parameter(description = "入库单ID") @PathVariable  Long id,
             @Parameter(description = "上架入库单参数") @RequestBody UploadPurchaseInStockDto dto) {
