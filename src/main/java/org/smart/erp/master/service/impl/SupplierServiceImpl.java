@@ -8,14 +8,14 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.SnowflakeIdGenerator;
 import org.smart.erp.master.convertor.ApplyUpdate;
-import org.smart.erp.master.dto.SupplierDTO.SupplierCreateDTO;
-import org.smart.erp.master.dto.SupplierDTO.SupplierListDTO;
-import org.smart.erp.master.dto.SupplierDTO.SupplierUpdateDTO;
+import org.smart.erp.master.dto.SupplierDto.SupplierAddDto;
+import org.smart.erp.master.dto.SupplierDto.SupplierPageDto;
+import org.smart.erp.master.dto.SupplierDto.SupplierUpdateDto;
 import org.smart.erp.master.entity.Supplier;
 import org.smart.erp.master.enums.SupplierStatus;
 import org.smart.erp.master.mapper.SupplierMapper;
 import org.smart.erp.master.service.SupplierService;
-import org.smart.erp.master.vo.SupplierVO;
+import org.smart.erp.master.vo.SupplierVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -23,7 +23,7 @@ import org.springframework.util.StringUtils;
 import cn.idev.excel.FastExcel;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.smart.erp.master.vo.ExcelPrintVo.SupplierExportVO;
+import org.smart.erp.master.vo.ExcelPrintVo.SupplierExportVo;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -39,8 +39,8 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
 
     private static final SnowflakeIdGenerator SNOWFLAKE = new SnowflakeIdGenerator();
 
-    private SupplierVO convertToVO(Supplier supplier) {
-        SupplierVO vo = new SupplierVO();
+    private SupplierVo convertToVO(Supplier supplier) {
+        SupplierVo vo = new SupplierVo();
         BeanUtils.copyProperties(supplier, vo);
         if (supplier.getStatus() != null) {
             vo.setStatus(supplier.getStatus().getCode());
@@ -50,7 +50,7 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
     }
 
     @Override
-    public void createSupplier(SupplierCreateDTO dto) {
+    public void addSupplier(SupplierAddDto dto) {
         Supplier supplier = new Supplier();
         BeanUtils.copyProperties(dto, supplier);
         String datePrefix = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
@@ -60,7 +60,7 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
     }
 
     @Override
-    public Page<SupplierVO> listSupplier(SupplierListDTO dto) {
+    public Page<SupplierVo> pageSupplier(SupplierPageDto dto) {
         LambdaQueryWrapper<Supplier> queryWrapper = new LambdaQueryWrapper<Supplier>()
                 .eq(StringUtils.hasText(dto.getCode()), Supplier::getCode, dto.getCode())
                 .like(StringUtils.hasText(dto.getName()), Supplier::getName, dto.getName())
@@ -75,7 +75,7 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
     }
 
     @Override
-    public SupplierVO getSupplierDetail(Long id) {
+    public SupplierVo detailSupplier(Long id) {
         Supplier supplier = this.getById(id);
         if (supplier == null) {
             throw new BusinessException(404, "供应商不存在");
@@ -84,7 +84,7 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
     }
 
     @Override
-    public void updateSupplier(Long id, SupplierUpdateDTO dto) {
+    public void updateSupplier(Long id, SupplierUpdateDto dto) {
         Supplier supplier = this.getById(id);
         if (supplier == null) {
             throw new BusinessException(404, "供应商不存在");
@@ -111,9 +111,9 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
         }
         List<Supplier> suppliers = this.list(queryWrapper);
 
-        List<SupplierExportVO> data = suppliers.stream()
+        List<SupplierExportVo> data = suppliers.stream()
                 .map(supplier -> {
-                    SupplierExportVO vo = new SupplierExportVO();
+                    SupplierExportVo vo = new SupplierExportVo();
                     BeanUtils.copyProperties(supplier, vo);
                     if (supplier.getStatus() != null) {
                         vo.setStatusDesc(supplier.getStatus().getDesc());
@@ -127,7 +127,7 @@ public class SupplierServiceImpl extends ServiceImpl<SupplierMapper, Supplier> i
         try {
             String fileName = URLEncoder.encode("供应商", StandardCharsets.UTF_8).replace("+", "%20");
             response.setHeader("Content-Disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
-            FastExcel.write(response.getOutputStream(), SupplierExportVO.class)
+            FastExcel.write(response.getOutputStream(), SupplierExportVo.class)
                     .sheet("供应商")
                     .doWrite(data);
         } catch (IOException e) {

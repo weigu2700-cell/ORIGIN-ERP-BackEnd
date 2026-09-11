@@ -5,14 +5,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.system.dto.LoginDTO;
-import org.smart.erp.system.dto.UserCreateDTO;
-import org.smart.erp.system.dto.UserGetDTO;
-import org.smart.erp.system.dto.UserRoleAssignDTO;
-import org.smart.erp.system.dto.UserStatusUpdateDTO;
-import org.smart.erp.system.dto.UserUpdateDTO;
+import org.smart.erp.system.dto.LoginDto;
+import org.smart.erp.system.dto.UserAddDto;
+import org.smart.erp.system.dto.UserDetailDto;
+import org.smart.erp.system.dto.UserRoleAssignDto;
+import org.smart.erp.system.dto.UserStatusUpdateDto;
+import org.smart.erp.system.dto.UserUpdateDto;
 import org.smart.erp.system.service.UserService;
-import org.smart.erp.system.vo.UserGetVO;
+import org.smart.erp.system.vo.UserDetailVo;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,60 +29,60 @@ public class UserController {
 
     @Operation(summary = "新增用户")
     @PostMapping("/create")
-    public Result<Void> create(@RequestBody UserCreateDTO dto) {
-        userService.createUser(dto);
+    public Result<Void> add(@RequestBody UserAddDto dto) {
+        userService.addUser(dto);
         return Result.success();
     }
 
     @Operation(summary = "用户详情")
     @GetMapping("/{id:\\d+}")
-    public Result<UserGetVO> getUserDetail(@PathVariable Long id) {
-        return Result.success(userService.getUserDetail(id));
+    public Result<UserDetailVo> detailUser(@PathVariable Long id) {
+        return Result.success(userService.detailUser(id));
     }
 
     @Operation(summary = "用户详情（兼容 /detail/{id} 路径）")
     @GetMapping("/detail/{id:\\d+}")
-    public Result<UserGetVO> getUserDetailByPath(@PathVariable Long id) {
-        return Result.success(userService.getUserDetail(id));
+    public Result<UserDetailVo> getUserDetailByPath(@PathVariable Long id) {
+        return Result.success(userService.detailUser(id));
     }
 
     @Operation(summary = "删除用户（兼容 /delete/{id} 路径）")
     @RequestMapping(value = "/delete/{id:\\d+}", method = {RequestMethod.DELETE, RequestMethod.GET, RequestMethod.POST})
-    public Result<Void> deleteUser(@PathVariable Long id) {
-        userService.deleteUser(id);
+    public Result<Void> removeUser(@PathVariable Long id) {
+        userService.removeUser(id);
         return Result.success();
     }
 
     @Operation(summary = "更新用户")
     @PutMapping("/{id:\\d+}")
-    public Result<Void> updateUser(@PathVariable Long id, @RequestBody UserUpdateDTO dto) {
+    public Result<Void> updateUser(@PathVariable Long id, @RequestBody UserUpdateDto dto) {
         userService.updateUser(id, dto);
         return Result.success();
     }
 
     @Operation(summary = "更新用户（兼容 /update 路径）")
     @RequestMapping(value = "/update/{id:\\d+}", method = {RequestMethod.PUT, RequestMethod.POST})
-    public Result<Void> updateUserCompat(@PathVariable Long id, @RequestBody UserUpdateDTO dto) {
+    public Result<Void> updateUserCompat(@PathVariable Long id, @RequestBody UserUpdateDto dto) {
         userService.updateUser(id, dto);
         return Result.success();
     }
 
     @Operation(summary = "修改用户状态")
     @PutMapping("/{id:\\d+}/status")
-    public Result<Void> updateUserStatus(@PathVariable Long id, @RequestBody UserStatusUpdateDTO dto) {
+    public Result<Void> updateUserStatus(@PathVariable Long id, @RequestBody UserStatusUpdateDto dto) {
         userService.updateUserStatus(id, dto);
         return Result.success();
     }
 
     @Operation(summary = "用户分页列表")
     @GetMapping("/list")
-    public Result<Page<UserGetVO>> listUser(UserGetDTO dto) {
-        return Result.success(userService.listUser(dto));
+    public Result<Page<UserDetailVo>> pageUser(UserDetailDto dto) {
+        return Result.success(userService.pageUser(dto));
     }
 
     @Operation(summary = "获取当前登录用户信息")
     @GetMapping("/current")
-    public Result<UserGetVO> getCurrentUser() {
+    public Result<UserDetailVo> getCurrentUser() {
         return Result.success(userService.getCurrentUserInfo());
     }
 
@@ -94,7 +94,7 @@ public class UserController {
     @Operation(summary = "为用户分配角色")
     @PostMapping("/{id:\\d+}/roles")
     public Result<Void> assignRoles(@PathVariable Long id,
-                                    @RequestBody UserRoleAssignDTO dto) {
+                                    @RequestBody UserRoleAssignDto dto) {
         dto.setUserId(id);
         userService.assignRoles(dto);
         return Result.success(null);

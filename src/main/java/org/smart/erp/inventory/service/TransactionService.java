@@ -4,11 +4,11 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.smart.erp.inventory.dto.transactionDto.ListDto;
+import org.smart.erp.inventory.dto.transactionDto.TransactionPageDto;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.entity.Transaction;
 import org.smart.erp.inventory.enums.TransactionType;
-import org.smart.erp.inventory.vo.TransactionVO;
+import org.smart.erp.inventory.vo.TransactionVo;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
@@ -26,7 +26,7 @@ public interface TransactionService extends IService<Transaction> {
             String remark
     );
 
-    Page<TransactionVO> listTransaction(ListDto listDto);
+    Page<TransactionVo> pageTransaction(TransactionPageDto listDto);
 
     void export(HttpServletResponse response);
 

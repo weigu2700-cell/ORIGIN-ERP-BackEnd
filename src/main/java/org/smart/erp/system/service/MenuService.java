@@ -2,30 +2,30 @@ package org.smart.erp.system.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.smart.erp.system.dto.MenuCreateDTO;
-import org.smart.erp.system.dto.MenuGetDTO;
-import org.smart.erp.system.dto.MenuGetTreeDTO;
+import org.smart.erp.system.dto.MenuAddDto;
+import org.smart.erp.system.dto.MenuDetailDto;
+import org.smart.erp.system.dto.MenuTreeDto;
 import org.smart.erp.system.entity.Menu;
-import org.smart.erp.system.vo.MenuListVO;
-import org.smart.erp.system.vo.MenuSearchVO;
-import org.smart.erp.system.vo.MenuTreeVO;
+import org.smart.erp.system.vo.MenuListVo;
+import org.smart.erp.system.vo.MenuSearchVo;
+import org.smart.erp.system.vo.MenuTreeVo;
 
 import java.util.List;
 
 public interface MenuService extends IService<Menu> {
-    Page<MenuListVO> listMenu(MenuGetDTO dto);
+    Page<MenuListVo> pageMenu(MenuDetailDto dto);
 
-    List<MenuTreeVO> getMenuTree(MenuGetTreeDTO dto);
+    List<MenuTreeVo> getMenuTree(MenuTreeDto dto);
 
-    MenuListVO getMenuDetail(Long id);
+    MenuListVo detailMenu(Long id);
 
-    void createMenu(MenuCreateDTO dto);
+    void addMenu(MenuAddDto dto);
 
-    void updateMenu(Long id ,MenuCreateDTO dto);
+    void updateMenu(Long id ,MenuAddDto dto);
 
-    void deleteMenu(Long id);
+    void removeMenu(Long id);
 
-    List<MenuTreeVO> getCurrentUserMenu();
+    List<MenuTreeVo> getCurrentUserMenu();
 
-    List<MenuSearchVO> searchCurrentUserMenu(String keyword);
+    List<MenuSearchVo> searchCurrentUserMenu(String keyword);
 }

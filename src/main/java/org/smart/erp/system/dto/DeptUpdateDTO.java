@@ -5,7 +5,7 @@ import lombok.Data;
 import org.smart.erp.system.Enum.DeptStatus;
 
 @Data
-public class DeptUpdateDTO {
+public class DeptUpdateDto {
 
     @NotNull(message = "部门ID不能为空")
     private Long id;

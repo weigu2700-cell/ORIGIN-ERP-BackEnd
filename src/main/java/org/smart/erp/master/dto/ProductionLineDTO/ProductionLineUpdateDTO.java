@@ -1,11 +1,11 @@
-package org.smart.erp.master.dto.ProductionLineDTO;
+package org.smart.erp.master.dto.ProductionLineDto;
 
 import lombok.Data;
 
 import java.math.BigDecimal;
 
 @Data
-public class ProductionLineUpdateDTO {
+public class ProductionLineUpdateDto {
 
     private String name;
 

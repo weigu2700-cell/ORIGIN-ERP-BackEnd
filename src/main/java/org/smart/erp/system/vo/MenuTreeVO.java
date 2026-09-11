@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class MenuTreeVO {
+public class MenuTreeVo {
 
     private Long id;
 
@@ -21,5 +21,5 @@ public class MenuTreeVO {
 
     private Long parentId;
 
-    private List<MenuTreeVO> children;
+    private List<MenuTreeVo> children;
 }

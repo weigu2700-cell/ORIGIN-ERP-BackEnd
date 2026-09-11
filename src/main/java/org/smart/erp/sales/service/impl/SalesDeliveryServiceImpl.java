@@ -8,9 +8,9 @@ import org.springframework.context.annotation.Lazy;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.master.entity.Customer;
 import org.smart.erp.master.mapper.CustomerMapper;
-import org.smart.erp.sales.dto.salesDeliveryDto.CreateDto;
-import org.smart.erp.sales.dto.salesDeliveryDto.ListDto;
-import org.smart.erp.sales.dto.salesDeliveryItemDto.CreateItemDto;
+import org.smart.erp.sales.dto.salesDeliveryDto.SalesDeliveryAddDto;
+import org.smart.erp.sales.dto.salesDeliveryDto.SalesDeliveryPageDto;
+import org.smart.erp.sales.dto.salesDeliveryItemDto.SalesDeliveryItemAddDto;
 import org.smart.erp.sales.entity.SalesDelivery;
 import org.smart.erp.sales.entity.SalesDeliveryItem;
 import org.smart.erp.sales.entity.SalesOrder;
@@ -117,7 +117,7 @@ public class SalesDeliveryServiceImpl
         beforeUpdate.run();
         delivery.setStatus(target);
         salesDeliveryMapper.updateById(delivery);
-        return getSalesDeliveryVoById(id);
+        return detailSalesDeliveryVo(id);
     }
 
     /**
@@ -189,7 +189,7 @@ public class SalesDeliveryServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SalesDeliveryVo createSalesDeliveryVo(CreateDto dto) {
+    public SalesDeliveryVo addSalesDeliveryVo(SalesDeliveryAddDto dto) {
         // 销售订单必须存在，客户/订单号等信息从订单带出
         SalesOrder salesOrder = salesOrderMapper.selectById(dto.getSalesOrderId());
         if (salesOrder == null) {
@@ -218,7 +218,7 @@ public class SalesDeliveryServiceImpl
 
         // 批量加载销售订单明细，校验归属同一订单并避免逐条查询
         List<Long> orderItemIds = dto.getItems().stream()
-                .map(CreateItemDto::getSalesOrderItemId)
+                .map(SalesDeliveryItemAddDto::getSalesOrderItemId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
@@ -231,7 +231,7 @@ public class SalesDeliveryServiceImpl
 
         int lineNo = 10;
         List<SalesDeliveryItemVo> itemVoList = new ArrayList<>();
-        for (CreateItemDto itemDto : dto.getItems()) {
+        for (SalesDeliveryItemAddDto itemDto : dto.getItems()) {
             SalesOrderItem orderItem = orderItemMap.get(itemDto.getSalesOrderItemId());
             if (orderItem == null || !Objects.equals(orderItem.getSalesOrderId(), dto.getSalesOrderId())) {
                 throw new BusinessException(400, "发货明细关联的销售订单明细不存在或不属于该销售订单");
@@ -243,7 +243,7 @@ public class SalesDeliveryServiceImpl
                 throw new BusinessException(400, "发货数量超出可出货量：订单明细 " + orderItem.getId()
                         + " 已发货 " + alreadyDelivered + "，剩余可发货 " + remaining);
             }
-            itemVoList.add(salesDeliveryItemService.createSalesDeliveryItemVo(itemDto, salesDelivery.getId(), lineNo));
+            itemVoList.add(salesDeliveryItemService.addSalesDeliveryItemVo(itemDto, salesDelivery.getId(), lineNo));
             lineNo += 10;
         }
 
@@ -262,7 +262,7 @@ public class SalesDeliveryServiceImpl
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void createDeliveriesForOrder(Long salesOrderId) {
+    public void addDeliveriesForOrder(Long salesOrderId) {
         SalesOrder salesOrder = salesOrderMapper.selectById(salesOrderId);
         if (salesOrder == null) {
             throw new BusinessException(404, "销售订单不存在");
@@ -308,7 +308,7 @@ public class SalesDeliveryServiceImpl
 
     @Override
     @Transactional(readOnly = true)
-    public SalesDeliveryVo getSalesDeliveryVoById(Long id) {
+    public SalesDeliveryVo detailSalesDeliveryVo(Long id) {
         SalesDelivery delivery = salesDeliveryMapper.selectById(id);
         if (delivery == null) {
             throw new BusinessException(404, "发货单不存在");
@@ -390,12 +390,12 @@ public class SalesDeliveryServiceImpl
         }
         delivery.setStatus(SalesDeliveryStatus.CANCELLED);
         salesDeliveryMapper.updateById(delivery);
-        return getSalesDeliveryVoById(id);
+        return detailSalesDeliveryVo(id);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<SalesDeliveryVo> getPageSalesDeliveryVo(ListDto dto) {
+    public Page<SalesDeliveryVo> getPageSalesDeliveryVo(SalesDeliveryPageDto dto) {
         LambdaQueryWrapper<SalesDelivery> queryWrapper =
                 new LambdaQueryWrapper<SalesDelivery>()
                         .eq(dto.getSalesOrderId() != null, SalesDelivery::getSalesOrderId, dto.getSalesOrderId())

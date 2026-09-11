@@ -5,12 +5,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.master.dto.FactoryDTO.FactoryCreateDTO;
-import org.smart.erp.master.dto.FactoryDTO.FactoryListDTO;
-import org.smart.erp.master.dto.FactoryDTO.FactoryUpdateDTO;
+import org.smart.erp.master.dto.FactoryDto.FactoryAddDto;
+import org.smart.erp.master.dto.FactoryDto.FactoryPageDto;
+import org.smart.erp.master.dto.FactoryDto.FactoryUpdateDto;
 import org.smart.erp.master.enums.FactoryStatus;
 import org.smart.erp.master.service.FactoryService;
-import org.smart.erp.master.vo.FactoryVO;
+import org.smart.erp.master.vo.FactoryVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,22 +30,22 @@ public class FactoryController {
     @Operation(summary = "新增工厂")
     @PostMapping
     @PreAuthorize("hasAnyAuthority('factory:create')")
-    public Result<Void> createFactory(@RequestBody FactoryCreateDTO dto) {
-        factoryService.createFactory(dto);
+    public Result<Void> addFactory(@RequestBody FactoryAddDto dto) {
+        factoryService.addFactory(dto);
         return Result.success();
     }
 
     @Operation(summary = "工厂分页列表")
     @GetMapping
     @PreAuthorize("hasAnyAuthority('factory:list')")
-    public Result<Page<FactoryVO>> listFactory(FactoryListDTO dto) {
+    public Result<Page<FactoryVo>> pageFactory(FactoryPageDto dto) {
         return Result.success(factoryService.getFactoryList(dto));
     }
 
     @Operation(summary = "更新工厂")
     @PutMapping("{id}")
     @PreAuthorize("hasAnyAuthority('factory:update')")
-    public Result<Void> updateFactory(@PathVariable Long id, @RequestBody FactoryUpdateDTO dto) {
+    public Result<Void> updateFactory(@PathVariable Long id, @RequestBody FactoryUpdateDto dto) {
         factoryService.updateFactory(id, dto);
         return Result.success();
     }
@@ -53,8 +53,8 @@ public class FactoryController {
     @Operation(summary = "工厂详情")
     @GetMapping("{id}")
     @PreAuthorize("hasAnyAuthority('factory:get')")
-    public Result<FactoryVO> getFactoryDetail(@PathVariable Long id) {
-        return Result.success(factoryService.getFactoryById(id));
+    public Result<FactoryVo> detailFactory(@PathVariable Long id) {
+        return Result.success(factoryService.detailFactory(id));
     }
 
     @Operation(summary = "变更工厂状态")

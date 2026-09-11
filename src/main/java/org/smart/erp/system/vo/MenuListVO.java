@@ -5,7 +5,7 @@ import org.smart.erp.system.Enum.Status;
 import org.springframework.stereotype.Component;
 
 @Data
-public class MenuListVO {
+public class MenuListVo {
 
     private Long id;
 

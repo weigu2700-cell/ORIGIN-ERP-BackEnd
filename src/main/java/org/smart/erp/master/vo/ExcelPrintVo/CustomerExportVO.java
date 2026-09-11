@@ -7,7 +7,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-public class CustomerExportVO {
+public class CustomerExportVo {
 
     @ExcelIgnore
     private Long id;

@@ -15,9 +15,9 @@ import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.SupplierMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
-import org.smart.erp.purchase.dto.CreatePurchaseInStockDto;
-import org.smart.erp.purchase.dto.PagePurchaseInStockDto;
-import org.smart.erp.purchase.dto.UploadPurchaseInStockDto;
+import org.smart.erp.purchase.dto.PurchaseInStockAddDto;
+import org.smart.erp.purchase.dto.PurchaseInStockPageDto;
+import org.smart.erp.purchase.dto.PurchaseInStockUploadDto;
 import org.smart.erp.purchase.entity.PurchaseInStock;
 import org.smart.erp.purchase.entity.PurchaseOrder;
 import org.smart.erp.purchase.enums.PurchaseInStockStatus;
@@ -25,6 +25,7 @@ import org.smart.erp.purchase.enums.PurchaseInStockType;
 import org.smart.erp.purchase.mapper.PurchaseInStockMapper;
 import org.smart.erp.purchase.mapper.PurchaseOrderMapper;
 import org.smart.erp.purchase.service.PurchaseInStockService;
+import org.smart.erp.production.service.ProductionPickingService;
 import org.smart.erp.purchase.vo.PurchaseInStockVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,7 @@ public class PurchaseInStockServiceImpl
     private final WarehouseMapper warehouseMapper;
     private final PurchaseOrderMapper purchaseOrderMapper;
     private final MaterialStockService materialStockService;
+    private final ProductionPickingService productionPickingService;
 
     public PurchaseInStockServiceImpl(
                     Validator validator,
@@ -56,7 +58,8 @@ public class PurchaseInStockServiceImpl
                     SupplierMapper supplierMapper,
                     WarehouseMapper warehouseMapper,
                     PurchaseOrderMapper purchaseOrderMapper,
-                    MaterialStockService materialStockService
+                    MaterialStockService materialStockService,
+                    ProductionPickingService productionPickingService
             ) {
         this.validator = validator;
         this.businessNoGenerator = businessNoGenerator;
@@ -65,6 +68,7 @@ public class PurchaseInStockServiceImpl
         this.warehouseMapper = warehouseMapper;
         this.purchaseOrderMapper = purchaseOrderMapper;
         this.materialStockService = materialStockService;
+        this.productionPickingService = productionPickingService;
     }
 
     /**
@@ -79,10 +83,10 @@ public class PurchaseInStockServiceImpl
     }
 
     @Override
-    public void createPurchaseInStock(CreatePurchaseInStockDto dto) {
+    public void addPurchaseInStock(PurchaseInStockAddDto dto) {
         checkNull(dto,"入库信息不能为空");
 
-        Set<ConstraintViolation<CreatePurchaseInStockDto>> violations = validator.validate(dto);
+        Set<ConstraintViolation<PurchaseInStockAddDto>> violations = validator.validate(dto);
         if (!violations.isEmpty()) {
             throw new BusinessException(400, violations.iterator().next().getMessage());
         }
@@ -97,7 +101,7 @@ public class PurchaseInStockServiceImpl
     }
 
     @Override
-    public Page<PurchaseInStockVo> getPagePurchaseInStock(PagePurchaseInStockDto queryDto) {
+    public Page<PurchaseInStockVo> getPagePurchaseInStock(PurchaseInStockPageDto queryDto) {
         int pageNum = (queryDto.getPageNum() == null || queryDto.getPageNum() < 1) ? 1 : queryDto.getPageNum();
         int pageSize = (queryDto.getPageSize() == null || queryDto.getPageSize() < 1) ? 10 : queryDto.getPageSize();
 
@@ -198,9 +202,9 @@ public class PurchaseInStockServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void uploadPurchaseInStock(Long id, UploadPurchaseInStockDto dto) {
+    public void uploadPurchaseInStock(Long id, PurchaseInStockUploadDto dto) {
         checkNull(dto, "上架信息不能为空");
-        Set<ConstraintViolation<UploadPurchaseInStockDto>> violations = validator.validate(dto);
+        Set<ConstraintViolation<PurchaseInStockUploadDto>> violations = validator.validate(dto);
         if (!violations.isEmpty()) {
             throw new BusinessException(400, violations.iterator().next().getMessage());
         }
@@ -248,6 +252,11 @@ public class PurchaseInStockServiceImpl
         purchaseInStock.setInDate(LocalDateTime.now());
         purchaseInStock.setStatus(PurchaseInStockStatus.UPLOADED);
         this.updateById(purchaseInStock);
+
+        // 采购入库上架后，通知对应缺料领料单可领料（指定入库仓库并预留）
+        if (purchaseInStock.getMaterialId() != null) {
+            productionPickingService.notifyPickingForInStock(purchaseInStock.getMaterialId(), warehouseId);
+        }
     }
 
     @Override

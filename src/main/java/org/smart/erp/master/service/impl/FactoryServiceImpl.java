@@ -9,9 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.SnowflakeIdGenerator;
-import org.smart.erp.master.dto.FactoryDTO.FactoryCreateDTO;
-import org.smart.erp.master.dto.FactoryDTO.FactoryListDTO;
-import org.smart.erp.master.dto.FactoryDTO.FactoryUpdateDTO;
+import org.smart.erp.master.dto.FactoryDto.FactoryAddDto;
+import org.smart.erp.master.dto.FactoryDto.FactoryPageDto;
+import org.smart.erp.master.dto.FactoryDto.FactoryUpdateDto;
 import org.smart.erp.master.entity.Factory;
 import org.smart.erp.master.entity.Workshop;
 import org.smart.erp.master.enums.FactoryStatus;
@@ -19,7 +19,7 @@ import org.smart.erp.master.enums.WorkshopStatus;
 import org.smart.erp.master.mapper.FactoryMapper;
 import org.smart.erp.master.mapper.WorkshopMapper;
 import org.smart.erp.master.service.FactoryService;
-import org.smart.erp.master.vo.FactoryVO;
+import org.smart.erp.master.vo.FactoryVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +43,7 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
     }
 
     @Override
-    public void createFactory(FactoryCreateDTO dto) {
+    public void addFactory(FactoryAddDto dto) {
         Factory factory = new Factory();
 
         LambdaQueryWrapper<Factory> existsWrapper = new LambdaQueryWrapper<Factory>()
@@ -58,7 +58,7 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
     }
 
     @Override
-    public Page<FactoryVO> getFactoryList(FactoryListDTO dto) {
+    public Page<FactoryVo> getFactoryList(FactoryPageDto dto) {
         LambdaQueryWrapper<Factory> queryWrapper = new LambdaQueryWrapper<Factory>()
                 .eq(StringUtils.hasText(dto.getCode()), Factory::getCode, dto.getCode())
                 .like(StringUtils.hasText(dto.getName()), Factory::getName, dto.getName())
@@ -70,7 +70,7 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateFactory(Long id, FactoryUpdateDTO dto) {
+    public void updateFactory(Long id, FactoryUpdateDto dto) {
         Factory factory = this.getById(id);
         if (factory == null) {
             throw new BusinessException(400, "工厂不存在");
@@ -85,7 +85,7 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
     }
 
     @Override
-    public FactoryVO getFactoryById(Long id) {
+    public FactoryVo detailFactory(Long id) {
         Factory factory = this.getById(id);
         if (factory == null) {
             throw new BusinessException(400, "工厂不存在");
@@ -93,8 +93,8 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
         return toVO(factory);
     }
 
-    private FactoryVO toVO(Factory factory) {
-        FactoryVO vo = new FactoryVO();
+    private FactoryVo toVO(Factory factory) {
+        FactoryVo vo = new FactoryVo();
         BeanUtils.copyProperties(factory, vo);
         vo.setId(String.valueOf(factory.getId()));
         if (factory.getStatus() != null) {
@@ -129,7 +129,7 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
             queryWrapper.in(Factory::getId, ids);
         }
         List<Factory> factories = this.list(queryWrapper);
-        List<FactoryVO> data = factories.stream().map(this::toVO).toList();
+        List<FactoryVo> data = factories.stream().map(this::toVO).toList();
 
         response.setContentType("application/vnd.ms-excel");
         response.setCharacterEncoding("UTF-8");
@@ -139,7 +139,7 @@ public class FactoryServiceImpl extends ServiceImpl<FactoryMapper, Factory> impl
                     .encode("工厂信息", StandardCharsets.UTF_8)
                     .replace("+", "%20");
             response.setHeader("Content-Disposition", "attachment;filename=" + filed + ".xlsx");
-            FastExcel.write(response.getOutputStream(), FactoryVO.class).sheet().doWrite(data);
+            FastExcel.write(response.getOutputStream(), FactoryVo.class).sheet().doWrite(data);
         }
         catch (IOException e) {
             log.error("导出工厂信息失败", e);

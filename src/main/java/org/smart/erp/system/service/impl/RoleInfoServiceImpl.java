@@ -5,10 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
-import org.smart.erp.system.dto.RoleGetDTO;
-import org.smart.erp.system.dto.RoleMenuAssignDTO;
-import org.smart.erp.system.dto.RolePermissionAssignDTO;
-import org.smart.erp.system.dto.RoleUpdateDTO;
+import org.smart.erp.system.dto.RoleDetailDto;
+import org.smart.erp.system.dto.RoleMenuAssignDto;
+import org.smart.erp.system.dto.RolePermissionAssignDto;
+import org.smart.erp.system.dto.RoleUpdateDto;
 import org.smart.erp.system.entity.Menu;
 import org.smart.erp.system.entity.RoleInfo;
 import org.smart.erp.system.entity.RoleMenu;
@@ -18,7 +18,7 @@ import org.smart.erp.system.mapper.RoleInfoMapper;
 import org.smart.erp.system.mapper.RoleMenuMapper;
 import org.smart.erp.system.mapper.RolePermissionMapper;
 import org.smart.erp.system.service.RoleInfoService;
-import org.smart.erp.system.vo.RoleInfoVO;
+import org.smart.erp.system.vo.RoleInfoVo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,10 +39,10 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
     }
 
     /**
-     * 将 RoleInfo 转为 RoleInfoVO（不含权限列表），供列表/新增/更新复用。
+     * 将 RoleInfo 转为 RoleInfoVo（不含权限列表），供列表/新增/更新复用。
      */
-    private RoleInfoVO toVO(RoleInfo roleInfo) {
-        RoleInfoVO vo = new RoleInfoVO();
+    private RoleInfoVo toVO(RoleInfo roleInfo) {
+        RoleInfoVo vo = new RoleInfoVo();
         vo.setId(roleInfo.getId());
         vo.setName(roleInfo.getName());
         vo.setCode(roleInfo.getCode());
@@ -53,7 +53,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
     }
 
     @Override
-    public Page<RoleInfoVO> listRole(RoleGetDTO dto) {
+    public Page<RoleInfoVo> pageRole(RoleDetailDto dto) {
         LambdaQueryWrapper<RoleInfo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.like(dto.getName() != null, RoleInfo::getName, dto.getName());
         queryWrapper.like(dto.getCode() != null, RoleInfo::getCode, dto.getCode());
@@ -66,7 +66,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateRole(RoleUpdateDTO dto) {
+    public void updateRole(RoleUpdateDto dto) {
         // 先按 id 查出已存在记录，避免静默更新 0 行
         RoleInfo exist = this.getById(dto.getId());
         if (exist == null) {
@@ -85,7 +85,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void createRole(RoleUpdateDTO dto) {
+    public void addRole(RoleUpdateDto dto) {
         RoleInfo roleInfo = new RoleInfo();
         LambdaQueryWrapper<RoleInfo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoleInfo::getCode, dto.getCode());
@@ -108,7 +108,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
      * 以避免角色服务越界依赖权限表结构。前端如需权限详情，可拿 permissionIds 去调权限接口。
      */
     @Override
-    public RoleInfoVO getRoleDetail(Long id) {
+    public RoleInfoVo detailRole(Long id) {
         RoleInfo roleInfo = this.getById(id);
         if (roleInfo == null) {
             throw new BusinessException(404, "角色不存在");
@@ -121,7 +121,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
                 .map(RolePermission::getPermissionId)
                 .toList();
 
-        RoleInfoVO vo = new RoleInfoVO();
+        RoleInfoVo vo = new RoleInfoVo();
         vo.setId(roleInfo.getId());
         vo.setName(roleInfo.getName());
         vo.setCode(roleInfo.getCode());
@@ -143,7 +143,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void assignPermissions(RolePermissionAssignDTO dto) {
+    public void assignPermissions(RolePermissionAssignDto dto) {
         // 1. 校验角色是否存在
         if (this.getById(dto.getRoleId()) == null) {
             throw new BusinessException(404, "角色不存在");
@@ -187,7 +187,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void assignUsers(RoleMenuAssignDTO dto) {
+    public void assignUsers(RoleMenuAssignDto dto) {
         if (this.getById(dto.getRoleId()) == null) {
             throw new BusinessException(404, "角色不存在");
         }

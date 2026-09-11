@@ -10,7 +10,7 @@ import java.util.List;
  * 后端以"全量覆盖"方式写入 sys_role_permission 对照表。
  */
 @Data
-public class RolePermissionAssignDTO {
+public class RolePermissionAssignDto {
 
     /** 角色 id（查的角色，不写入关联表） */
     private Long roleId;

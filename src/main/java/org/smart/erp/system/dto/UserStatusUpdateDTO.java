@@ -4,7 +4,7 @@ import lombok.Data;
 import org.smart.erp.system.Enum.UserStatus;
 
 @Data
-public class UserStatusUpdateDTO {
+public class UserStatusUpdateDto {
 
     private UserStatus status;
 }

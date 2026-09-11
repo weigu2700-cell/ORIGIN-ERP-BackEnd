@@ -7,12 +7,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.master.dto.CustomerDTO.CustomerCreateDTO;
-import org.smart.erp.master.dto.CustomerDTO.CustomerListDTO;
-import org.smart.erp.master.dto.CustomerDTO.CustomerStatusDTO;
-import org.smart.erp.master.dto.CustomerDTO.CustomerUpdateDTO;
+import org.smart.erp.master.dto.CustomerDto.CustomerAddDto;
+import org.smart.erp.master.dto.CustomerDto.CustomerPageDto;
+import org.smart.erp.master.dto.CustomerDto.CustomerStatusDto;
+import org.smart.erp.master.dto.CustomerDto.CustomerUpdateDto;
 import org.smart.erp.master.service.CustomerService;
-import org.smart.erp.master.vo.CustomerVO;
+import org.smart.erp.master.vo.CustomerVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,36 +29,36 @@ public class CustomerController {
     @Operation(summary = "新增客户")
     @PostMapping
     @PreAuthorize("hasAuthority('master:customer:create')")
-    public Result<Void> create(@Valid @RequestBody CustomerCreateDTO dto) {
-        customerService.createCustomer(dto);
+    public Result<Void> add(@Valid @RequestBody CustomerAddDto dto) {
+        customerService.addCustomer(dto);
         return Result.success();
     }
 
     @Operation(summary = "客户分页列表")
     @GetMapping("/list")
     @PreAuthorize("hasAuthority('master:customer:list')")
-    public Result<Page<CustomerVO>> listCustomer(CustomerListDTO dto) {
+    public Result<Page<CustomerVo>> pageCustomer(CustomerPageDto dto) {
         return Result.success(customerService.getCustomerList(dto));
     }
 
     @Operation(summary = "客户详情")
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('master:customer:get')")
-    public Result<CustomerVO> getCustomerDetail(@PathVariable Long id) {
-        return Result.success(customerService.getCustomerDetail(id));
+    public Result<CustomerVo> detailCustomer(@PathVariable Long id) {
+        return Result.success(customerService.detailCustomer(id));
     }
 
     @Operation(summary = "更新客户")
     @PutMapping
     @PreAuthorize("hasAuthority('master:customer:update')")
-    public Result<CustomerVO> update(@Valid @RequestBody CustomerUpdateDTO dto) {
+    public Result<CustomerVo> update(@Valid @RequestBody CustomerUpdateDto dto) {
         return Result.success(customerService.updateCustomer(dto));
     }
 
     @Operation(summary = "更改客户状态")
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAuthority('master:customer:status')")
-    public Result<Void> changeStatus(@PathVariable Long id, @RequestBody CustomerStatusDTO dto) {
+    public Result<Void> changeStatus(@PathVariable Long id, @RequestBody CustomerStatusDto dto) {
         customerService.changeCustomerStatus(id, dto);
         return Result.success();
     }

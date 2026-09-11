@@ -8,15 +8,15 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.SnowflakeIdGenerator;
 import org.smart.erp.master.convertor.ApplyUpdate;
-import org.smart.erp.master.dto.CustomerDTO.CustomerCreateDTO;
-import org.smart.erp.master.dto.CustomerDTO.CustomerListDTO;
-import org.smart.erp.master.dto.CustomerDTO.CustomerStatusDTO;
-import org.smart.erp.master.dto.CustomerDTO.CustomerUpdateDTO;
+import org.smart.erp.master.dto.CustomerDto.CustomerAddDto;
+import org.smart.erp.master.dto.CustomerDto.CustomerPageDto;
+import org.smart.erp.master.dto.CustomerDto.CustomerStatusDto;
+import org.smart.erp.master.dto.CustomerDto.CustomerUpdateDto;
 import org.smart.erp.master.entity.Customer;
 import org.smart.erp.master.enums.CustomerStatus;
 import org.smart.erp.master.mapper.CustomerMapper;
 import org.smart.erp.master.service.CustomerService;
-import org.smart.erp.master.vo.CustomerVO;
+import org.smart.erp.master.vo.CustomerVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -24,7 +24,7 @@ import org.springframework.util.StringUtils;
 import cn.idev.excel.FastExcel;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.smart.erp.master.vo.ExcelPrintVo.CustomerExportVO;
+import org.smart.erp.master.vo.ExcelPrintVo.CustomerExportVo;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -38,8 +38,8 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
 
     private static final SnowflakeIdGenerator SNOWFLAKE = new SnowflakeIdGenerator();
 
-    private CustomerVO toVO(Customer customer) {
-        CustomerVO vo = new CustomerVO();
+    private CustomerVo toVO(Customer customer) {
+        CustomerVo vo = new CustomerVo();
         BeanUtils.copyProperties(customer, vo);
         if (customer.getStatus() != null) {
             vo.setStatus(customer.getStatus().getCode());
@@ -49,7 +49,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
     }
 
     @Override
-    public void createCustomer(CustomerCreateDTO dto) {
+    public void addCustomer(CustomerAddDto dto) {
         if (StringUtils.hasText(dto.getPhone())) {
             Long count = this.lambdaQuery()
                     .eq(Customer::getPhone, dto.getPhone())
@@ -66,7 +66,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
     }
 
     @Override
-    public Page<CustomerVO> getCustomerList(CustomerListDTO dto) {
+    public Page<CustomerVo> getCustomerList(CustomerPageDto dto) {
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<Customer>()
                 .eq(StringUtils.hasText(dto.getCode()), Customer::getCode, dto.getCode())
                 .like(StringUtils.hasText(dto.getName()), Customer::getName, dto.getName())
@@ -78,7 +78,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
     }
 
     @Override
-    public CustomerVO getCustomerDetail(Long id) {
+    public CustomerVo detailCustomer(Long id) {
         Customer customer = this.getById(id);
         if (customer == null) {
             throw new BusinessException(404, "客户不存在");
@@ -87,7 +87,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
     }
 
     @Override
-    public CustomerVO updateCustomer(CustomerUpdateDTO dto) {
+    public CustomerVo updateCustomer(CustomerUpdateDto dto) {
         Customer customer = this.getById(dto.getId());
         if (customer == null) {
             throw new BusinessException(404, "客户不存在");
@@ -98,7 +98,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
     }
 
     @Override
-    public void changeCustomerStatus(Long id, CustomerStatusDTO dto) {
+    public void changeCustomerStatus(Long id, CustomerStatusDto dto) {
         Customer customer = this.getById(id);
         if (customer == null) {
             throw new BusinessException(404, "客户不存在");
@@ -115,9 +115,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
         List<Customer> customers = this.list(wrapper);
 
-        List<CustomerExportVO> data = customers.stream()
+        List<CustomerExportVo> data = customers.stream()
                 .map(customer -> {
-                    CustomerExportVO vo = new CustomerExportVO();
+                    CustomerExportVo vo = new CustomerExportVo();
                     BeanUtils.copyProperties(customer, vo);
                     if (customer.getStatus() != null) {
                         vo.setStatusDesc(customer.getStatus().getDesc());
@@ -132,7 +132,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             String fileName = URLEncoder.encode("客户信息", StandardCharsets.UTF_8).replace("+", "%20");
             response.setHeader("Content-Disposition",
                     "attachment;filename*=utf-8''" + fileName + ".xlsx");
-            FastExcel.write(response.getOutputStream(), CustomerExportVO.class)
+            FastExcel.write(response.getOutputStream(), CustomerExportVo.class)
                     .sheet("客户信息")
                     .doWrite(data);
         } catch (IOException e) {

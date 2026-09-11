@@ -4,12 +4,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.master.dto.WorkshopDTO.WorkshopCreateDTO;
-import org.smart.erp.master.dto.WorkshopDTO.WorkshopListDTO;
-import org.smart.erp.master.dto.WorkshopDTO.WorkshopStatusChangeDTO;
-import org.smart.erp.master.dto.WorkshopDTO.WorkshopUpdateDTO;
+import org.smart.erp.master.dto.WorkshopDto.WorkshopAddDto;
+import org.smart.erp.master.dto.WorkshopDto.WorkshopPageDto;
+import org.smart.erp.master.dto.WorkshopDto.WorkshopStatusChangeDto;
+import org.smart.erp.master.dto.WorkshopDto.WorkshopUpdateDto;
 import org.smart.erp.master.service.WorkshopService;
-import org.smart.erp.master.vo.WorkshopVO;
+import org.smart.erp.master.vo.WorkshopVo;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,33 +25,33 @@ public class WorkshopController {
 
     @Operation(summary = "新增车间")
     @PostMapping
-    public Result<Void> createWorkshop(@RequestBody WorkshopCreateDTO dto) {
-        workshopService.createWorkshop(dto);
+    public Result<Void> addWorkshop(@RequestBody WorkshopAddDto dto) {
+        workshopService.addWorkshop(dto);
         return Result.success();
     }
 
     @Operation(summary = "车间分页列表")
     @GetMapping
-    public Result<Page<WorkshopVO>> listWorkshop(WorkshopListDTO dto) {
-        return Result.success(workshopService.listWorkshop(dto));
+    public Result<Page<WorkshopVo>> pageWorkshop(WorkshopPageDto dto) {
+        return Result.success(workshopService.pageWorkshop(dto));
     }
 
     @Operation(summary = "车间详情")
     @GetMapping("/{id}")
-    public Result<WorkshopVO> getWorkshopDetail(@PathVariable Long id) {
-        return Result.success(workshopService.getWorkshopDetail(id));
+    public Result<WorkshopVo> detailWorkshop(@PathVariable Long id) {
+        return Result.success(workshopService.detailWorkshop(id));
     }
 
     @Operation(summary = "更新车间")
     @PutMapping("/{id}")
-    public Result<Void> updateWorkshop(@PathVariable Long id, @RequestBody WorkshopUpdateDTO dto) {
+    public Result<Void> updateWorkshop(@PathVariable Long id, @RequestBody WorkshopUpdateDto dto) {
         workshopService.updateWorkshop(id, dto);
         return Result.success();
     }
 
     @Operation(summary = "变更车间状态")
     @PutMapping("/{id}/status")
-    public Result<Void> changeStatus(@PathVariable Long id, @RequestBody WorkshopStatusChangeDTO dto) {
+    public Result<Void> changeStatus(@PathVariable Long id, @RequestBody WorkshopStatusChangeDto dto) {
         workshopService.changeStatus(id, dto.getStatus());
         return Result.success();
     }

@@ -6,7 +6,7 @@ import org.smart.erp.system.Enum.RoleEnum;
 import java.util.List;
 
 @Data
-public class RoleUpdateDTO {
+public class RoleUpdateDto {
 
     private long id;
 

@@ -5,8 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
-import org.smart.erp.purchase.dto.CreatePurchaseDemandDto;
-import org.smart.erp.purchase.dto.PagePurchaseDemandDto;
+import org.smart.erp.purchase.dto.PurchaseDemandAddDto;
+import org.smart.erp.purchase.dto.PurchaseDemandPageDto;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.enums.PurchaseDemandStatus;
 import org.smart.erp.purchase.mapper.PurchaseDemandMapper;
@@ -77,7 +77,7 @@ public class PurchaseDemandServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public PurchaseDemand createPurchaseDemand(CreatePurchaseDemandDto dto) {
+    public PurchaseDemand addPurchaseDemand(PurchaseDemandAddDto dto) {
         require(dto.getMaterialId(), "物料ID不能为空");
         require(dto.getPurchaseQuantity(), "采购数量不能为空");
         require(dto.getSourceNo(), "来源单号不能为空");
@@ -97,7 +97,7 @@ public class PurchaseDemandServiceImpl
     }
 
     @Override
-    public Page<PurchaseDemandVo> pagePurchaseDemand(PagePurchaseDemandDto dto) {
+    public Page<PurchaseDemandVo> pagePurchaseDemand(PurchaseDemandPageDto dto) {
         int pageNum = dto.getPageNum() == null ? 1 : dto.getPageNum();
         int pageSize = dto.getPageSize() == null ? 10 : dto.getPageSize();
 

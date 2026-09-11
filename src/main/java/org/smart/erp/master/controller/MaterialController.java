@@ -5,12 +5,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.master.dto.MaterialDTO.MaterialCreateDTO;
-import org.smart.erp.master.dto.MaterialDTO.MaterialListDTO;
-import org.smart.erp.master.dto.MaterialDTO.MaterialUpdateDTO;
+import org.smart.erp.master.dto.MaterialDto.MaterialAddDto;
+import org.smart.erp.master.dto.MaterialDto.MaterialPageDto;
+import org.smart.erp.master.dto.MaterialDto.MaterialUpdateDto;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.service.MaterialService;
-import org.smart.erp.master.vo.MaterialVO;
+import org.smart.erp.master.vo.MaterialVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,29 +30,29 @@ public class MaterialController {
     @Operation(summary = "新增物料")
     @PreAuthorize("hasAnyAuthority('master:material:create')")
     @PostMapping
-    public Result<Void> create(@RequestBody MaterialCreateDTO dto) {
-        materialService.createMaterial(dto);
+    public Result<Void> add(@RequestBody MaterialAddDto dto) {
+        materialService.addMaterial(dto);
         return Result.success();
     }
 
     @Operation(summary = "物料分页列表")
     @PreAuthorize("hasAnyAuthority('master:material:list')")
     @GetMapping
-    public Result<Page<MaterialVO>> list(MaterialListDTO dto) {
-        return Result.success(materialService.listMaterial(dto));
+    public Result<Page<MaterialVo>> list(MaterialPageDto dto) {
+        return Result.success(materialService.pageMaterial(dto));
     }
 
     @Operation(summary = "物料详情")
     @PreAuthorize("hasAnyAuthority('master:material:get')")
     @GetMapping("/{id}")
-    public Result<MaterialVO> getMaterialDetail(@PathVariable Long id) {
-        return Result.success(materialService.getMaterialDetail(id));
+    public Result<MaterialVo> detailMaterial(@PathVariable Long id) {
+        return Result.success(materialService.detailMaterial(id));
     }
 
     @Operation(summary = "更新物料")
     @PreAuthorize("hasAnyAuthority('master:material:update')")
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody MaterialUpdateDTO dto) {
+    public Result<Void> update(@PathVariable Long id, @RequestBody MaterialUpdateDto dto) {
         materialService.updateMaterial(id, dto);
         return Result.success();
     }

@@ -8,15 +8,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.SnowflakeIdGenerator;
-import org.smart.erp.master.dto.MaterialDTO.MaterialCreateDTO;
-import org.smart.erp.master.dto.MaterialDTO.MaterialListDTO;
-import org.smart.erp.master.dto.MaterialDTO.MaterialUpdateDTO;
+import org.smart.erp.master.dto.MaterialDto.MaterialAddDto;
+import org.smart.erp.master.dto.MaterialDto.MaterialPageDto;
+import org.smart.erp.master.dto.MaterialDto.MaterialUpdateDto;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.service.MaterialService;
-import org.smart.erp.master.vo.ExcelPrintVo.MaterialExportVO;
-import org.smart.erp.master.vo.MaterialVO;
+import org.smart.erp.master.vo.ExcelPrintVo.MaterialExportVo;
+import org.smart.erp.master.vo.MaterialVo;
 import org.springframework.beans.BeanUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,8 +38,8 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
         this.materialMapper = materialMapper;
     }
 
-    private MaterialVO convertToVO(Material material) {
-        MaterialVO vo = new MaterialVO();
+    private MaterialVo convertToVO(Material material) {
+        MaterialVo vo = new MaterialVo();
         BeanUtils.copyProperties(material, vo);
         if (material.getStatus() != null) {
             vo.setStatus(material.getStatus().getCode());
@@ -51,7 +51,7 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
     }
 
     @Override
-    public void createMaterial(MaterialCreateDTO dto) {
+    public void addMaterial(MaterialAddDto dto) {
         Material material = new Material();
         BeanUtils.copyProperties(dto, material);
 
@@ -61,7 +61,7 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
     }
 
     @Override
-    public Page<MaterialVO> listMaterial(MaterialListDTO dto) {
+    public Page<MaterialVo> pageMaterial(MaterialPageDto dto) {
         LambdaQueryWrapper<Material> queryWrapper =
                 new LambdaQueryWrapper<Material>()
                         .like(dto.getCode() != null, Material::getCode, dto.getCode())
@@ -75,13 +75,13 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
     }
 
     @Override
-    public MaterialVO getMaterialDetail(Long id) {
+    public MaterialVo detailMaterial(Long id) {
         Material material = materialMapper.selectById(id);
         return convertToVO(material);
     }
 
     @Override
-    public void updateMaterial(Long id, MaterialUpdateDTO dto) {
+    public void updateMaterial(Long id, MaterialUpdateDto dto) {
         Material material = materialMapper.selectById(id);
 
         if (material == null) {
@@ -128,9 +128,9 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
         }
         List<Material> materials = materialMapper.selectList(queryWrapper);
 
-        List<MaterialExportVO> data = materials.stream()
+        List<MaterialExportVo> data = materials.stream()
                 .map(material -> {
-                    MaterialExportVO vo = new MaterialExportVO();
+                    MaterialExportVo vo = new MaterialExportVo();
                     BeanUtils.copyProperties(material, vo);
                     if (material.getStatus() != null) {
                         vo.setStatusDesc(material.getStatus().getDesc());
@@ -149,7 +149,7 @@ public class MaterialServiceImpl extends ServiceImpl<MaterialMapper, Material> i
             String fileName = URLEncoder.encode("物料列表", StandardCharsets.UTF_8).replace("+", "%20");
             response.setHeader("Content-Disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
 
-            FastExcel.write(response.getOutputStream(), MaterialExportVO.class)
+            FastExcel.write(response.getOutputStream(), MaterialExportVo.class)
                     .sheet("物料列表")
                     .doWrite(data);
         } catch (IOException e) {

@@ -3,7 +3,7 @@ package org.smart.erp.system.dto;
 import lombok.Data;
 
 @Data
-public class LoginDTO {
+public class LoginDto {
 
     private String username;
 

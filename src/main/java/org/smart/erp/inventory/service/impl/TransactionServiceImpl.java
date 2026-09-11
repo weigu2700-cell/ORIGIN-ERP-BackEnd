@@ -10,15 +10,15 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.excel.ExcelRowCollectListener;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.inventory.dto.ExcelPrintDto.TransactionImportDto;
-import org.smart.erp.inventory.dto.transactionDto.ListDto;
+import org.smart.erp.inventory.dto.transactionDto.TransactionPageDto;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.entity.Transaction;
 import org.smart.erp.inventory.enums.TransactionType;
 import org.smart.erp.inventory.mapper.TransactionMapper;
 import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.inventory.service.TransactionService;
-import org.smart.erp.inventory.vo.ExcelPrintVo.TransactionExportVO;
-import org.smart.erp.inventory.vo.TransactionVO;
+import org.smart.erp.inventory.vo.ExcelPrintVo.TransactionExportVo;
+import org.smart.erp.inventory.vo.TransactionVo;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.mapper.MaterialMapper;
@@ -143,7 +143,7 @@ public class TransactionServiceImpl
     }
 
     @Override
-    public Page<TransactionVO> listTransaction(ListDto listDto) {
+    public Page<TransactionVo> pageTransaction(TransactionPageDto listDto) {
         LambdaQueryWrapper<Transaction> queryWrapper =
                 new LambdaQueryWrapper<Transaction>()
                         .eq(listDto.getWarehouseId() != null, Transaction::getWarehouseId, listDto.getWarehouseId())
@@ -157,7 +157,7 @@ public class TransactionServiceImpl
         Map<Long, String> warehouseNameMap = queryWarehouseNameMap(page.getRecords());
 
         return PageConvertUtils.convert(page, transaction -> {
-            TransactionVO vo = new TransactionVO();
+            TransactionVo vo = new TransactionVo();
             BeanUtils.copyProperties(transaction, vo);
 
             TransactionType type = transaction.getTransactionType();
@@ -183,9 +183,9 @@ public class TransactionServiceImpl
         Map<Long, Material> materialMap = queryMaterialMap(transactions);
         Map<Long, String> warehouseNameMap = queryWarehouseNameMap(transactions);
 
-        List<TransactionExportVO> data = transactions.stream()
+        List<TransactionExportVo> data = transactions.stream()
                 .map(transaction -> {
-                    TransactionExportVO vo = new TransactionExportVO();
+                    TransactionExportVo vo = new TransactionExportVo();
                     BeanUtils.copyProperties(transaction, vo);
 
                     if (transaction.getTransactionType() != null) {
@@ -230,7 +230,7 @@ public class TransactionServiceImpl
 
             FastExcel.write(
                             response.getOutputStream(),
-                            TransactionExportVO.class
+                            TransactionExportVo.class
                     )
                     .sheet("库存流水")
                     .doWrite(data);

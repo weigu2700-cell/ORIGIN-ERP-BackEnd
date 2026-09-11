@@ -6,9 +6,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.DateCodeRuleUtil;
-import org.smart.erp.master.dto.WarehouseDTO.WarehouseCreateDTO;
-import org.smart.erp.master.dto.WarehouseDTO.WarehouseListDTO;
-import org.smart.erp.master.dto.WarehouseDTO.WarehouseUpdateDTO;
+import org.smart.erp.master.dto.WarehouseDto.WarehouseAddDto;
+import org.smart.erp.master.dto.WarehouseDto.WarehousePageDto;
+import org.smart.erp.master.dto.WarehouseDto.WarehouseUpdateDto;
 import org.smart.erp.master.entity.Factory;
 import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.enums.FactoryStatus;
@@ -16,7 +16,7 @@ import org.smart.erp.master.enums.WarehouseStatus;
 import org.smart.erp.master.mapper.FactoryMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.master.service.WarehouseService;
-import org.smart.erp.master.vo.WarehouseVO;
+import org.smart.erp.master.vo.WarehouseVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -69,12 +69,12 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
     }
 
     /**
-     * 将仓库实体转换为详情 VO。
+     * 将仓库实体转换为详情 Vo。
      * @param warehouse 仓库实体
-     * @return 详情 VO
+     * @return 详情 Vo
      */
-    private WarehouseVO toVO(Warehouse warehouse) {
-        WarehouseVO vo = new WarehouseVO();
+    private WarehouseVo toVO(Warehouse warehouse) {
+        WarehouseVo vo = new WarehouseVo();
         BeanUtils.copyProperties(warehouse, vo);
         if (warehouse.getStatus() != null) {
             vo.setStatus(warehouse.getStatus().getCode());
@@ -83,7 +83,7 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
     }
 
     @Override
-    public void create(WarehouseCreateDTO dto) {
+    public void add(WarehouseAddDto dto) {
         if (dto == null || dto.getFactoryId() == null) {
             throw new BusinessException(400, "请选择所属工厂");
         }
@@ -96,7 +96,7 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
     }
 
     @Override
-    public Page<WarehouseVO> getWarehouseList(WarehouseListDTO dto) {
+    public Page<WarehouseVo> getWarehouseList(WarehousePageDto dto) {
         LambdaQueryWrapper<Warehouse> queryWrapper =
                 new LambdaQueryWrapper<Warehouse>()
                         .eq(dto.getFactoryId() != null, Warehouse::getFactoryId, dto.getFactoryId())
@@ -126,7 +126,7 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
 
 
         return PageConvertUtils.convert(page, warehouse -> {
-            WarehouseVO vo = new WarehouseVO();
+            WarehouseVo vo = new WarehouseVo();
             BeanUtils.copyProperties(warehouse, vo);
             vo.setFactoryName(factoryNameMap.get(warehouse.getFactoryId()));
             if (warehouse.getStatus() != null) {
@@ -137,10 +137,10 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
     }
 
     @Override
-    public WarehouseVO getWarehouse(Long id) {
+    public WarehouseVo getWarehouse(Long id) {
         Warehouse warehouse = getCheckedEntity(id);
         Factory factory = factoryMapper.selectById(warehouse.getFactoryId());
-        WarehouseVO vo = toVO(warehouse);
+        WarehouseVo vo = toVO(warehouse);
         if (factory != null) {
             vo.setFactoryName(factory.getName());
         }
@@ -148,7 +148,7 @@ public class WarehouseServiceImpl extends ServiceImpl<WarehouseMapper, Warehouse
     }
 
     @Override
-    public void updateWarehouse(Long id, WarehouseUpdateDTO dto) {
+    public void updateWarehouse(Long id, WarehouseUpdateDto dto) {
         Warehouse warehouse = getCheckedEntity(id);
 
         if (dto.getName() != null) warehouse.setName(dto.getName());

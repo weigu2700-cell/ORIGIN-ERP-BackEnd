@@ -5,9 +5,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.purchase.dto.CreatePurchaseOrderDto;
-import org.smart.erp.purchase.dto.PagePurchaseOrderDto;
-import org.smart.erp.purchase.dto.UpdatePurchaseOrderDto;
+import org.smart.erp.purchase.dto.PurchaseOrderAddDto;
+import org.smart.erp.purchase.dto.PurchaseOrderPageDto;
+import org.smart.erp.purchase.dto.PurchaseOrderUpdateDto;
 import org.smart.erp.purchase.service.PurchaseOrderService;
 import org.smart.erp.purchase.vo.PurchaseOrderVo;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,9 +27,9 @@ public class PurchaseOrderController {
     @PostMapping
     @PreAuthorize("hasAnyAuthority('purchase:order:create')")
     @Operation(summary = "创建采购订单")
-    public Result<Void> create(
-            @RequestBody @Parameter(description = "创建采购订单参数") CreatePurchaseOrderDto dto) {
-        purchaseOrderService.createPurchaseOrder(dto);
+    public Result<Void> add(
+            @RequestBody @Parameter(description = "创建采购订单参数") PurchaseOrderAddDto dto) {
+        purchaseOrderService.addPurchaseOrder(dto);
         return Result.success();
     }
 
@@ -37,7 +37,7 @@ public class PurchaseOrderController {
     @PreAuthorize("hasAnyAuthority('purchase:order:list')")
     @Operation(summary = "分页查询采购订单")
     public Result<Page<PurchaseOrderVo>> page(
-            @Parameter(description = "分页查询参数") PagePurchaseOrderDto dto) {
+            @Parameter(description = "分页查询参数") PurchaseOrderPageDto dto) {
         return Result.success(purchaseOrderService.pagePurchaseOrder(dto));
     }
 
@@ -52,7 +52,7 @@ public class PurchaseOrderController {
     @PreAuthorize("hasAnyAuthority('purchase:order:update')")
     @Operation(summary = "编辑草稿采购订单（补全供应商/单价/交期）")
     public Result<Void> update(@PathVariable @Parameter(description = "采购订单ID") Long id,
-                               @RequestBody UpdatePurchaseOrderDto dto) {
+                               @RequestBody PurchaseOrderUpdateDto dto) {
         purchaseOrderService.updatePurchaseOrder(id, dto);
         return Result.success();
     }

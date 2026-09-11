@@ -1,10 +1,10 @@
-package org.smart.erp.master.dto.WarehouseDTO;
+package org.smart.erp.master.dto.WarehouseDto;
 
 import lombok.Data;
 import org.smart.erp.master.enums.WarehouseStatus;
 
 @Data
-public class WarehouseStatusChangeDTO {
+public class WarehouseStatusChangeDto {
 
     private WarehouseStatus status;
 }

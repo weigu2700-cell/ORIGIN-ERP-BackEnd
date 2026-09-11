@@ -5,7 +5,7 @@ import org.smart.erp.system.Enum.PermissionType;
 import org.smart.erp.system.Enum.Status;
 
 @Data
-public class PermissionUpdateDTO {
+public class PermissionUpdateDto {
 
     private Long id;
 

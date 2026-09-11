@@ -2,26 +2,26 @@ package org.smart.erp.sales.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.smart.erp.sales.dto.salesOrderDto.createDto;
-import org.smart.erp.sales.dto.salesOrderDto.listDto;
-import org.smart.erp.sales.dto.salesOrderDto.updateDto;
+import org.smart.erp.sales.dto.salesOrderDto.SalesOrderAddDto;
+import org.smart.erp.sales.dto.salesOrderDto.SalesOrderPageDto;
+import org.smart.erp.sales.dto.salesOrderDto.SalesOrderUpdateDto;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.vo.SalesOrderVo;
 
 public interface SalesOrderService extends IService<SalesOrder> {
-    SalesOrderVo create(createDto dto);
+    SalesOrderVo add(SalesOrderAddDto dto);
 
-    Page<SalesOrderVo> listSalesOrderVoByPage(listDto dto);
+    Page<SalesOrderVo> pageSalesOrderVoByPage(SalesOrderPageDto dto);
 
-    SalesOrderVo getSalesOrderVoById(Long id);
+    SalesOrderVo detailSalesOrderVo(Long id);
 
-    SalesOrderVo updateSalesOrderVoById(Long id, updateDto dto);
+    SalesOrderVo updateSalesOrderVoById(Long id, SalesOrderUpdateDto dto);
 
     void removeSalesOrderById(Long id);
 
-    SalesOrderVo confirmSalesOrderById(Long id, updateDto dto);
+    SalesOrderVo confirmSalesOrderById(Long id, SalesOrderUpdateDto dto);
 
-    SalesOrderVo cancelSalesOrderById(Long id, updateDto dto);
+    SalesOrderVo cancelSalesOrderById(Long id, SalesOrderUpdateDto dto);
 
     void finishSalesOrderById(Long id);
 }

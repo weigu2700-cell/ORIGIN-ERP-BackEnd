@@ -3,7 +3,7 @@ package org.smart.erp.master.vo;
 import lombok.Data;
 
 @Data
-public class FactoryVO {
+public class FactoryVo {
 
     private String id;
 

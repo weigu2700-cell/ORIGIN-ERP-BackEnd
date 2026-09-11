@@ -1,0 +1,280 @@
+package org.smart.erp.production.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.sequence.BusinessNoGenerator;
+import org.smart.erp.inventory.entity.MaterialStock;
+import org.smart.erp.inventory.service.MaterialStockService;
+import org.smart.erp.master.mapper.MaterialMapper;
+import org.smart.erp.master.mapper.WarehouseMapper;
+import org.smart.erp.production.dto.ProductionPickingAddDto;
+import org.smart.erp.production.entity.ProductionOrder;
+import org.smart.erp.production.entity.ProductionPicking;
+import org.smart.erp.production.enums.ProductionOrderStatus;
+import org.smart.erp.production.enums.ProductionPickingStatus;
+import org.smart.erp.production.mapper.ProductionOrderMapper;
+import org.smart.erp.production.mapper.ProductionPickingMapper;
+import org.smart.erp.production.service.BOMService;
+import org.smart.erp.production.service.ProductionPickingService;
+import org.smart.erp.production.vo.BOMExplosionVo;
+import org.smart.erp.production.vo.MaterialRequirementVo;
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+@Service
+public class ProductionPickingServiceImpl
+    extends ServiceImpl<ProductionPickingMapper, ProductionPicking>
+    implements ProductionPickingService
+{
+
+    private final BusinessNoGenerator businessNoGenerator;
+    private final ProductionOrderMapper productionOrderMapper;
+    private final MaterialMapper materialMapper;
+    private final WarehouseMapper warehouseMapper;
+    private final BOMService bomService;
+    private final MaterialStockService materialStockService;
+
+    public ProductionPickingServiceImpl(
+            BusinessNoGenerator businessNoGenerator,
+            ProductionOrderMapper productionOrderMapper,
+            MaterialMapper materialMapper,
+            WarehouseMapper warehouseMapper,
+            BOMService bomService,
+            MaterialStockService materialStockService)
+    {
+        this.businessNoGenerator = businessNoGenerator;
+        this.productionOrderMapper = productionOrderMapper;
+        this.materialMapper = materialMapper;
+        this.warehouseMapper = warehouseMapper;
+        this.bomService = bomService;
+        this.materialStockService = materialStockService;
+    }
+
+    @Override
+    public void addProductionPicking(ProductionPickingAddDto dto) {
+        // 1. 生产订单必须存在
+        ProductionOrder order = productionOrderMapper.selectById(dto.getProductionOrderId());
+        if (order == null) {
+            throw new BusinessException(404, "生产订单不存在");
+        }
+
+        // 2. 领料物料必须存在
+        if (dto.getMaterialId() == null || materialMapper.selectById(dto.getMaterialId()) == null) {
+            throw new BusinessException(400, "领料物料不存在");
+        }
+
+        // 3. 领料仓库必须存在
+        if (dto.getWarehouseId() == null || warehouseMapper.selectById(dto.getWarehouseId()) == null) {
+            throw new BusinessException(400, "领料仓库不存在");
+        }
+
+        // 4. 物料必须是该生产订单产品 BOM 的组成物料
+        Set<Long> componentIds = new HashSet<>();
+        List<BOMExplosionVo> explosion = bomService.getBOMExplosion(
+                order.getMaterialId(), order.getPlannedQuantity());
+        for (BOMExplosionVo vo : explosion) {
+            collectComponentMaterialIds(vo, componentIds);
+        }
+        if (!componentIds.contains(dto.getMaterialId())) {
+            throw new BusinessException(400, "物料不属于该生产订单BOM组成");
+        }
+
+        // 5. 计划领料数量必须大于 0
+        if (dto.getPlannedQuantity() == null
+                || dto.getPlannedQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(400, "计划领料数量必须大于0");
+        }
+
+        ProductionPicking productionPicking = new ProductionPicking();
+        BeanUtils.copyProperties(dto, productionPicking);
+        productionPicking.setPickingNo(
+                businessNoGenerator.generateNo("erp:sequence:production-picking:", "PICK"));
+        productionPicking.setStatus(ProductionPickingStatus.DRAFT);
+        if (productionPicking.getActualQuantity() == null) {
+            productionPicking.setActualQuantity(BigDecimal.ZERO);
+        }
+        save(productionPicking);
+
+        // 说明：草稿领料单仅登记计划，实际库存出库（materialStockService.outboundStock）
+        // 应在领料单确认/领料（状态流转至 PICKED）时执行，而非新增草稿阶段。
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void generatePickingFromOrder(ProductionOrder order,
+                                         List<MaterialRequirementVo> requirements,
+                                         Map<Long, Long> demandIdByMaterial) {
+        if (requirements == null || requirements.isEmpty()) {
+            return;
+        }
+        for (MaterialRequirementVo req : requirements) {
+            Long materialId = req.getMaterialId();
+            BigDecimal gross = req.getGrossQuantity();
+            if (materialId == null || gross == null || gross.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal stockUsed = req.getStockUsedAvailableQuantity() == null
+                    ? BigDecimal.ZERO : req.getStockUsedAvailableQuantity();
+            BigDecimal shortage = req.getShortageQuantity() == null
+                    ? BigDecimal.ZERO : req.getShortageQuantity();
+
+            // 1) 在库可覆盖部分：直接可领料，从有库存的仓库预留
+            if (stockUsed.compareTo(BigDecimal.ZERO) > 0) {
+                ProductionPicking stockPicking = buildPicking(order, materialId, stockUsed);
+                Long warehouseId = findWarehouseCovering(materialId, stockUsed);
+                if (warehouseId != null) {
+                    materialStockService.reserveStock(materialId, warehouseId, stockUsed,
+                            "PRODUCTION_PICKING", stockPicking.getPickingNo(), "生产备料预留");
+                    stockPicking.setWarehouseId(warehouseId);
+                    stockPicking.setStatus(ProductionPickingStatus.APPROVED);
+                } else {
+                    // 无单个仓库可覆盖可用量的边界情况：仍登记，待人工指定仓库
+                    stockPicking.setStatus(ProductionPickingStatus.DRAFT);
+                }
+                save(stockPicking);
+            }
+
+            // 2) 缺料部分：与采购需求一一对应（数量 = 缺口量），待采购入库后通知领料
+            if (shortage.compareTo(BigDecimal.ZERO) > 0) {
+                Long demandId = demandIdByMaterial.get(materialId);
+                ProductionPicking shortPicking = buildPicking(order, materialId, shortage);
+                if (demandId != null) {
+                    shortPicking.setRelatedDemandId(demandId);
+                }
+                shortPicking.setStatus(ProductionPickingStatus.DRAFT);
+                save(shortPicking);
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void confirmPicking(Long id) {
+        ProductionPicking picking = getById(id);
+        if (picking == null) {
+            throw new BusinessException(404, "领料单不存在");
+        }
+        if (picking.getStatus() != ProductionPickingStatus.APPROVED) {
+            throw new BusinessException(400, "领料单未处于可领料状态");
+        }
+        if (picking.getWarehouseId() == null) {
+            throw new BusinessException(400, "领料仓库未指定，无法领料");
+        }
+
+        BigDecimal qty = (picking.getActualQuantity() != null
+                && picking.getActualQuantity().compareTo(BigDecimal.ZERO) > 0)
+                ? picking.getActualQuantity() : picking.getPlannedQuantity();
+
+        // 库存出库（扣减在库与预留）
+        materialStockService.outboundStock(picking.getMaterialId(), picking.getWarehouseId(), qty,
+                "PRODUCTION_PICKING", picking.getPickingNo(), "生产领料出库");
+
+        picking.setActualQuantity(qty);
+        picking.setPickingTime(LocalDateTime.now());
+        picking.setStatus(ProductionPickingStatus.PICKED);
+        updateById(picking);
+
+        // 同订单全部领料完成则自动下达生产
+        List<ProductionPicking> all = this.list(new LambdaQueryWrapper<ProductionPicking>()
+                .eq(ProductionPicking::getProductionOrderId, picking.getProductionOrderId()));
+        boolean allPicked = all.stream()
+                .allMatch(p -> p.getStatus() == ProductionPickingStatus.PICKED);
+        if (allPicked) {
+            ProductionOrder order = productionOrderMapper.selectById(picking.getProductionOrderId());
+            if (order != null && order.getStatus() == ProductionOrderStatus.RELEASED) {
+                order.setStatus(ProductionOrderStatus.IN_PROGRESS);
+                order.setActualStartTime(LocalDateTime.now());
+                productionOrderMapper.updateById(order);
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void notifyPickingForInStock(Long materialId, Long warehouseId) {
+        if (materialId == null || warehouseId == null) {
+            return;
+        }
+        // 仅通知“缺料、待采购入库”的领料单（与采购需求一一对应）
+        List<ProductionPicking> waitings = this.list(new LambdaQueryWrapper<ProductionPicking>()
+                .eq(ProductionPicking::getMaterialId, materialId)
+                .eq(ProductionPicking::getStatus, ProductionPickingStatus.DRAFT)
+                .isNotNull(ProductionPicking::getRelatedDemandId));
+        if (waitings.isEmpty()) {
+            return;
+        }
+        BigDecimal available = availableAt(materialId, warehouseId);
+        for (ProductionPicking p : waitings) {
+            BigDecimal qty = p.getPlannedQuantity(); // = 缺口量
+            BigDecimal reserveQty = qty.min(available.max(BigDecimal.ZERO));
+            p.setWarehouseId(warehouseId);
+            if (reserveQty.compareTo(BigDecimal.ZERO) > 0) {
+                materialStockService.reserveStock(p.getMaterialId(), warehouseId, reserveQty,
+                        "PRODUCTION_PICKING", p.getPickingNo(), "采购入库后生产备料预留");
+            }
+            // 入库量足以覆盖缺口才可领料，否则继续等待后续入库
+            p.setStatus(reserveQty.compareTo(qty) >= 0
+                    ? ProductionPickingStatus.APPROVED : ProductionPickingStatus.DRAFT);
+            updateById(p);
+        }
+    }
+
+    /** 构造一条领料单基础信息（不含状态/仓库/关联需求） */
+    private ProductionPicking buildPicking(ProductionOrder order, Long materialId, BigDecimal plannedQty) {
+        ProductionPicking picking = new ProductionPicking();
+        picking.setProductionOrderId(order.getId());
+        picking.setMaterialId(materialId);
+        picking.setPlannedQuantity(plannedQty);
+        picking.setActualQuantity(BigDecimal.ZERO);
+        picking.setPickingNo(businessNoGenerator.generateNo("erp:sequence:production-picking:", "PICK"));
+        return picking;
+    }
+
+    /** 选择可用库存足以覆盖需求量的仓库（多仓库取首个满足者） */
+    private Long findWarehouseCovering(Long materialId, BigDecimal qty) {
+        List<MaterialStock> stocks = materialStockService.list(
+                new LambdaQueryWrapper<MaterialStock>().eq(MaterialStock::getMaterialId, materialId));
+        for (MaterialStock s : stocks) {
+            if (availableOf(s).compareTo(qty) >= 0) {
+                return s.getWarehouseId();
+            }
+        }
+        return null;
+    }
+
+    /** 指定仓库对某物料的可用量（在库 - 预留，下限 0） */
+    private BigDecimal availableAt(Long materialId, Long warehouseId) {
+        MaterialStock stock = materialStockService.getOne(
+                new LambdaQueryWrapper<MaterialStock>()
+                        .eq(MaterialStock::getMaterialId, materialId)
+                        .eq(MaterialStock::getWarehouseId, warehouseId));
+        return stock == null ? BigDecimal.ZERO : availableOf(stock);
+    }
+
+    private BigDecimal availableOf(MaterialStock s) {
+        BigDecimal onHand = s.getOnHand() == null ? BigDecimal.ZERO : s.getOnHand();
+        BigDecimal reserved = s.getReserved() == null ? BigDecimal.ZERO : s.getReserved();
+        return onHand.subtract(reserved).max(BigDecimal.ZERO);
+    }
+
+    /** 递归收集 BOM 展开树中的所有组成物料 ID */
+    private void collectComponentMaterialIds(BOMExplosionVo vo, Set<Long> acc) {
+        if (vo.getMaterialId() != null) {
+            acc.add(vo.getMaterialId());
+        }
+        if (vo.getChildren() != null) {
+            for (BOMExplosionVo child : vo.getChildren()) {
+                collectComponentMaterialIds(child, acc);
+            }
+        }
+    }
+}

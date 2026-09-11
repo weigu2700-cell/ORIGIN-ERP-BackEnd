@@ -6,9 +6,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.inventory.dto.transactionDto.ListDto;
+import org.smart.erp.inventory.dto.transactionDto.TransactionPageDto;
 import org.smart.erp.inventory.service.TransactionService;
-import org.smart.erp.inventory.vo.TransactionVO;
+import org.smart.erp.inventory.vo.TransactionVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,8 +28,8 @@ public class TransactionController {
             description = "支持按仓库、物料、业务类型、业务单号过滤")
     @GetMapping
     @PreAuthorize("hasAnyAuthority('inventory:transaction:list')")
-    public Result<Page<TransactionVO>> list(ListDto listDto) {
-        return Result.success(transactionService.listTransaction(listDto));
+    public Result<Page<TransactionVo>> list(TransactionPageDto listDto) {
+        return Result.success(transactionService.pageTransaction(listDto));
     }
 
     @Operation(summary = "导出库存流水",

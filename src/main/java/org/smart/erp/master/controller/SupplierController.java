@@ -7,12 +7,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.master.dto.SupplierDTO.SupplierCreateDTO;
-import org.smart.erp.master.dto.SupplierDTO.SupplierListDTO;
-import org.smart.erp.master.dto.SupplierDTO.SupplierUpdateDTO;
+import org.smart.erp.master.dto.SupplierDto.SupplierAddDto;
+import org.smart.erp.master.dto.SupplierDto.SupplierPageDto;
+import org.smart.erp.master.dto.SupplierDto.SupplierUpdateDto;
 import org.smart.erp.master.enums.SupplierStatus;
 import org.smart.erp.master.service.SupplierService;
-import org.smart.erp.master.vo.SupplierVO;
+import org.smart.erp.master.vo.SupplierVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,30 +29,30 @@ public class SupplierController {
     @Operation(summary = "新增供应商")
     @PostMapping
     @PreAuthorize("hasAuthority('master:supplier:create')")
-    public Result<Void> create(@Valid @RequestBody SupplierCreateDTO dto) {
-        supplierService.createSupplier(dto);
+    public Result<Void> add(@Valid @RequestBody SupplierAddDto dto) {
+        supplierService.addSupplier(dto);
         return Result.success();
     }
 
     @Operation(summary = "供应商分页列表")
     @GetMapping("/list")
     @PreAuthorize("hasAuthority('master:supplier:list')")
-    public Result<Page<SupplierVO>> listSupplier(SupplierListDTO dto) {
-        return Result.success(supplierService.listSupplier(dto));
+    public Result<Page<SupplierVo>> pageSupplier(SupplierPageDto dto) {
+        return Result.success(supplierService.pageSupplier(dto));
     }
 
     @Operation(summary = "供应商详情")
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('master:supplier:get')")
-    public Result<SupplierVO> getSupplierDetail(@PathVariable Long id) {
-        return Result.success(supplierService.getSupplierDetail(id));
+    public Result<SupplierVo> detailSupplier(@PathVariable Long id) {
+        return Result.success(supplierService.detailSupplier(id));
     }
 
     @Operation(summary = "更新供应商")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('master:supplier:update')")
     public Result<Void> update(@PathVariable Long id,
-                               @Valid @RequestBody SupplierUpdateDTO dto) {
+                               @Valid @RequestBody SupplierUpdateDto dto) {
         supplierService.updateSupplier(id, dto);
         return Result.success();
     }

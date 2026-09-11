@@ -1,11 +1,11 @@
-package org.smart.erp.master.dto.MaterialDTO;
+package org.smart.erp.master.dto.MaterialDto;
 
 import lombok.Data;
 
 import java.math.BigDecimal;
 
 @Data
-public class MaterialUpdateDTO {
+public class MaterialUpdateDto {
 
     private String name;
 

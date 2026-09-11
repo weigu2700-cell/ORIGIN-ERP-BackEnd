@@ -1,13 +1,13 @@
 package org.smart.erp.master.convertor;
 
-import org.smart.erp.master.dto.CustomerDTO.CustomerUpdateDTO;
-import org.smart.erp.master.dto.SupplierDTO.SupplierUpdateDTO;
+import org.smart.erp.master.dto.CustomerDto.CustomerUpdateDto;
+import org.smart.erp.master.dto.SupplierDto.SupplierUpdateDto;
 import org.smart.erp.master.entity.Customer;
 import org.smart.erp.master.entity.Supplier;
 
 public class ApplyUpdate {
 
-    public static void setUpdateValue(Supplier supplier, SupplierUpdateDTO dto) {
+    public static void setUpdateValue(Supplier supplier, SupplierUpdateDto dto) {
         if (dto.getName() != null) supplier.setName(dto.getName());
         if (dto.getShortName() != null) supplier.setShortName(dto.getShortName());
         if (dto.getContactName() != null) supplier.setContactName(dto.getContactName());
@@ -17,7 +17,7 @@ public class ApplyUpdate {
         if (dto.getRemark() != null) supplier.setRemark(dto.getRemark());
     }
 
-    public static void setUpdateValue(Customer customer, CustomerUpdateDTO dto) {
+    public static void setUpdateValue(Customer customer, CustomerUpdateDto dto) {
         if (dto.getName() != null) customer.setName(dto.getName());
         if (dto.getShortName() != null) customer.setShortName(dto.getShortName());
         if (dto.getContactName() != null) customer.setContactName(dto.getContactName());

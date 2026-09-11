@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.purchase.dto.PagePurchaseInStockDto;
-import org.smart.erp.purchase.dto.UploadPurchaseInStockDto;
+import org.smart.erp.purchase.dto.PurchaseInStockPageDto;
+import org.smart.erp.purchase.dto.PurchaseInStockUploadDto;
 import org.smart.erp.purchase.service.PurchaseInStockService;
 import org.smart.erp.purchase.vo.PurchaseInStockVo;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,7 +25,7 @@ public class PurchaseInStockController {
     @PreAuthorize("hasAnyAuthority('purchase:in:stock:list')")
     @Operation(summary = "分页查询入库单")
     public Result<Page<PurchaseInStockVo>> page(
-            @Parameter(description = "分页查询参数") PagePurchaseInStockDto queryDto) {
+            @Parameter(description = "分页查询参数") PurchaseInStockPageDto queryDto) {
         return Result.success(purchaseInStockService.getPagePurchaseInStock(queryDto));
     }
 
@@ -50,7 +50,7 @@ public class PurchaseInStockController {
     @Operation(summary = "上架入库单(移动端接口)")
     public Result<Void> upload(
             @Parameter(description = "入库单ID") @PathVariable  Long id,
-            @Parameter(description = "上架入库单参数") @RequestBody UploadPurchaseInStockDto dto) {
+            @Parameter(description = "上架入库单参数") @RequestBody PurchaseInStockUploadDto dto) {
         purchaseInStockService.uploadPurchaseInStock(id, dto);
         return Result.success();
     }

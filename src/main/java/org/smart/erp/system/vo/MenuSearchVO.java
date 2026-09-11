@@ -3,7 +3,7 @@ package org.smart.erp.system.vo;
 import lombok.Data;
 
 @Data
-public class MenuSearchVO {
+public class MenuSearchVo {
 
     private Long id;
 

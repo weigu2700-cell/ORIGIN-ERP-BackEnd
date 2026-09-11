@@ -7,17 +7,17 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.system.Enum.UserStatus;
-import org.smart.erp.system.dto.UserCreateDTO;
-import org.smart.erp.system.dto.UserGetDTO;
-import org.smart.erp.system.dto.UserRoleAssignDTO;
-import org.smart.erp.system.dto.UserStatusUpdateDTO;
-import org.smart.erp.system.dto.UserUpdateDTO;
+import org.smart.erp.system.dto.UserAddDto;
+import org.smart.erp.system.dto.UserDetailDto;
+import org.smart.erp.system.dto.UserRoleAssignDto;
+import org.smart.erp.system.dto.UserStatusUpdateDto;
+import org.smart.erp.system.dto.UserUpdateDto;
 import org.smart.erp.system.entity.Dept;
 import org.smart.erp.system.entity.User;
 import org.smart.erp.system.entity.UserRole;
 import org.smart.erp.system.mapper.*;
 import org.smart.erp.system.service.UserService;
-import org.smart.erp.system.vo.UserGetVO;
+import org.smart.erp.system.vo.UserDetailVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -100,7 +100,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public User getUserById(Long id) {
+    public User detailUserById(Long id) {
         User user = userMapper.selectById(id);
         if (user == null) {
             throw new BusinessException(404, "用户不存在");
@@ -109,7 +109,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public void createUser(UserCreateDTO dto) {
+    public void addUser(UserAddDto dto) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(User::getUsername, dto.getUsername());
 
@@ -143,12 +143,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public UserGetVO getUserDetail(Long id) {
+    public UserDetailVo detailUser(Long id) {
         User user = userMapper.selectById(id);
         if (user == null) {
             throw new BusinessException(404, "用户不存在");
         }
-        UserGetVO vo = new UserGetVO();
+        UserDetailVo vo = new UserDetailVo();
         BeanUtils.copyProperties(user, vo);
         vo.setDeptName(resolveDeptName(user.getDeptId()));
         vo.setRoles(buildUserRoles(id));
@@ -156,17 +156,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public UserGetVO getCurrentUserInfo() {
+    public UserDetailVo getCurrentUserInfo() {
         Long userId = currentUser.getUserId();
         if (userId == null) {
             throw new BusinessException(401, "未登录或登录已过期");
         }
-        return getUserDetail(userId);
+        return detailUser(userId);
     }
 
 
     @Override
-    public void updateUser(Long id, UserUpdateDTO dto) {
+    public void updateUser(Long id, UserUpdateDto dto) {
         User user = userMapper.selectById(id);
         if (user == null) {
             throw new BusinessException(404, "用户不存在");
@@ -184,7 +184,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public void updateUserStatus(Long id, UserStatusUpdateDTO dto) {
+    public void updateUserStatus(Long id, UserStatusUpdateDto dto) {
         User user = userMapper.selectById(id);
         if (user == null) {
             throw new BusinessException(404, "用户不存在");
@@ -208,7 +208,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteUser(Long id) {
+    public void removeUser(Long id) {
         if (userMapper.selectById(id) == null) {
             throw new BusinessException(404, "用户不存在");
         }
@@ -220,7 +220,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void assignRoles(UserRoleAssignDTO dto) {
+    public void assignRoles(UserRoleAssignDto dto) {
         // 1. 校验用户是否存在
         if (userMapper.selectById(dto.getUserId()) == null) {
             throw new BusinessException(404, "用户不存在");
@@ -246,7 +246,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public Page<UserGetVO> listUser(UserGetDTO dto) {
+    public Page<UserDetailVo> pageUser(UserDetailDto dto) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         if (dto.getUsername() != null) queryWrapper.like(User::getUsername, dto.getUsername());
         if (dto.getRealName() != null) queryWrapper.like(User::getRealName, dto.getRealName());
@@ -257,11 +257,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         Page<User> page = new Page<>(dto.getPage(), dto.getPageSize());
         userMapper.selectPage(page, queryWrapper);
-        return PageConvertUtils.convert(page, this::toUserGetVO);
+        return PageConvertUtils.convert(page, this::toUserDetailVo);
     }
 
-    private UserGetVO toUserGetVO(User user) {
-        UserGetVO vo = new UserGetVO();
+    private UserDetailVo toUserDetailVo(User user) {
+        UserDetailVo vo = new UserDetailVo();
         BeanUtils.copyProperties(user, vo);
         vo.setDeptName(resolveDeptName(user.getDeptId()));
         vo.setRoles(buildUserRoles(user.getId()));

@@ -5,8 +5,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.production.dto.createProductionOrderDto;
-import org.smart.erp.production.dto.pageProductionOrderDto;
+import org.smart.erp.production.dto.ProductionOrderAddDto;
+import org.smart.erp.production.dto.ProductionOrderPageDto;
 import org.smart.erp.production.service.ProductionOrderService;
 import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionOrderVo;
@@ -29,9 +29,9 @@ public class ProductionOrderController {
     @PostMapping
     @PreAuthorize("hasAnyAuthority('production:order:create')")
     @Operation(summary = "创建生产订单")
-    public Result<Void> create(
-            @RequestBody @Parameter(description = "创建生产订单参数") createProductionOrderDto dto) {
-        productionOrderService.createProductionOrder(dto);
+    public Result<Void> add(
+            @RequestBody @Parameter(description = "创建生产订单参数") ProductionOrderAddDto dto) {
+        productionOrderService.addProductionOrder(dto);
         return Result.success();
     }
 
@@ -39,7 +39,7 @@ public class ProductionOrderController {
     @PreAuthorize("hasAnyAuthority('production:order:list')")
     @Operation(summary = "分页获取生产订单")
     public Result<Page<ProductionOrderVo>> page(
-            @ModelAttribute @Parameter(description = "分页获取生产订单") pageProductionOrderDto dto) {
+            @ModelAttribute @Parameter(description = "分页获取生产订单") ProductionOrderPageDto dto) {
         return Result.success(productionOrderService.pageProductionOrder(dto));
     }
 

@@ -5,7 +5,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class MaterialVO {
+public class MaterialVo {
 
     private Long id;
 

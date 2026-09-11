@@ -7,8 +7,8 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.mapper.MaterialMapper;
-import org.smart.erp.production.dto.createProductionOrderDto;
-import org.smart.erp.production.dto.pageProductionOrderDto;
+import org.smart.erp.production.dto.ProductionOrderAddDto;
+import org.smart.erp.production.dto.ProductionOrderPageDto;
 import org.smart.erp.production.entity.ProductionDemand;
 import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.enums.ProductionOrderStatus;
@@ -18,11 +18,14 @@ import org.smart.erp.production.service.BOMService;
 import org.smart.erp.production.service.ProductionOrderService;
 import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionOrderVo;
-import org.smart.erp.purchase.dto.CreatePurchaseDemandDto;
+import org.smart.erp.purchase.dto.PurchaseDemandAddDto;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.enums.PurchaseDemandSourceType;
 import org.smart.erp.purchase.service.PurchaseDemandService;
 import org.smart.erp.purchase.service.PurchaseOrderService;
+import org.smart.erp.production.entity.ProductionPicking;
+import org.smart.erp.production.enums.ProductionPickingStatus;
+import org.smart.erp.production.service.ProductionPickingService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +49,7 @@ public class ProductionOrderServiceImpl
     private final BOMService bomService;
     private final PurchaseDemandService purchaseDemandService;
     private final PurchaseOrderService purchaseOrderService;
+    private final ProductionPickingService productionPickingService;
 
     public ProductionOrderServiceImpl(
             BusinessNoGenerator businessNoGenerator,
@@ -53,7 +57,8 @@ public class ProductionOrderServiceImpl
             ProductionDemandMapper productionDemandMapper,
             BOMService bomService,
             PurchaseDemandService purchaseDemandService,
-            PurchaseOrderService purchaseOrderService
+            PurchaseOrderService purchaseOrderService,
+            ProductionPickingService productionPickingService
     )
     {
         this.businessNoGenerator = businessNoGenerator;
@@ -62,10 +67,11 @@ public class ProductionOrderServiceImpl
         this.bomService = bomService;
         this.purchaseDemandService = purchaseDemandService;
         this.purchaseOrderService = purchaseOrderService;
+        this.productionPickingService = productionPickingService;
     }
 
     @Override
-    public void createProductionOrder(createProductionOrderDto dto) {
+    public void addProductionOrder(ProductionOrderAddDto dto) {
         if (dto.getPlannedQuantity() == null || dto.getPlannedQuantity().compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(400, "生产数量必须大于0");
         }
@@ -102,7 +108,7 @@ public class ProductionOrderServiceImpl
     }
 
     @Override
-    public Page<ProductionOrderVo> pageProductionOrder(pageProductionOrderDto dto) {
+    public Page<ProductionOrderVo> pageProductionOrder(ProductionOrderPageDto dto) {
 
         LambdaQueryWrapper<ProductionOrder> queryWrapper =
                 new LambdaQueryWrapper<ProductionOrder>()
@@ -218,9 +224,21 @@ public class ProductionOrderServiceImpl
 
     @Override
     public void startProductionOrder(Long id) {
-        transition(id, ProductionOrderStatus.DRAFT, ProductionOrderStatus.IN_PROGRESS,
-                "生产单状态不为草稿，无法开始生产",
-                o -> o.setActualStartTime(LocalDateTime.now()));
+        ProductionOrder order = getOrderOrThrow(id);
+        if (order.getStatus() != ProductionOrderStatus.RELEASED) {
+            throw new BusinessException(400, "生产单状态不为已下达，无法开始生产");
+        }
+        // 所有料品必须已领完，方可下达生产
+        List<ProductionPicking> pickings = productionPickingService.list(
+                new LambdaQueryWrapper<ProductionPicking>().eq(ProductionPicking::getProductionOrderId, id));
+        boolean allPicked = pickings.stream()
+                .allMatch(p -> p.getStatus() == ProductionPickingStatus.PICKED);
+        if (!allPicked) {
+            throw new BusinessException(400, "仍有料品未领完，无法下达生产");
+        }
+        order.setStatus(ProductionOrderStatus.IN_PROGRESS);
+        order.setActualStartTime(LocalDateTime.now());
+        baseMapper.updateById(order);
     }
 
     @Override
@@ -253,19 +271,26 @@ public class ProductionOrderServiceImpl
         // 对每种净缺物料自动生成一张采购需求，并据此生成一张草稿采购订单
         // （供应商 / 单价 / 预计交货日期由采购员在审批前补全）
         String sourceNo = order.getProductionOrderNo();
+        Map<Long, Long> demandIdByMaterial = new HashMap<>();
         for (MaterialRequirementVo req : requirements) {
             if (req.getShortageQuantity() == null || req.getShortageQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
-            CreatePurchaseDemandDto demandDto = new CreatePurchaseDemandDto();
+            PurchaseDemandAddDto demandDto = new PurchaseDemandAddDto();
             demandDto.setMaterialId(req.getMaterialId());
             demandDto.setSourceType(PurchaseDemandSourceType.PRODUCTION_ORDER);
             demandDto.setSourceNo(sourceNo);
             demandDto.setPurchaseQuantity(req.getShortageQuantity());
-            PurchaseDemand demand = purchaseDemandService.createPurchaseDemand(demandDto);
+            PurchaseDemand demand = purchaseDemandService.addPurchaseDemand(demandDto);
 
-            purchaseOrderService.createPurchaseOrderFromDemand(demand.getId());
+            purchaseOrderService.addPurchaseOrderFromDemand(demand.getId());
+            demandIdByMaterial.put(req.getMaterialId(), demand.getId());
         }
+
+        // 由生产订单按 BOM 生成领料单：
+        // 在库物料直接可领料，缺料物料的领料单与采购需求一一对应、待采购入库后通知
+        productionPickingService.generatePickingFromOrder(order, requirements, demandIdByMaterial);
+
         return requirements;
     }
 

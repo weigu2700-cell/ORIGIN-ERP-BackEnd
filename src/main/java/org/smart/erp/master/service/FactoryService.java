@@ -3,23 +3,23 @@ package org.smart.erp.master.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import jakarta.servlet.http.HttpServletResponse;
-import org.smart.erp.master.dto.FactoryDTO.FactoryCreateDTO;
-import org.smart.erp.master.dto.FactoryDTO.FactoryListDTO;
-import org.smart.erp.master.dto.FactoryDTO.FactoryUpdateDTO;
+import org.smart.erp.master.dto.FactoryDto.FactoryAddDto;
+import org.smart.erp.master.dto.FactoryDto.FactoryPageDto;
+import org.smart.erp.master.dto.FactoryDto.FactoryUpdateDto;
 import org.smart.erp.master.entity.Factory;
 import org.smart.erp.master.enums.FactoryStatus;
-import org.smart.erp.master.vo.FactoryVO;
+import org.smart.erp.master.vo.FactoryVo;
 
 import java.util.List;
 
 public interface FactoryService extends IService<Factory> {
-    void createFactory(FactoryCreateDTO dto);
+    void addFactory(FactoryAddDto dto);
 
-    Page<FactoryVO> getFactoryList(FactoryListDTO dto);
+    Page<FactoryVo> getFactoryList(FactoryPageDto dto);
 
-    void updateFactory(Long id , FactoryUpdateDTO dto);
+    void updateFactory(Long id , FactoryUpdateDto dto);
 
-    FactoryVO getFactoryById(Long id);
+    FactoryVo detailFactory(Long id);
 
     void updateFactoryStatus(Long id, FactoryStatus status);
 

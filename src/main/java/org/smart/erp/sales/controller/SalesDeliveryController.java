@@ -5,8 +5,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.sales.dto.salesDeliveryDto.CreateDto;
-import org.smart.erp.sales.dto.salesDeliveryDto.ListDto;
+import org.smart.erp.sales.dto.salesDeliveryDto.SalesDeliveryAddDto;
+import org.smart.erp.sales.dto.salesDeliveryDto.SalesDeliveryPageDto;
 import org.smart.erp.sales.service.SalesDeliveryService;
 import org.smart.erp.sales.vo.SalesDeliveryVo;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,14 +28,14 @@ public class SalesDeliveryController {
             description = "基于已确认的销售订单创建草稿态发货单；明细必须归属该订单，客户与订单号自动带出")
     @PreAuthorize("hasAnyAuthority('sales:delivery:create')")
     @PostMapping
-    public Result<SalesDeliveryVo> create(@RequestBody @Validated CreateDto dto) {
-        return Result.success(salesDeliveryService.createSalesDeliveryVo(dto));
+    public Result<SalesDeliveryVo> add(@RequestBody @Validated SalesDeliveryAddDto dto) {
+        return Result.success(salesDeliveryService.addSalesDeliveryVo(dto));
     }
 
     @Operation(summary = "销售出库单列表", description = "销售出库单列表")
     @PreAuthorize("hasAnyAuthority('sales:delivery:list')")
     @GetMapping
-    public Result<Page<SalesDeliveryVo>> list(@Parameter(description = "销售出库单列表") ListDto dto) {
+    public Result<Page<SalesDeliveryVo>> list(@Parameter(description = "销售出库单列表") SalesDeliveryPageDto dto) {
         return Result.success(salesDeliveryService.getPageSalesDeliveryVo(dto));
     }
 
@@ -45,7 +45,7 @@ public class SalesDeliveryController {
     public Result<SalesDeliveryVo> get(
             @Parameter(description = "发货单id", required = true)
             @PathVariable Long id) {
-        return Result.success(salesDeliveryService.getSalesDeliveryVoById(id));
+        return Result.success(salesDeliveryService.detailSalesDeliveryVo(id));
     }
 
     @Operation(summary = "确认销售出库单",

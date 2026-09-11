@@ -3,7 +3,7 @@ package org.smart.erp.system.vo;
 import lombok.Data;
 
 @Data
-public class UserCreateVO {
+public class UserCreateVo {
 
     private long id;
 

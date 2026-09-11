@@ -10,9 +10,9 @@ import org.smart.erp.inventory.mapper.MaterialStockMapper;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
-import org.smart.erp.production.dto.creatBOMDto;
-import org.smart.erp.production.dto.createBOMItemDto;
-import org.smart.erp.production.dto.pageBOMDto;
+import org.smart.erp.production.dto.BOMAddDto;
+import org.smart.erp.production.dto.BOMItemAddDto;
+import org.smart.erp.production.dto.BOMPageDto;
 import org.smart.erp.production.entity.BOM;
 import org.smart.erp.production.entity.BOMItem;
 import org.smart.erp.production.enums.BOMStatus;
@@ -67,7 +67,7 @@ public class BOMServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void createBOM(creatBOMDto dto) {
+    public void addBOM(BOMAddDto dto) {
 
         Material material = materialMapper.selectById(dto.getMaterialId());
 
@@ -79,7 +79,7 @@ public class BOMServiceImpl
         }
 
         Set<Long> componentMaterialIds = new HashSet<>();
-        for (createBOMItemDto bomItemDto : dto.getBomItems()) {
+        for (BOMItemAddDto bomItemDto : dto.getBomItems()) {
             if (bomItemDto.getComponentMaterialId() == null) {
                 throw new BusinessException(400, "组成物料不能为空");
             }
@@ -104,14 +104,14 @@ public class BOMServiceImpl
         baseMapper.insert(bom);
 
         int lineNo = 10;
-        for (createBOMItemDto bomItemDto : dto.getBomItems()) {
-            bomItemService.createBOMItem(bomItemDto, bom.getId(),lineNo);
+        for (BOMItemAddDto bomItemDto : dto.getBomItems()) {
+            bomItemService.addBOMItem(bomItemDto, bom.getId(),lineNo);
             lineNo += 10;
         }
     }
 
     @Override
-    public BOMVo getBOMDetailById(Long id) {
+    public BOMVo detailBOMDetail(Long id) {
         BOM bom = baseMapper.selectById(id);
         if (Objects.isNull(bom)) {
             throw new BusinessException(404,"BOM不存在");
@@ -128,7 +128,7 @@ public class BOMServiceImpl
     }
 
     @Override
-    public Page<BOMVo> getPageBOMVo(pageBOMDto dto) {
+    public Page<BOMVo> getPageBOMVo(BOMPageDto dto) {
         LambdaQueryWrapper<BOM> queryWrapper =
                 new LambdaQueryWrapper<BOM>()
                         .like(StringUtils.hasText(dto.getBomNo()),BOM::getBomNo,dto.getBomNo())

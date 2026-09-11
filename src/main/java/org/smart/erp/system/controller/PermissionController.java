@@ -5,12 +5,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.system.dto.PermissionCreateDTO;
-import org.smart.erp.system.dto.PermissionGetDTO;
-import org.smart.erp.system.dto.PermissionUpdateDTO;
+import org.smart.erp.system.dto.PermissionAddDto;
+import org.smart.erp.system.dto.PermissionDetailDto;
+import org.smart.erp.system.dto.PermissionUpdateDto;
 import org.smart.erp.system.service.PermissionService;
-import org.smart.erp.system.vo.PermissionTreeVO;
-import org.smart.erp.system.vo.PermissionVO;
+import org.smart.erp.system.vo.PermissionTreeVo;
+import org.smart.erp.system.vo.PermissionVo;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,39 +28,39 @@ public class PermissionController {
 
     @Operation(summary = "权限分页列表")
     @GetMapping("/list")
-    public Result<Page<PermissionTreeVO>> listPermission(@Valid PermissionGetDTO dto) {
-        return Result.success(permissionService.listPermission(dto));
+    public Result<Page<PermissionTreeVo>> pagePermission(@Valid PermissionDetailDto dto) {
+        return Result.success(permissionService.pagePermission(dto));
     }
 
     @Operation(summary = "权限树形结构")
     @GetMapping("/tree")
-    public Result<List<PermissionTreeVO>> getPermissionTree() {
+    public Result<List<PermissionTreeVo>> getPermissionTree() {
         return Result.success(permissionService.getPermissionTree());
     }
 
     @Operation(summary = "权限详情")
     @GetMapping("/{id}")
-    public Result<PermissionTreeVO> getPermissionDetail(@PathVariable Long id) {
-        return Result.success(permissionService.getPermissionDetail(id));
+    public Result<PermissionTreeVo> detailPermission(@PathVariable Long id) {
+        return Result.success(permissionService.detailPermission(id));
     }
 
     @Operation(summary = "新增权限")
     @PostMapping("/add")
-    public Result<Void> createPermission(@RequestBody @Valid PermissionCreateDTO dto) {
-        permissionService.createPermission(dto);
+    public Result<Void> addPermission(@RequestBody @Valid PermissionAddDto dto) {
+        permissionService.addPermission(dto);
         return Result.success();
     }
 
     @Operation(summary = "更新权限")
     @PutMapping("/{id}")
-    public Result<Void> updatePermission(PermissionUpdateDTO dto) {
+    public Result<Void> updatePermission(PermissionUpdateDto dto) {
         permissionService.updatePermission(dto);
         return Result.success();
     }
 
     @Operation(summary = "当前用户权限列表")
     @GetMapping
-    public Result<List<PermissionVO>> getCurrentUserPermission() {
+    public Result<List<PermissionVo>> getCurrentUserPermission() {
         return Result.success(permissionService.getCurrentUserPermission());
     }
 }

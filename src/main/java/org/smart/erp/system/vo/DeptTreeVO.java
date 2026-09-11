@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class DeptTreeVO {
+public class DeptTreeVo {
 
     private String id;
 
@@ -15,5 +15,5 @@ public class DeptTreeVO {
 
     private String parentId;
 
-    private List<DeptTreeVO> children;
+    private List<DeptTreeVo> children;
 }

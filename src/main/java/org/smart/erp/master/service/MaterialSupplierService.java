@@ -3,22 +3,22 @@ package org.smart.erp.master.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import jakarta.servlet.http.HttpServletResponse;
-import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierCreateDTO;
-import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierListDTO;
-import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierUpdateDTO;
+import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierAddDto;
+import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierPageDto;
+import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierUpdateDto;
 import org.smart.erp.master.entity.MaterialSupplier;
-import org.smart.erp.master.vo.MaterialSupplierVO;
+import org.smart.erp.master.vo.MaterialSupplierVo;
 
 import java.util.List;
 
 public interface MaterialSupplierService extends IService<MaterialSupplier> {
-    void createMaterialSupplier(MaterialSupplierCreateDTO dto);
+    void addMaterialSupplier(MaterialSupplierAddDto dto);
 
-    Page<MaterialSupplierVO> listMaterialSupplier(MaterialSupplierListDTO dto);
+    Page<MaterialSupplierVo> pageMaterialSupplier(MaterialSupplierPageDto dto);
 
-    MaterialSupplierVO getMaterialSupplier(Long id);
+    MaterialSupplierVo getMaterialSupplier(Long id);
 
-    void updateMaterialSupplier(Long id, MaterialSupplierUpdateDTO dto);
+    void updateMaterialSupplier(Long id, MaterialSupplierUpdateDto dto);
 
     void changeMaterialSupplierStatus(Long id);
 

@@ -5,11 +5,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierCreateDTO;
-import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierListDTO;
-import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierUpdateDTO;
+import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierAddDto;
+import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierPageDto;
+import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierUpdateDto;
 import org.smart.erp.master.service.MaterialSupplierService;
-import org.smart.erp.master.vo.MaterialSupplierVO;
+import org.smart.erp.master.vo.MaterialSupplierVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,27 +29,27 @@ public class MaterialSupplierController {
     @Operation(summary = "新增物料供应商关联")
     @PreAuthorize("hasAnyAuthority('master:material-supplier:create')")
     @PostMapping
-    public Result<Void> create(@RequestBody MaterialSupplierCreateDTO dto) {
-        materialSupplierService.createMaterialSupplier(dto);
+    public Result<Void> add(@RequestBody MaterialSupplierAddDto dto) {
+        materialSupplierService.addMaterialSupplier(dto);
         return Result.success();
     }
 
     @Operation(summary = "物料供应商关联分页列表")
     @GetMapping
-    public Result<Page<MaterialSupplierVO>> list(MaterialSupplierListDTO dto) {
-        return Result.success(materialSupplierService.listMaterialSupplier(dto));
+    public Result<Page<MaterialSupplierVo>> list(MaterialSupplierPageDto dto) {
+        return Result.success(materialSupplierService.pageMaterialSupplier(dto));
     }
 
     @Operation(summary = "物料供应商关联详情")
     @GetMapping("/{id}")
-    public Result<MaterialSupplierVO> getMaterialSupplierDetail(@PathVariable Long id) {
+    public Result<MaterialSupplierVo> detailMaterialSupplier(@PathVariable Long id) {
         return Result.success(materialSupplierService.getMaterialSupplier(id));
     }
 
     @Operation(summary = "更新物料供应商关联")
     @PreAuthorize("hasAnyAuthority('master:material-supplier:update')")
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody MaterialSupplierUpdateDTO dto) {
+    public Result<Void> update(@PathVariable Long id, @RequestBody MaterialSupplierUpdateDto dto) {
         materialSupplierService.updateMaterialSupplier(id, dto);
         return Result.success();
     }

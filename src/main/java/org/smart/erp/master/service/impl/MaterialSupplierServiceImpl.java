@@ -6,9 +6,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
-import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierCreateDTO;
-import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierListDTO;
-import org.smart.erp.master.dto.MaterialSupplierDTO.MaterialSupplierUpdateDTO;
+import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierAddDto;
+import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierPageDto;
+import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierUpdateDto;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.MaterialSupplier;
 import org.smart.erp.master.entity.Supplier;
@@ -21,8 +21,8 @@ import org.smart.erp.master.mapper.SupplierMapper;
 import org.smart.erp.master.service.MaterialSupplierService;
 import cn.idev.excel.FastExcel;
 import lombok.extern.slf4j.Slf4j;
-import org.smart.erp.master.vo.ExcelPrintVo.MaterialSupplierExportVO;
-import org.smart.erp.master.vo.MaterialSupplierVO;
+import org.smart.erp.master.vo.ExcelPrintVo.MaterialSupplierExportVo;
+import org.smart.erp.master.vo.MaterialSupplierVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,7 +57,7 @@ public class MaterialSupplierServiceImpl
     }
 
     @Override
-    public void createMaterialSupplier(MaterialSupplierCreateDTO dto) {
+    public void addMaterialSupplier(MaterialSupplierAddDto dto) {
 
         Material material = materialMapper.selectById(dto.getMaterialId());
         if (material == null) {
@@ -94,7 +94,7 @@ public class MaterialSupplierServiceImpl
     }
 
     @Override
-    public Page<MaterialSupplierVO> listMaterialSupplier(MaterialSupplierListDTO dto) {
+    public Page<MaterialSupplierVo> pageMaterialSupplier(MaterialSupplierPageDto dto) {
 
         LambdaQueryWrapper<MaterialSupplier> queryWrapper =
                 new LambdaQueryWrapper<MaterialSupplier>()
@@ -120,7 +120,7 @@ public class MaterialSupplierServiceImpl
                         .collect(Collectors.toMap(Supplier::getId, Supplier::getName));
 
         return PageConvertUtils.convert(page, item -> {
-            MaterialSupplierVO voPage = new MaterialSupplierVO();
+            MaterialSupplierVo voPage = new MaterialSupplierVo();
             BeanUtils.copyProperties(item, voPage);
             voPage.setMaterialName(materialNameMap.get(item.getMaterialId()));
             voPage.setSupplierName(supplierNameMap.get(item.getSupplierId()));
@@ -133,7 +133,7 @@ public class MaterialSupplierServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public MaterialSupplierVO getMaterialSupplier(Long id) {
+    public MaterialSupplierVo getMaterialSupplier(Long id) {
 
         MaterialSupplier materialSupplier = materialSupplierMapper.selectById(id);
         if (materialSupplier == null || materialSupplier.getStatus() == MaterialSupplierStatus.INACTIVE) {
@@ -143,7 +143,7 @@ public class MaterialSupplierServiceImpl
         String materialName = materialMapper.selectById(materialSupplier.getMaterialId()).getName();
         String supplierName = supplierMapper.selectById(materialSupplier.getSupplierId()).getName();
 
-        MaterialSupplierVO vo = new MaterialSupplierVO();
+        MaterialSupplierVo vo = new MaterialSupplierVo();
         BeanUtils.copyProperties(materialSupplier, vo);
         vo.setMaterialName(materialName);
         vo.setSupplierName(supplierName);
@@ -154,7 +154,7 @@ public class MaterialSupplierServiceImpl
     }
 
     @Override
-    public void updateMaterialSupplier(Long id, MaterialSupplierUpdateDTO dto) {
+    public void updateMaterialSupplier(Long id, MaterialSupplierUpdateDto dto) {
         MaterialSupplier materialSupplier = materialSupplierMapper.selectById(id);
         if (materialSupplier == null || materialSupplier.getStatus() == MaterialSupplierStatus.INACTIVE) {
             throw new BusinessException(404,"物料供应商关系不存在或被禁用");
@@ -224,9 +224,9 @@ public class MaterialSupplierServiceImpl
                 : supplierMapper.selectByIds(supplierIds).stream()
                         .collect(Collectors.toMap(Supplier::getId, Supplier::getName));
 
-        List<MaterialSupplierExportVO> data = materialSuppliers.stream()
+        List<MaterialSupplierExportVo> data = materialSuppliers.stream()
                 .map(item -> {
-                    MaterialSupplierExportVO vo = new MaterialSupplierExportVO();
+                    MaterialSupplierExportVo vo = new MaterialSupplierExportVo();
                     BeanUtils.copyProperties(item, vo);
                     vo.setMaterialName(materialNameMap.get(item.getMaterialId()));
                     vo.setSupplierName(supplierNameMap.get(item.getSupplierId()));
@@ -251,7 +251,7 @@ public class MaterialSupplierServiceImpl
                     "attachment;filename*=utf-8''" + fileName + ".xlsx"
             );
 
-            FastExcel.write(response.getOutputStream(), MaterialSupplierExportVO.class)
+            FastExcel.write(response.getOutputStream(), MaterialSupplierExportVo.class)
                     .sheet("物料供应商")
                     .doWrite(data);
         } catch (IOException e) {

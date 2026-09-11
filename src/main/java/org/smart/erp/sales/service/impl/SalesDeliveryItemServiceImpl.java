@@ -9,7 +9,7 @@ import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.enums.WarehouseStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
-import org.smart.erp.sales.dto.salesDeliveryItemDto.CreateItemDto;
+import org.smart.erp.sales.dto.salesDeliveryItemDto.SalesDeliveryItemAddDto;
 import org.smart.erp.sales.entity.SalesDelivery;
 import org.smart.erp.sales.entity.SalesDeliveryItem;
 import org.smart.erp.sales.entity.SalesOrderItem;
@@ -133,7 +133,7 @@ public class SalesDeliveryItemServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SalesDeliveryItemVo createSalesDeliveryItemVo(CreateItemDto dto, Long deliveryId, Integer lineNo) {
+    public SalesDeliveryItemVo addSalesDeliveryItemVo(SalesDeliveryItemAddDto dto, Long deliveryId, Integer lineNo) {
         if (dto.getSalesOrderItemId() == null) {
             throw new BusinessException(400, "销售订单明细ID不能为空");
         }

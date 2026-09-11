@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.production.dto.pageProductionDemandDto;
+import org.smart.erp.production.dto.ProductionDemandPageDto;
 import org.smart.erp.production.service.ProductionDemandService;
 import org.smart.erp.production.vo.ProductionDemandVo;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -29,7 +29,7 @@ public class ProductionDemandController {
     @PreAuthorize("hasAnyAuthority('production:demand:list')")
     @Operation(summary = "分页查询生产需求")
     public Result<Page<ProductionDemandVo>> page(
-            @Parameter(description = "分页查询生产需求") pageProductionDemandDto dto) {
+            @Parameter(description = "分页查询生产需求") ProductionDemandPageDto dto) {
         return Result.success(productionDemandService.pageProductionDemand(dto));
     }
 

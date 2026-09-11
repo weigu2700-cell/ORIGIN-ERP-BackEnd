@@ -1,10 +1,10 @@
-package org.smart.erp.master.dto.CustomerDTO;
+package org.smart.erp.master.dto.CustomerDto;
 
 import lombok.Data;
 import org.smart.erp.master.enums.CustomerStatus;
 
 @Data
-public class CustomerUpdateDTO {
+public class CustomerUpdateDto {
 
     private String id;
 

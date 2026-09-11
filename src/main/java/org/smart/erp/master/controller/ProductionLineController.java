@@ -5,13 +5,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineCreateDTO;
-import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineListDTO;
-import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineUpdateDTO;
+import org.smart.erp.master.dto.ProductionLineDto.ProductionLineAddDto;
+import org.smart.erp.master.dto.ProductionLineDto.ProductionLinePageDto;
+import org.smart.erp.master.dto.ProductionLineDto.ProductionLineUpdateDto;
 import org.smart.erp.master.entity.ProductionLine;
 import org.smart.erp.master.enums.ProductionLineStatus;
 import org.smart.erp.master.service.ProductionLineService;
-import org.smart.erp.master.vo.ProductionLineVO;
+import org.smart.erp.master.vo.ProductionLineVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,29 +31,29 @@ public class ProductionLineController {
     @Operation(summary = "新增生产线")
     @PreAuthorize("hasAnyAuthority('master:production_line:create')")
     @PostMapping
-    public Result<Void> createProductionLine(@RequestBody ProductionLineCreateDTO dto) {
-        productionLineService.createProductionLine(dto);
+    public Result<Void> addProductionLine(@RequestBody ProductionLineAddDto dto) {
+        productionLineService.addProductionLine(dto);
         return Result.success();
     }
 
     @Operation(summary = "生产线分页列表")
     @PreAuthorize("hasAnyAuthority('master:production_line:list')")
     @GetMapping
-    public Result<Page<ProductionLineVO>> listProductionLine(ProductionLineListDTO dto) {
-        return Result.success(productionLineService.listProductionLine(dto));
+    public Result<Page<ProductionLineVo>> pageProductionLine(ProductionLinePageDto dto) {
+        return Result.success(productionLineService.pageProductionLine(dto));
     }
 
     @Operation(summary = "生产线详情")
     @PreAuthorize("hasAnyAuthority('master:production_line:get')")
     @GetMapping("/{id}")
-    public Result<ProductionLineVO> getProductionLineDetail(@PathVariable Long id) {
+    public Result<ProductionLineVo> detailProductionLine(@PathVariable Long id) {
         return Result.success(productionLineService.getProductionLine(id));
     }
 
     @Operation(summary = "更新生产线")
     @PreAuthorize("hasAnyAuthority('master:production_line:update')")
     @PutMapping("/{id}")
-    public Result<Void> updateProductionLine(@PathVariable Long id, @RequestBody ProductionLineUpdateDTO dto) {
+    public Result<Void> updateProductionLine(@PathVariable Long id, @RequestBody ProductionLineUpdateDto dto) {
         productionLineService.updateProductionLine(id, dto);
         return Result.success();
     }

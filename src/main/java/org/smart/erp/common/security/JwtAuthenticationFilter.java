@@ -50,15 +50,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authorization.substring(7);
         try {
             long userId = jwtUtil.parseToken(token);
-            User user = userService.getUserById(userId);
+            User user = userService.detailUserById(userId);
 
             LoginUser loginUser = new LoginUser(
                     user.getId(),
                     user.getUsername()
             );
-            List<String> permissions = permissionService.getCurrentUserPermissionById(user.getId())
+            List<String> permissions = permissionService.detailCurrentUserPermission(user.getId())
                     .stream()
-                    .map(org.smart.erp.system.vo.PermissionVO::getCode)
+                    .map(org.smart.erp.system.vo.PermissionVo::getCode)
                     .toList();
             List<SimpleGrantedAuthority> authorities = permissions.stream()
                     .map(SimpleGrantedAuthority::new)

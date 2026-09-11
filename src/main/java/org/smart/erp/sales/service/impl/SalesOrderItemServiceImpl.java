@@ -11,8 +11,8 @@ import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.enums.WarehouseStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
-import org.smart.erp.sales.dto.salesOrderItemDto.createItemDto;
-import org.smart.erp.sales.dto.salesOrderItemDto.updateItemDto;
+import org.smart.erp.sales.dto.salesOrderItemDto.SalesOrderItemAddDto;
+import org.smart.erp.sales.dto.salesOrderItemDto.SalesOrderItemUpdateDto;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.entity.SalesOrderItem;
 import org.smart.erp.sales.mapper.SalesOrderItemMapper;
@@ -103,7 +103,7 @@ public class SalesOrderItemServiceImpl
     }
 
     /**
-     * 明细实体转 VO，并补齐物料名称/编码、仓库名称。
+     * 明细实体转 Vo，并补齐物料名称/编码、仓库名称。
      * 物料或仓库在映射中不存在时对应字段留空，不抛异常（避免历史脏数据导致整单查询失败）。
      */
     private SalesOrderItemVo toVo(
@@ -128,7 +128,7 @@ public class SalesOrderItemServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SalesOrderItemVo createItem(SalesOrderItem dto) {
+    public SalesOrderItemVo addItem(SalesOrderItem dto) {
 
         if (dto.getSalesOrderId() == null) {
             throw new BusinessException(400,"销售订单ID不能为空");
@@ -194,7 +194,7 @@ public class SalesOrderItemServiceImpl
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateItemBySalesOrderId(Long salesOrderId, List<updateItemDto> items) {
+    public void updateItemBySalesOrderId(Long salesOrderId, List<SalesOrderItemUpdateDto> items) {
         if (items == null || items.isEmpty()) {
             throw new BusinessException(400, "销售订单明细项不能为空");
         }
@@ -206,10 +206,10 @@ public class SalesOrderItemServiceImpl
 
 
         // 按 id 建索引（重复 id 取首个），避免循环内嵌套遍历
-        Map<Long, updateItemDto> itemMap = items.stream()
+        Map<Long, SalesOrderItemUpdateDto> itemMap = items.stream()
                 .filter(Objects::nonNull)
                 .filter(dto -> dto.getId() != null)
-                .collect(Collectors.toMap(updateItemDto::getId, Function.identity(), (a, b) -> a));
+                .collect(Collectors.toMap(SalesOrderItemUpdateDto::getId, Function.identity(), (a, b) -> a));
 
         Set<Long> existingIds = existingItems.stream()
                 .map(SalesOrderItem::getId)
@@ -224,9 +224,9 @@ public class SalesOrderItemServiceImpl
             throw new BusinessException(400, "销售订单明细项不存在，id：" + unknownIds);
         }
 
-        // DTO 的注解校验仅在 Controller 层生效，内部调用需自行兜底（新增行没有 id，按序号定位）
+        // Dto 的注解校验仅在 Controller 层生效，内部调用需自行兜底（新增行没有 id，按序号定位）
         for (int i = 0; i < items.size(); i++) {
-            updateItemDto dto = items.get(i);
+            SalesOrderItemUpdateDto dto = items.get(i);
             if (dto == null) {
                 throw new BusinessException(400, "第 " + (i + 1) + " 条明细不能为空");
             }
@@ -246,7 +246,7 @@ public class SalesOrderItemServiceImpl
 
         // 校验全部通过后才落库：先更新/删除存量行
         for (SalesOrderItem existingItem : existingItems) {
-            updateItemDto dto = itemMap.get(existingItem.getId());
+            SalesOrderItemUpdateDto dto = itemMap.get(existingItem.getId());
             if (dto == null) {
                 // 新明细中已不存在 -> 删除该行
                 salesOrderItemMapper.deleteById(existingItem.getId());
@@ -266,7 +266,7 @@ public class SalesOrderItemServiceImpl
                 .max(Integer::compareTo)
                 .orElse(0) + 10;
 
-        for (updateItemDto dto : items) {
+        for (SalesOrderItemUpdateDto dto : items) {
             if (dto.getId() != null) {
                 continue;
             }
@@ -276,7 +276,7 @@ public class SalesOrderItemServiceImpl
             newItem.setSalesOrderId(salesOrderId);
             newItem.setLineNo(nextLineNo);
             // 复用 createItem：内部会校验物料/仓库存在且启用，并重算金额
-            createItem(newItem);
+            addItem(newItem);
             nextLineNo += 10;
         }
     }

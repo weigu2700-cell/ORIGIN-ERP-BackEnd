@@ -5,8 +5,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.production.dto.creatBOMDto;
-import org.smart.erp.production.dto.pageBOMDto;
+import org.smart.erp.production.dto.BOMAddDto;
+import org.smart.erp.production.dto.BOMPageDto;
 import org.smart.erp.production.service.BOMService;
 import org.smart.erp.production.vo.BOMExplosionVo;
 import org.smart.erp.production.vo.BOMVo;
@@ -33,22 +33,22 @@ public class BOMController {
     @PostMapping
     @PreAuthorize("hasAnyAuthority('production:bom:create')")
     @Operation(summary = "创建BOM", description = "创建BOM")
-    public Result<Void> createBOM(@RequestBody @Validated @Parameter(description = "创建BOM参数") creatBOMDto dto) {
-        bomService.createBOM(dto);
+    public Result<Void> addBOM(@RequestBody @Validated @Parameter(description = "创建BOM参数") BOMAddDto dto) {
+        bomService.addBOM(dto);
         return Result.success();
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('production:bom:get')")
     @Operation(summary = "BOM详情", description = "根据 BOM 主键查询其头信息及组成明细")
-    public Result<BOMVo> getBOMById(@PathVariable @Parameter(description = "BOM 主键 ID") Long id) {
-        return Result.success(bomService.getBOMDetailById(id));
+    public Result<BOMVo> detailBOM(@PathVariable @Parameter(description = "BOM 主键 ID") Long id) {
+        return Result.success(bomService.detailBOMDetail(id));
     }
 
     @GetMapping
     @PreAuthorize("hasAnyAuthority('production:bom:list')")
     @Operation(summary = "BOM分页列表", description = "按 BOM 单号 / 物料 / 状态条件分页查询")
-    public Result<Page<BOMVo>> getPage(pageBOMDto dto) {
+    public Result<Page<BOMVo>> getPage(BOMPageDto dto) {
         return Result.success(bomService.getPageBOMVo(dto));
     }
 

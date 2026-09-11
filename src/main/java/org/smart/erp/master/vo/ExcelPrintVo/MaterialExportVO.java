@@ -7,7 +7,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class MaterialExportVO {
+public class MaterialExportVo {
 
     @ExcelIgnore
     private Long id;

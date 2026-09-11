@@ -9,10 +9,10 @@ import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Supplier;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.SupplierMapper;
-import org.smart.erp.purchase.dto.CreatePurchaseOrderDto;
-import org.smart.erp.purchase.dto.PagePurchaseOrderDto;
-import org.smart.erp.purchase.dto.UpdatePurchaseOrderDto;
-import org.smart.erp.purchase.dto.CreatePurchaseInStockDto;
+import org.smart.erp.purchase.dto.PurchaseOrderAddDto;
+import org.smart.erp.purchase.dto.PurchaseOrderPageDto;
+import org.smart.erp.purchase.dto.PurchaseOrderUpdateDto;
+import org.smart.erp.purchase.dto.PurchaseInStockAddDto;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.entity.PurchaseOrder;
 import org.smart.erp.purchase.enums.PurchaseDemandStatus;
@@ -161,7 +161,7 @@ public class PurchaseOrderServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void createPurchaseOrder(CreatePurchaseOrderDto dto) {
+    public void addPurchaseOrder(PurchaseOrderAddDto dto) {
         require(dto.getPurchaseDemandId(), "采购需求ID不能为空");
         require(dto.getMaterialId(), "物料ID不能为空");
         require(dto.getSupplierId(), "供应商ID不能为空");
@@ -184,7 +184,7 @@ public class PurchaseOrderServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void createPurchaseOrderFromDemand(Long purchaseDemandId) {
+    public void addPurchaseOrderFromDemand(Long purchaseDemandId) {
         PurchaseDemand demand = purchaseDemandMapper.selectById(purchaseDemandId);
         if (demand == null) {
             throw new BusinessException(400, "采购需求不存在");
@@ -204,7 +204,7 @@ public class PurchaseOrderServiceImpl
     }
 
     @Override
-    public Page<PurchaseOrderVo> pagePurchaseOrder(PagePurchaseOrderDto dto) {
+    public Page<PurchaseOrderVo> pagePurchaseOrder(PurchaseOrderPageDto dto) {
         int pageNum = dto.getPageNum() == null ? 1 : dto.getPageNum();
         int pageSize = dto.getPageSize() == null ? 10 : dto.getPageSize();
 
@@ -231,7 +231,7 @@ public class PurchaseOrderServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updatePurchaseOrder(Long id, UpdatePurchaseOrderDto dto) {
+    public void updatePurchaseOrder(Long id, PurchaseOrderUpdateDto dto) {
         PurchaseOrder order = getOrderOrThrow(id);
         Optional.ofNullable(dto.getSupplierId()).ifPresent(order::setSupplierId);
         Optional.ofNullable(dto.getUnitPrice()).ifPresent(order::setUnitPrice);
@@ -278,7 +278,7 @@ public class PurchaseOrderServiceImpl
      * @param order 已审批的采购订单
      */
     private void createInStockForOrder(PurchaseOrder order) {
-        CreatePurchaseInStockDto dto = new CreatePurchaseInStockDto();
+        PurchaseInStockAddDto dto = new PurchaseInStockAddDto();
         dto.setPurchaseOrderId(order.getId());
         dto.setSupplierId(order.getSupplierId());
         dto.setMaterialId(order.getMaterialId());
@@ -286,7 +286,7 @@ public class PurchaseOrderServiceImpl
         dto.setUnitPrice(order.getUnitPrice());
         dto.setTotalAmount(order.getTotalAmount());
         dto.setDeliveryDate(order.getExpectedDeliveryDate());
-        purchaseInStockService.createPurchaseInStock(dto);
+        purchaseInStockService.addPurchaseInStock(dto);
     }
 
     @Override

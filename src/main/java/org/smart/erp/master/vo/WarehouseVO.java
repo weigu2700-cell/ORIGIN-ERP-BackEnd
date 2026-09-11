@@ -4,7 +4,7 @@ import lombok.Data;
 import org.smart.erp.master.enums.WarehouseType;
 
 @Data
-public class WarehouseVO {
+public class WarehouseVo {
 
     private Long id;
 

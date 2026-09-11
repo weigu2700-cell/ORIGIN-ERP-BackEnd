@@ -3,25 +3,25 @@ package org.smart.erp.master.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import jakarta.servlet.http.HttpServletResponse;
-import org.smart.erp.master.dto.CustomerDTO.CustomerCreateDTO;
-import org.smart.erp.master.dto.CustomerDTO.CustomerListDTO;
-import org.smart.erp.master.dto.CustomerDTO.CustomerStatusDTO;
-import org.smart.erp.master.dto.CustomerDTO.CustomerUpdateDTO;
+import org.smart.erp.master.dto.CustomerDto.CustomerAddDto;
+import org.smart.erp.master.dto.CustomerDto.CustomerPageDto;
+import org.smart.erp.master.dto.CustomerDto.CustomerStatusDto;
+import org.smart.erp.master.dto.CustomerDto.CustomerUpdateDto;
 import org.smart.erp.master.entity.Customer;
-import org.smart.erp.master.vo.CustomerVO;
+import org.smart.erp.master.vo.CustomerVo;
 
 import java.util.List;
 
 public interface CustomerService extends IService<Customer> {
-    void createCustomer(CustomerCreateDTO dto);
+    void addCustomer(CustomerAddDto dto);
 
-    Page<CustomerVO> getCustomerList(CustomerListDTO dto);
+    Page<CustomerVo> getCustomerList(CustomerPageDto dto);
 
-    CustomerVO getCustomerDetail(Long id);
+    CustomerVo detailCustomer(Long id);
 
-    CustomerVO updateCustomer(CustomerUpdateDTO dto);
+    CustomerVo updateCustomer(CustomerUpdateDto dto);
 
-    void changeCustomerStatus(Long id, CustomerStatusDTO dto);
+    void changeCustomerStatus(Long id, CustomerStatusDto dto);
 
     void exportCustomer(List<Long> ids, HttpServletResponse response);
 }

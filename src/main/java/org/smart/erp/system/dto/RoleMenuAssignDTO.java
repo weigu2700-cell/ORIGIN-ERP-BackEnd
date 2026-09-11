@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class RoleMenuAssignDTO {
+public class RoleMenuAssignDto {
 
     private Long roleId;
 

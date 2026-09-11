@@ -5,9 +5,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.sales.dto.salesOrderDto.createDto;
-import org.smart.erp.sales.dto.salesOrderDto.listDto;
-import org.smart.erp.sales.dto.salesOrderDto.updateDto;
+import org.smart.erp.sales.dto.salesOrderDto.SalesOrderAddDto;
+import org.smart.erp.sales.dto.salesOrderDto.SalesOrderPageDto;
+import org.smart.erp.sales.dto.salesOrderDto.SalesOrderUpdateDto;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.sales.vo.SalesOrderVo;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,16 +29,16 @@ public class SalesOrderController {
             description = "创建草稿态订单并同步生成明细；明细项不能为空，物料与仓库必须存在且为启用状态")
     @PreAuthorize("hasAnyAuthority('sales:order:create')")
     @PostMapping
-    public Result<SalesOrderVo> create(@RequestBody @Validated createDto dto) {
-        return Result.success(salesOrderService.create(dto));
+    public Result<SalesOrderVo> add(@RequestBody @Validated SalesOrderAddDto dto) {
+        return Result.success(salesOrderService.add(dto));
     }
 
     @Operation(summary = "销售订单分页列表",
             description = "支持按客户、订单号、状态、下单时间起过滤")
     @PreAuthorize("hasAnyAuthority('sales:order:list')")
     @GetMapping
-    public Result<Page<SalesOrderVo>> list(listDto dto) {
-        return Result.success(salesOrderService.listSalesOrderVoByPage(dto));
+    public Result<Page<SalesOrderVo>> list(SalesOrderPageDto dto) {
+        return Result.success(salesOrderService.pageSalesOrderVoByPage(dto));
     }
 
     @Operation(summary = "销售订单详情", description = "返回订单主体及全部明细行")
@@ -47,7 +47,7 @@ public class SalesOrderController {
     public Result<SalesOrderVo> get(
             @Parameter(description = "销售订单id", required = true)
             @PathVariable Long id) {
-        return Result.success(salesOrderService.getSalesOrderVoById(id));
+        return Result.success(salesOrderService.detailSalesOrderVo(id));
     }
 
     @Operation(summary = "修改销售订单",
@@ -57,7 +57,7 @@ public class SalesOrderController {
     public Result<SalesOrderVo> update(
             @Parameter(description = "销售订单id", required = true)
             @PathVariable Long id,
-            @RequestBody @Validated updateDto dto) {
+            @RequestBody @Validated SalesOrderUpdateDto dto) {
         return Result.success(salesOrderService.updateSalesOrderVoById(id, dto));
     }
 
@@ -78,7 +78,7 @@ public class SalesOrderController {
     public Result<SalesOrderVo> confirm(
             @Parameter(description = "销售订单id", required = true)
             @PathVariable Long id,
-            @RequestBody(required = false) updateDto dto) {
+            @RequestBody(required = false) SalesOrderUpdateDto dto) {
         return Result.success(salesOrderService.confirmSalesOrderById(id, dto));
     }
 
@@ -89,7 +89,7 @@ public class SalesOrderController {
     public Result<SalesOrderVo> cancel(
             @Parameter(description = "销售订单id", required = true)
             @PathVariable Long id,
-            @RequestBody(required = false) updateDto dto) {
+            @RequestBody(required = false) SalesOrderUpdateDto dto) {
         return Result.success(salesOrderService.cancelSalesOrderById(id, dto));
     }
 }

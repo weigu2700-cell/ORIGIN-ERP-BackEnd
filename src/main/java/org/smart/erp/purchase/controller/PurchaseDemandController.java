@@ -5,8 +5,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.purchase.dto.CreatePurchaseDemandDto;
-import org.smart.erp.purchase.dto.PagePurchaseDemandDto;
+import org.smart.erp.purchase.dto.PurchaseDemandAddDto;
+import org.smart.erp.purchase.dto.PurchaseDemandPageDto;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.service.PurchaseDemandService;
 import org.smart.erp.purchase.vo.PurchaseDemandVo;
@@ -27,16 +27,16 @@ public class PurchaseDemandController {
     @PostMapping
     @PreAuthorize("hasAnyAuthority('purchase:demand:create')")
     @Operation(summary = "创建采购需求")
-    public Result<PurchaseDemand> create(
-            @RequestBody @Parameter(description = "创建采购需求参数") CreatePurchaseDemandDto dto) {
-        return Result.success(purchaseDemandService.createPurchaseDemand(dto));
+    public Result<PurchaseDemand> add(
+            @RequestBody @Parameter(description = "创建采购需求参数") PurchaseDemandAddDto dto) {
+        return Result.success(purchaseDemandService.addPurchaseDemand(dto));
     }
 
     @GetMapping
     @PreAuthorize("hasAnyAuthority('purchase:demand:list')")
     @Operation(summary = "分页查询采购需求")
     public Result<Page<PurchaseDemandVo>> page(
-            @Parameter(description = "分页查询参数") PagePurchaseDemandDto dto) {
+            @Parameter(description = "分页查询参数") PurchaseDemandPageDto dto) {
         return Result.success(purchaseDemandService.pagePurchaseDemand(dto));
     }
 

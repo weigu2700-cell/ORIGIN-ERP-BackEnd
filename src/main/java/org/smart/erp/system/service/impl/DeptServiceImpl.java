@@ -5,17 +5,17 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.system.converter.DeptConverter;
-import org.smart.erp.system.dto.DeptDTO;
-import org.smart.erp.system.dto.DeptListDTO;
-import org.smart.erp.system.dto.DeptUpdateDTO;
+import org.smart.erp.system.dto.DeptDto;
+import org.smart.erp.system.dto.DeptListDto;
+import org.smart.erp.system.dto.DeptUpdateDto;
 import org.smart.erp.system.entity.Dept;
 import org.smart.erp.system.entity.User;
 import org.smart.erp.system.Enum.DeptStatus;
 import org.smart.erp.system.mapper.DeptMapper;
 import org.smart.erp.system.mapper.UserMapper;
 import org.smart.erp.system.service.DeptService;
-import org.smart.erp.system.vo.DeptTreeVO;
-import org.smart.erp.system.vo.DeptVO;
+import org.smart.erp.system.vo.DeptTreeVo;
+import org.smart.erp.system.vo.DeptVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,8 +33,8 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
     }
 
 
-    private DeptTreeVO toTreeVO(Dept dept) {
-        DeptTreeVO vo = new DeptTreeVO();
+    private DeptTreeVo toTreeVO(Dept dept) {
+        DeptTreeVo vo = new DeptTreeVo();
         BeanUtils.copyProperties(dept, vo);
         // id/parentId 需要转成字符串，BeanUtils 对 Long -> String 类型不匹配会跳过，需手动设置
         if (dept.getId() != null) {
@@ -47,7 +47,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
     }
 
     /** 单条转换并填充父部门名 */
-    private DeptVO toVOWithParent(Dept dept) {
+    private DeptVo toVOWithParent(Dept dept) {
         String parentName = null;
         if (dept.getParentId() != null) {
             Dept parent = this.getById(dept.getParentId());
@@ -72,7 +72,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void createDept(DeptDTO dto) {
+    public void addDept(DeptDto dto) {
         if (this.count(new LambdaQueryWrapper<Dept>().eq(Dept::getName, dto.getName())) > 0) {
             throw new BusinessException(400, "部门名称已存在");
         }
@@ -89,7 +89,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
     }
 
     @Override
-    public DeptVO getDeptDetail(Long id) {
+    public DeptVo detailDept(Long id) {
         Dept dept = this.getById(id);
         if (dept == null) {
             throw new BusinessException(404, "部门不存在");
@@ -98,7 +98,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
     }
 
     @Override
-    public Page<DeptVO> listDept(DeptListDTO dto) {
+    public Page<DeptVo> pageDept(DeptListDto dto) {
         LambdaQueryWrapper<Dept> queryWrapper = new LambdaQueryWrapper<Dept>()
                 .like(dto.getName() != null, Dept::getName, dto.getName())
                 .like(dto.getCode() != null, Dept::getCode, dto.getCode())
@@ -123,7 +123,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
                 : this.listByIds(parentIds).stream()
                     .collect(Collectors.toMap(Dept::getId, Dept::getName));
 
-        Page<DeptVO> voPage = new Page<>(current, size, total);
+        Page<DeptVo> voPage = new Page<>(current, size, total);
         voPage.setRecords(page.getRecords().stream()
                 .map(dept -> DeptConverter.toVO(dept, parentNameMap.get(dept.getParentId())))
                 .toList());
@@ -132,7 +132,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateDept(DeptUpdateDTO dto) {
+    public void updateDept(DeptUpdateDto dto) {
         Dept dept = this.getById(dto.getId());
         if (dept == null) {
             throw new BusinessException(404, "部门不存在");
@@ -179,7 +179,7 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Boolean deleteDept(Long id) {
+    public Boolean removeDept(Long id) {
         Dept dept = this.getById(id);
         if (dept == null) {
             throw new BusinessException(404, "部门不存在");
@@ -195,22 +195,22 @@ public class DeptServiceImpl extends ServiceImpl<DeptMapper, Dept> implements De
     }
 
     @Override
-    public List<DeptTreeVO> getDeptTree() {
+    public List<DeptTreeVo> getDeptTree() {
         // 按 sort 升序查出全部部门，保证同级部门顺序确定（sort 越小越靠前）
         List<Dept> all = this.list(new LambdaQueryWrapper<Dept>().orderByAsc(Dept::getSort));
 
         // 用 LinkedHashMap 保持插入顺序，兄弟节点按 sort 升序排列
-        Map<String, DeptTreeVO> voById = all.stream()
+        Map<String, DeptTreeVo> voById = all.stream()
                 .map(this::toTreeVO)
-                .collect(Collectors.toMap(DeptTreeVO::getId, vo -> vo, (a, b) -> a, LinkedHashMap::new));
+                .collect(Collectors.toMap(DeptTreeVo::getId, vo -> vo, (a, b) -> a, LinkedHashMap::new));
 
-        List<DeptTreeVO> tree = new ArrayList<>();
-        for (DeptTreeVO node : voById.values()) {
+        List<DeptTreeVo> tree = new ArrayList<>();
+        for (DeptTreeVo node : voById.values()) {
             String parentId = node.getParentId();
             if (parentId == null) {
                 tree.add(node);
             } else {
-                DeptTreeVO parent = voById.get(parentId);
+                DeptTreeVo parent = voById.get(parentId);
                 if (parent != null) {
                     if (parent.getChildren() == null) {
                         parent.setChildren(new ArrayList<>());

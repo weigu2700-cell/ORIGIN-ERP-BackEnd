@@ -5,7 +5,7 @@ import lombok.Data;
 import org.smart.erp.system.Enum.DeptStatus;
 
 @Data
-public class DeptListDTO {
+public class DeptListDto {
 
     @Min(value = 1, message = "页码最小为1")
     private int page = 1;

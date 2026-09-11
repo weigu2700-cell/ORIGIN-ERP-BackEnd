@@ -6,7 +6,7 @@ import org.smart.erp.system.Enum.UserStatus;
 import java.util.List;
 
 @Data
-public class UserUpdateDTO {
+public class UserUpdateDto {
 
     private long id;
 

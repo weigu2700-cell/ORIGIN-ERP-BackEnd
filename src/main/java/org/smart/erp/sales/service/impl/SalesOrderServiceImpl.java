@@ -11,10 +11,10 @@ import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.mapper.CustomerMapper;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
-import org.smart.erp.sales.dto.salesOrderDto.createDto;
-import org.smart.erp.sales.dto.salesOrderDto.listDto;
-import org.smart.erp.sales.dto.salesOrderDto.updateDto;
-import org.smart.erp.sales.dto.salesOrderItemDto.createItemDto;
+import org.smart.erp.sales.dto.salesOrderDto.SalesOrderAddDto;
+import org.smart.erp.sales.dto.salesOrderDto.SalesOrderPageDto;
+import org.smart.erp.sales.dto.salesOrderDto.SalesOrderUpdateDto;
+import org.smart.erp.sales.dto.salesOrderItemDto.SalesOrderItemAddDto;
 import org.smart.erp.sales.entity.SalesDelivery;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.entity.SalesOrderItem;
@@ -109,7 +109,7 @@ public class SalesOrderServiceImpl
         salesOrder.setStatus(targetStatus);
         salesOrderMapper.updateById(salesOrder);
 
-        return getSalesOrderVoById(id);
+        return detailSalesOrderVo(id);
     }
 
     /** 汇总某销售订单全部明细金额，作为订单总金额 */
@@ -128,7 +128,7 @@ public class SalesOrderServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SalesOrderVo create(createDto dto) {
+    public SalesOrderVo add(SalesOrderAddDto dto) {
         Customer customer = customerMapper.selectById(dto.getCustomerId());
         if (customer == null) {
             throw new BusinessException(404,"客户不存在");
@@ -146,13 +146,13 @@ public class SalesOrderServiceImpl
         salesOrder.setRemark(dto.getRemark());
         salesOrderMapper.insert(salesOrder);
 
-        List<createItemDto> items = dto.getItems();
+        List<SalesOrderItemAddDto> items = dto.getItems();
 
 
         List<SalesOrderItemVo> salesOrderItemVos = new ArrayList<>();
         BigDecimal totalAmount = BigDecimal.ZERO;
         int lineNo = 10;
-        for (createItemDto item : items) {
+        for (SalesOrderItemAddDto item : items) {
             SalesOrderItem salesOrderItem = new SalesOrderItem();
             // 必须先拷贝明细字段（物料/仓库/数量/单价），否则下游校验与落库都会缺值
             BeanUtils.copyProperties(item, salesOrderItem);
@@ -160,7 +160,7 @@ public class SalesOrderServiceImpl
             salesOrderItem.setLineNo(lineNo);
             salesOrderItem.setAmount(item.getQuantity().multiply(item.getUnitPrice()));
 
-            salesOrderItemVos.add(salesOrderItemService.createItem(salesOrderItem));
+            salesOrderItemVos.add(salesOrderItemService.addItem(salesOrderItem));
             totalAmount = totalAmount.add(salesOrderItem.getAmount());
             lineNo += 10;
         }
@@ -178,7 +178,7 @@ public class SalesOrderServiceImpl
 
     @Override
     @Transactional(readOnly = true)
-    public Page<SalesOrderVo> listSalesOrderVoByPage(listDto dto) {
+    public Page<SalesOrderVo> pageSalesOrderVoByPage(SalesOrderPageDto dto) {
 
         LambdaQueryWrapper<SalesOrder> queryWrapper = new LambdaQueryWrapper<SalesOrder>()
                 .eq(dto.getCustomerId() != null, SalesOrder::getCustomerId, dto.getCustomerId())
@@ -268,7 +268,7 @@ public class SalesOrderServiceImpl
     }
 
     @Override
-    public SalesOrderVo getSalesOrderVoById(Long id) {
+    public SalesOrderVo detailSalesOrderVo(Long id) {
 
         SalesOrder salesOrder = salesOrderMapper.selectById(id);
         if (salesOrder == null) {
@@ -291,7 +291,7 @@ public class SalesOrderServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SalesOrderVo updateSalesOrderVoById(Long id, updateDto dto) {
+    public SalesOrderVo updateSalesOrderVoById(Long id, SalesOrderUpdateDto dto) {
         SalesOrder salesOrder = salesOrderMapper.selectById(id);
         if (salesOrder == null) {
             throw new BusinessException(404, "销售订单不存在");
@@ -310,7 +310,7 @@ public class SalesOrderServiceImpl
         }
         salesOrderMapper.updateById(salesOrder);
 
-        return getSalesOrderVoById(id);
+        return detailSalesOrderVo(id);
     }
 
     @Override
@@ -332,7 +332,7 @@ public class SalesOrderServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SalesOrderVo confirmSalesOrderById(Long id, updateDto dto) {
+    public SalesOrderVo confirmSalesOrderById(Long id, SalesOrderUpdateDto dto) {
 
         return changeStatus(
                 id,
@@ -340,7 +340,7 @@ public class SalesOrderServiceImpl
                 SalesOrderStatus.CONFIRMED,
                 "销售订单状态不允许确认",
                 () -> {
-                    salesDeliveryService.createDeliveriesForOrder(id);
+                    salesDeliveryService.addDeliveriesForOrder(id);
                     // 级联确认所有草稿态出货单；预占库存由各出货单在确认时自行决定，订单不再直接操作库存
                     List<SalesDelivery> deliveries = salesDeliveryMapper.selectList(
                             new LambdaQueryWrapper<SalesDelivery>().eq(SalesDelivery::getSalesOrderId, id));
@@ -355,7 +355,7 @@ public class SalesOrderServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public SalesOrderVo cancelSalesOrderById(Long id, updateDto dto) {
+    public SalesOrderVo cancelSalesOrderById(Long id, SalesOrderUpdateDto dto) {
         return changeStatus(
                 id,
                 SalesOrderStatus.CONFIRMED,

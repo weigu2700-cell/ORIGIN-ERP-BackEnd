@@ -6,17 +6,17 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.system.converter.RoleConverter;
-import org.smart.erp.system.dto.PermissionCreateDTO;
-import org.smart.erp.system.dto.PermissionGetDTO;
-import org.smart.erp.system.dto.PermissionUpdateDTO;
+import org.smart.erp.system.dto.PermissionAddDto;
+import org.smart.erp.system.dto.PermissionDetailDto;
+import org.smart.erp.system.dto.PermissionUpdateDto;
 import org.smart.erp.system.entity.Permission;
 import org.smart.erp.system.entity.RolePermission;
 import org.smart.erp.system.Enum.Status;
 import org.smart.erp.system.mapper.PermissionMapper;
 import org.smart.erp.system.mapper.RolePermissionMapper;
 import org.smart.erp.system.service.PermissionService;
-import org.smart.erp.system.vo.PermissionTreeVO;
-import org.smart.erp.system.vo.PermissionVO;
+import org.smart.erp.system.vo.PermissionTreeVo;
+import org.smart.erp.system.vo.PermissionVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
@@ -40,12 +40,12 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     }
 
     /**
-     * 将权限实体转换为 VO。
+     * 将权限实体转换为 Vo。
      * parentNameById 为父级 id -> 父级名称 的映射，可由调用方批量查询后传入；
      * 不需要父级名称时传空 Map 即可（parentName 置为 null）。
      */
-    private PermissionTreeVO toVO(Permission p, Map<Long, String> parentNameById) {
-        PermissionTreeVO vo = new PermissionTreeVO();
+    private PermissionTreeVo toVO(Permission p, Map<Long, String> parentNameById) {
+        PermissionTreeVo vo = new PermissionTreeVo();
         vo.setId(p.getId());
         vo.setName(p.getName());
         vo.setCode(p.getCode());
@@ -60,7 +60,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
 
     // 获取当前用户的权限
     @Override
-    public List<PermissionVO> getCurrentUserPermissionById(Long currentUserId) {
+    public List<PermissionVo> detailCurrentUserPermission(Long currentUserId) {
         List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
         // 用户没有角色时直接返回空权限：in() 传入空集合会拼出 "IN ()"，导致 SQL 语法错误
         if (roleIds.isEmpty()) {
@@ -85,11 +85,11 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
                 .stream()
                 .collect(Collectors.toMap(Permission::getId, p -> p));
 
-        List<PermissionVO> vos = new java.util.ArrayList<>();
+        List<PermissionVo> vos = new java.util.ArrayList<>();
         for (RolePermission rolePermission : rolePermissions) {
             Permission permission = permissionMap.get(rolePermission.getPermissionId());
             if (permission != null) {
-                PermissionVO vo = new PermissionVO();
+                PermissionVo vo = new PermissionVo();
                 BeanUtils.copyProperties(permission, vo);
                 vos.add(vo);
             }
@@ -98,7 +98,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     }
 
     @Override
-    public Page<PermissionTreeVO> listPermission(PermissionGetDTO dto) {
+    public Page<PermissionTreeVo> pagePermission(PermissionDetailDto dto) {
         LambdaQueryWrapper<Permission> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.like(dto.getName() != null, Permission::getName, dto.getName());
         queryWrapper.like(dto.getCode() != null, Permission::getCode, dto.getCode());
@@ -120,12 +120,12 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
                         .stream()
                         .collect(Collectors.toMap(Permission::getId, Permission::getName));
 
-        // 用统一转换方法把实体转成 VO，并带上父级名称
-        List<PermissionTreeVO> vos = page.getRecords().stream()
+        // 用统一转换方法把实体转成 Vo，并带上父级名称
+        List<PermissionTreeVo> vos = page.getRecords().stream()
                 .map(p -> toVO(p, parentNameById))
                 .toList();
 
-        Page<PermissionTreeVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        Page<PermissionTreeVo> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(vos);
         return result;
     }
@@ -135,7 +135,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
      *
      * 思路：
      * 1. 一次性查出所有未删除的权限（权限表通常数据量不大，全量查即可，避免递归 SQL）。
-     * 2. 先全部转成 VO，并建立 "id -> VO" 的索引，方便子节点快速挂到父节点下。
+     * 2. 先全部转成 Vo，并建立 "id -> Vo" 的索引，方便子节点快速挂到父节点下。
      * 3. 遍历每个节点：
      *    - 若 parentId 为空或为 0，说明是顶级节点，放入树的根列表；
      *    - 否则从索引里找到父节点，把自己加进父节点的 children 列表。
@@ -144,20 +144,20 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
      * 时间复杂度 O(n)，只查一次数据库，没有 N+1 问题。
      */
     @Override
-    public List<PermissionTreeVO> getPermissionTree() {
+    public List<PermissionTreeVo> getPermissionTree() {
         List<Permission> all = this.list(new LambdaQueryWrapper<Permission>().orderByDesc(Permission::getSort));
 
-        Map<Long, PermissionTreeVO> voById = all.stream()
+        Map<Long, PermissionTreeVo> voById = all.stream()
                 .map(p -> toVO(p, Map.of()))
-                .collect(Collectors.toMap(PermissionTreeVO::getId, vo -> vo));
+                .collect(Collectors.toMap(PermissionTreeVo::getId, vo -> vo));
 
-        List<PermissionTreeVO> tree = new java.util.ArrayList<>();
-        for (PermissionTreeVO node : voById.values()) {
+        List<PermissionTreeVo> tree = new java.util.ArrayList<>();
+        for (PermissionTreeVo node : voById.values()) {
             Long parentId = node.getParentId();
             if (parentId == null || parentId == 0L) {
                 tree.add(node);
             } else {
-                PermissionTreeVO parent = voById.get(parentId);
+                PermissionTreeVo parent = voById.get(parentId);
                 if (parent != null) {
                     if (parent.getChildren() == null) {
                         parent.setChildren(new java.util.ArrayList<>());
@@ -172,7 +172,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     }
 
     @Override
-    public PermissionTreeVO getPermissionDetail(Long id) {
+    public PermissionTreeVo detailPermission(Long id) {
         Permission permission = this.getById(id);
         if (permission == null) {
             throw new BusinessException(404, "权限不存在");
@@ -188,7 +188,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     }
 
     @Override
-    public void createPermission(PermissionCreateDTO dto) {
+    public void addPermission(PermissionAddDto dto) {
         if (dto.getParentId() != null) {
             Permission parent = this.getById(dto.getParentId());
             if (parent == null) {
@@ -207,7 +207,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     }
 
     @Override
-    public void updatePermission(PermissionUpdateDTO dto) {
+    public void updatePermission(PermissionUpdateDto dto) {
         Permission permission = this.getById(dto.getId());
         if (permission == null) {
             throw new BusinessException(404, "权限不存在");
@@ -235,9 +235,9 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     }
 
     @Override
-    public List<PermissionVO> getCurrentUserPermission() {
+    public List<PermissionVo> getCurrentUserPermission() {
         Long currentUserId = currentUser.getUserId();
-       return getCurrentUserPermissionById(currentUserId);
+       return detailCurrentUserPermission(currentUserId);
 
     }
 

@@ -6,9 +6,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.DateCodeRuleUtil;
-import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineCreateDTO;
-import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineListDTO;
-import org.smart.erp.master.dto.ProductionLineDTO.ProductionLineUpdateDTO;
+import org.smart.erp.master.dto.ProductionLineDto.ProductionLineAddDto;
+import org.smart.erp.master.dto.ProductionLineDto.ProductionLinePageDto;
+import org.smart.erp.master.dto.ProductionLineDto.ProductionLineUpdateDto;
 import org.smart.erp.master.entity.ProductionLine;
 import org.smart.erp.master.entity.Workshop;
 import org.smart.erp.master.enums.ProductionLineStatus;
@@ -16,14 +16,14 @@ import org.smart.erp.master.enums.WorkshopStatus;
 import org.smart.erp.master.mapper.ProductionLineMapper;
 import org.smart.erp.master.mapper.WorkshopMapper;
 import org.smart.erp.master.service.ProductionLineService;
-import org.smart.erp.master.vo.ProductionLineVO;
+import org.smart.erp.master.vo.ProductionLineVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import cn.idev.excel.FastExcel;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.smart.erp.master.vo.ExcelPrintVo.ProductionLineExportVO;
+import org.smart.erp.master.vo.ExcelPrintVo.ProductionLineExportVo;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -64,13 +64,13 @@ public class ProductionLineServiceImpl
         return productionLine;
     }
     /**
-     * 将生产线实体转换为详情 VO。
+     * 将生产线实体转换为详情 Vo。
      * @param productionLine 生产线实体
      * @param workshopName 所属车间名称
-     * @return 详情 VO
+     * @return 详情 Vo
      */
-    private ProductionLineVO toDetailVO(ProductionLine productionLine, String workshopName) {
-        ProductionLineVO vo = new ProductionLineVO();
+    private ProductionLineVo toDetailVO(ProductionLine productionLine, String workshopName) {
+        ProductionLineVo vo = new ProductionLineVo();
         BeanUtils.copyProperties(productionLine, vo);
         vo.setWorkshopName(workshopName);
         if (productionLine.getStatus() != null) {
@@ -81,7 +81,7 @@ public class ProductionLineServiceImpl
 
 
     @Override
-    public void createProductionLine(ProductionLineCreateDTO dto) {
+    public void addProductionLine(ProductionLineAddDto dto) {
         ProductionLine productionLine = new ProductionLine();
         Workshop workshop = workshopMapper.selectById(dto.getWorkshopId());
         if (workshop == null || workshop.getStatus().equals(WorkshopStatus.DISABLE)) {
@@ -94,7 +94,7 @@ public class ProductionLineServiceImpl
     }
 
     @Override
-    public Page<ProductionLineVO> listProductionLine(ProductionLineListDTO dto) {
+    public Page<ProductionLineVo> pageProductionLine(ProductionLinePageDto dto) {
         LambdaQueryWrapper<ProductionLine> queryWrapper =
                 new LambdaQueryWrapper<ProductionLine>()
                         .eq(dto.getWorkshopId() != null, ProductionLine::getWorkshopId, dto.getWorkshopId())
@@ -114,7 +114,7 @@ public class ProductionLineServiceImpl
                         .collect(Collectors.toMap(Workshop::getId, Workshop::getName));
 
         return PageConvertUtils.convert(page, line -> {
-            ProductionLineVO vo = new ProductionLineVO();
+            ProductionLineVo vo = new ProductionLineVo();
             BeanUtils.copyProperties(line, vo);
             vo.setWorkshopName(workshopNameMap.get(line.getWorkshopId()));
             if (line.getStatus() != null) {
@@ -125,14 +125,14 @@ public class ProductionLineServiceImpl
     }
 
     @Override
-    public ProductionLineVO getProductionLine(Long id) {
+    public ProductionLineVo getProductionLine(Long id) {
         ProductionLine productionLine = getProductionLineOrThrow(id);
         Workshop workshop = workshopMapper.selectById(productionLine.getWorkshopId());
         return toDetailVO(productionLine, workshop.getName());
     }
 
     @Override
-    public void updateProductionLine(Long id, ProductionLineUpdateDTO dto) {
+    public void updateProductionLine(Long id, ProductionLineUpdateDto dto) {
         ProductionLine productionLine = getProductionLineOrThrow(id);
 
         BeanUtils.copyProperties(dto, productionLine);
@@ -164,9 +164,9 @@ public class ProductionLineServiceImpl
                 : workshopMapper.selectByIds(workshopIds).stream()
                         .collect(Collectors.toMap(Workshop::getId, Workshop::getName));
 
-        List<ProductionLineExportVO> data = lines.stream()
+        List<ProductionLineExportVo> data = lines.stream()
                 .map(line -> {
-                    ProductionLineExportVO vo = new ProductionLineExportVO();
+                    ProductionLineExportVo vo = new ProductionLineExportVo();
                     BeanUtils.copyProperties(line, vo);
                     vo.setWorkshopName(workshopNameMap.get(line.getWorkshopId()));
                     if (line.getStatus() != null) {
@@ -181,7 +181,7 @@ public class ProductionLineServiceImpl
         try {
             String fileName = URLEncoder.encode("生产线", StandardCharsets.UTF_8).replace("+", "%20");
             response.setHeader("Content-Disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
-            FastExcel.write(response.getOutputStream(), ProductionLineExportVO.class)
+            FastExcel.write(response.getOutputStream(), ProductionLineExportVo.class)
                     .sheet("生产线")
                     .doWrite(data);
         } catch (IOException e) {

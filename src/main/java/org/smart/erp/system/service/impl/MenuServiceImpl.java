@@ -9,9 +9,9 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.common.security.CurrentUserImpl;
 import org.smart.erp.system.converter.RoleConverter;
-import org.smart.erp.system.dto.MenuCreateDTO;
-import org.smart.erp.system.dto.MenuGetDTO;
-import org.smart.erp.system.dto.MenuGetTreeDTO;
+import org.smart.erp.system.dto.MenuAddDto;
+import org.smart.erp.system.dto.MenuDetailDto;
+import org.smart.erp.system.dto.MenuTreeDto;
 import org.smart.erp.system.entity.Menu;
 import org.smart.erp.system.entity.RoleInfo;
 import org.smart.erp.system.entity.RoleMenu;
@@ -22,9 +22,9 @@ import org.smart.erp.system.mapper.RoleInfoMapper;
 import org.smart.erp.system.mapper.RoleMenuMapper;
 import org.smart.erp.system.mapper.UserRoleMapper;
 import org.smart.erp.system.service.MenuService;
-import org.smart.erp.system.vo.MenuListVO;
-import org.smart.erp.system.vo.MenuSearchVO;
-import org.smart.erp.system.vo.MenuTreeVO;
+import org.smart.erp.system.vo.MenuListVo;
+import org.smart.erp.system.vo.MenuSearchVo;
+import org.smart.erp.system.vo.MenuTreeVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
@@ -73,23 +73,23 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
         return roles.stream().anyMatch(role -> "admin".equals(role.getCode()));
     }
 
-    private MenuListVO toVO(Menu menu, Map<Long, String> parentNameById) {
-        MenuListVO vo = new MenuListVO();
+    private MenuListVo toVO(Menu menu, Map<Long, String> parentNameById) {
+        MenuListVo vo = new MenuListVo();
         BeanUtils.copyProperties(menu, vo);
         vo.setParentName(menu.getParentId() != null ? parentNameById.get(menu.getParentId()) : null);
         return vo;
     }
 
     /** 仅做实体 -> 树VO 的字段拷贝，不负责挂 children（由 getMenuTree 统一组装） */
-    private MenuTreeVO toTreeVO(Menu menu) {
-        MenuTreeVO vo = new MenuTreeVO();
+    private MenuTreeVo toTreeVO(Menu menu) {
+        MenuTreeVo vo = new MenuTreeVo();
         BeanUtils.copyProperties(menu, vo);
         return vo;
     }
 
     /** 获取菜单树形结构*/
     @NonNull
-    private List<MenuTreeVO> getMenuTreeVOS(List<Long> menuIds) {
+    private List<MenuTreeVo> getMenuTreeVoS(List<Long> menuIds) {
         // 未分配任何菜单时直接返回空树，避免空条件导致查全表
         if (CollectionUtils.isEmpty(menuIds)) {
             return new ArrayList<>();
@@ -97,17 +97,17 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
         List<Menu> menus = menuMapper.selectList(new LambdaQueryWrapper<Menu>()
                 .in(Menu::getId, menuIds));
 
-        Map<Long, MenuTreeVO> voById = menus.stream()
+        Map<Long, MenuTreeVo> voById = menus.stream()
                 .collect(Collectors.toMap(Menu::getId, this::toTreeVO));
 
-        List<MenuTreeVO> tree = new ArrayList<>();
+        List<MenuTreeVo> tree = new ArrayList<>();
 
-        for (MenuTreeVO node : voById.values()) {
+        for (MenuTreeVo node : voById.values()) {
             Long parentId = node.getParentId();
             if (parentId == null) {
                 tree.add(node);
             } else {
-                MenuTreeVO parent = voById.get(parentId);
+                MenuTreeVo parent = voById.get(parentId);
                 if (parent != null) {
                     if (parent.getChildren() == null) {
                         parent.setChildren(new ArrayList<>());
@@ -123,7 +123,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
 
     @Override
-    public Page<MenuListVO> listMenu(MenuGetDTO dto) {
+    public Page<MenuListVo> pageMenu(MenuDetailDto dto) {
         LambdaQueryWrapper<Menu> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.like(dto.getName() != null, Menu::getName, dto.getName());
         queryWrapper.like(dto.getTitle() != null, Menu::getTitle, dto.getTitle());
@@ -147,18 +147,18 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
         Map<Long, String> parentNameById = parentList.stream()
                 .collect(Collectors.toMap(Menu::getId, Menu::getName));
 
-        List<MenuListVO> voList = page.getRecords().stream()
+        List<MenuListVo> voList = page.getRecords().stream()
                 .map(menu -> toVO(menu, parentNameById))
                 .collect(Collectors.toList());
 
-        Page<MenuListVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        Page<MenuListVo> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         result.setRecords(voList);
         return result;
 
     }
 
     @Override
-    public List<MenuTreeVO> getMenuTree(MenuGetTreeDTO dto) {
+    public List<MenuTreeVo> getMenuTree(MenuTreeDto dto) {
         if (dto.getRoleId() == null) {
             throw new BusinessException(400, "roleId 不能为空");
         }
@@ -169,11 +169,11 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                 .map(RoleMenu::getMenuId)
                 .collect(Collectors.toList());
 
-        return getMenuTreeVOS(menuIds);
+        return getMenuTreeVoS(menuIds);
     }
 
     @Override
-    public MenuListVO getMenuDetail(Long id) {
+    public MenuListVo detailMenu(Long id) {
         Menu menu = this.getById(id);
         if (menu == null) {
             throw new BusinessException(404, "菜单不存在");
@@ -189,7 +189,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     }
 
     @Override
-    public void createMenu(MenuCreateDTO dto) {
+    public void addMenu(MenuAddDto dto) {
         Menu menu = new Menu();
         BeanUtils.copyProperties(dto, menu);
         if (menu.getStatus() == null) {
@@ -199,7 +199,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     }
 
     @Override
-    public void updateMenu(Long id, MenuCreateDTO dto) {
+    public void updateMenu(Long id, MenuAddDto dto) {
        Menu menu = this.getById(id);
        if (menu == null) {
            throw new BusinessException(404, "菜单不存在");
@@ -217,7 +217,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     }
 
     @Override
-    public void deleteMenu(Long id) {
+    public void removeMenu(Long id) {
         Menu menu = this.getById(id);
         if (menu == null) {
             throw new BusinessException(404, "菜单不存在");
@@ -231,7 +231,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     }
 
     @Override
-    public List<MenuTreeVO> getCurrentUserMenu() {
+    public List<MenuTreeVo> getCurrentUserMenu() {
 
         Long currentUserId = currentUser.getUserId();
         List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
@@ -242,7 +242,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                     .stream()
                     .map(Menu::getId)
                     .toList();
-            return getMenuTreeVOS(allMenuIds);
+            return getMenuTreeVoS(allMenuIds);
         }
 
         // 用户没有任何角色时，不应看到任何菜单
@@ -257,12 +257,12 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                 .map(RoleMenu::getMenuId)
                 .toList();
 
-        return getMenuTreeVOS(menuIds);
+        return getMenuTreeVoS(menuIds);
 
     }
 
     @Override
-    public List<MenuSearchVO> searchCurrentUserMenu(String keyword) {
+    public List<MenuSearchVo> searchCurrentUserMenu(String keyword) {
         String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
         if (normalizedKeyword.isEmpty()) {
             return List.of();
@@ -325,8 +325,8 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
         return value != null && value.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
-    private MenuSearchVO toSearchVO(Menu menu, Map<Long, Menu> menuById) {
-        MenuSearchVO vo = new MenuSearchVO();
+    private MenuSearchVo toSearchVO(Menu menu, Map<Long, Menu> menuById) {
+        MenuSearchVo vo = new MenuSearchVo();
         vo.setId(menu.getId());
         vo.setTitle(menu.getTitle());
         vo.setPath(menu.getPath());

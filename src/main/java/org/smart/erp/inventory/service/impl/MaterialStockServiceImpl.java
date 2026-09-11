@@ -6,14 +6,14 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.jspecify.annotations.NonNull;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
-import org.smart.erp.inventory.dto.materialStockDto.CreateDto;
-import org.smart.erp.inventory.dto.materialStockDto.ListDto;
+import org.smart.erp.inventory.dto.materialStockDto.MaterialStockAddDto;
+import org.smart.erp.inventory.dto.materialStockDto.MaterialStockPageDto;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.enums.TransactionType;
 import org.smart.erp.inventory.mapper.MaterialStockMapper;
 import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.inventory.service.TransactionService;
-import org.smart.erp.inventory.vo.MaterialStockVO;
+import org.smart.erp.inventory.vo.MaterialStockVo;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.enums.MaterialStatus;
@@ -57,7 +57,7 @@ public class MaterialStockServiceImpl
      * @return 物料库存视图对象
      */
     @NonNull
-    private MaterialStockVO getMaterialStockVO(MaterialStock materialStock, Long materialId, Long warehouseId) {
+    private MaterialStockVo getMaterialStockVo(MaterialStock materialStock, Long materialId, Long warehouseId) {
         Material material = materialMapper.selectById(materialId);
         if (material == null) {
             throw new BusinessException(400, "物料不存在");
@@ -66,7 +66,7 @@ public class MaterialStockServiceImpl
         if (warehouse == null) {
             throw new BusinessException(400, "仓库不存在");
         }
-        MaterialStockVO vo = new MaterialStockVO();
+        MaterialStockVo vo = new MaterialStockVo();
         BeanUtils.copyProperties(materialStock, vo);
         vo.setAvailable(materialStock.getOnHand().subtract(materialStock.getReserved()));
         vo.setMaterialName(material.getName());
@@ -100,7 +100,7 @@ public class MaterialStockServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public MaterialStockVO createMaterialStock(CreateDto dto) {
+    public MaterialStockVo addMaterialStock(MaterialStockAddDto dto) {
         MaterialStock existing = materialStockMapper.selectOne(new LambdaQueryWrapper<MaterialStock>()
                 .eq(MaterialStock::getMaterialId, dto.getMaterialId())
                 .eq(MaterialStock::getWarehouseId, dto.getWarehouseId())
@@ -125,11 +125,11 @@ public class MaterialStockServiceImpl
         materialStock.setReserved(BigDecimal.ZERO);
         save(materialStock);
 
-        return getMaterialStockVO(materialStock, dto.getMaterialId(), dto.getWarehouseId());
+        return getMaterialStockVo(materialStock, dto.getMaterialId(), dto.getWarehouseId());
     }
 
     @Override
-    public Page<MaterialStockVO> listMaterialStock(ListDto dto) {
+    public Page<MaterialStockVo> pageMaterialStock(MaterialStockPageDto dto) {
         LambdaQueryWrapper<MaterialStock> queryWrapper =
                 new LambdaQueryWrapper<MaterialStock>()
                         .eq(dto.getMaterialId() != null, MaterialStock::getMaterialId, dto.getMaterialId())
@@ -154,7 +154,7 @@ public class MaterialStockServiceImpl
         if (page.getRecords().isEmpty()) {
             return PageConvertUtils.convert(
                     page,
-                    stock -> new MaterialStockVO()
+                    stock -> new MaterialStockVo()
             );
         }
 
@@ -164,7 +164,7 @@ public class MaterialStockServiceImpl
                 .filter(Objects::nonNull).collect(Collectors.toMap(Warehouse::getId, Warehouse::getName));
 
         return PageConvertUtils.convert(page, materialStock -> {
-            MaterialStockVO vo = new MaterialStockVO();
+            MaterialStockVo vo = new MaterialStockVo();
             BeanUtils.copyProperties(materialStock, vo);
             vo.setAvailable(materialStock.getOnHand().subtract(materialStock.getReserved()));
             Material m = materialMap.get(materialStock.getMaterialId());
@@ -178,12 +178,12 @@ public class MaterialStockServiceImpl
     }
 
     @Override
-    public MaterialStockVO getMaterialStock(Long id) {
+    public MaterialStockVo getMaterialStock(Long id) {
         MaterialStock materialStock = materialStockMapper.selectById(id);
         if (materialStock == null) {
             throw new BusinessException(400, "库存记录不存在");
         }
-        return getMaterialStockVO(materialStock, materialStock.getMaterialId(), materialStock.getWarehouseId());
+        return getMaterialStockVo(materialStock, materialStock.getMaterialId(), materialStock.getWarehouseId());
     }
 
     // 预留库存

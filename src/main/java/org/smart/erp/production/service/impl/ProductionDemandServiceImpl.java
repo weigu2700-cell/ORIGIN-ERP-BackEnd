@@ -7,9 +7,9 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.mapper.MaterialMapper;
-import org.smart.erp.production.dto.createProductionDemandDto;
-import org.smart.erp.production.dto.createProductionOrderDto;
-import org.smart.erp.production.dto.pageProductionDemandDto;
+import org.smart.erp.production.dto.ProductionDemandAddDto;
+import org.smart.erp.production.dto.ProductionOrderAddDto;
+import org.smart.erp.production.dto.ProductionDemandPageDto;
 import org.smart.erp.production.entity.ProductionDemand;
 import org.smart.erp.production.enums.ProductionStatus;
 import org.smart.erp.production.mapper.ProductionDemandMapper;
@@ -55,7 +55,7 @@ public class ProductionDemandServiceImpl
 
     @Override
     @Transactional
-    public void createProductionDemand(createProductionDemandDto dto) {
+    public void addProductionDemand(ProductionDemandAddDto dto) {
         if (dto.getSourceNo() == null) {
             throw new BusinessException(400, "来源单据号不能为空");
         }
@@ -86,15 +86,15 @@ public class ProductionDemandServiceImpl
         save(productionDemand);
 
         // ProductionDemand → 生成成品生产订单（草稿态，下达时再算 BOM 净需求）
-        createProductionOrderDto orderDto = new createProductionOrderDto();
+        ProductionOrderAddDto orderDto = new ProductionOrderAddDto();
         orderDto.setMaterialId(dto.getMaterialId());
         orderDto.setPlannedQuantity(dto.getQuantity());
         orderDto.setProductionDemandId(productionDemand.getId());
-        productionOrderService.createProductionOrder(orderDto);
+        productionOrderService.addProductionOrder(orderDto);
     }
 
     @Override
-    public Page<ProductionDemandVo> pageProductionDemand(pageProductionDemandDto dto) {
+    public Page<ProductionDemandVo> pageProductionDemand(ProductionDemandPageDto dto) {
         LambdaQueryWrapper<ProductionDemand> queryWrapper =
                 new LambdaQueryWrapper<ProductionDemand>()
                         .eq(Objects.nonNull(dto.getDemandNo()),

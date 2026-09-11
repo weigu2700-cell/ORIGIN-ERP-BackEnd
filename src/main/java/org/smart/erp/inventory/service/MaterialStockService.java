@@ -2,19 +2,19 @@ package org.smart.erp.inventory.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.smart.erp.inventory.dto.materialStockDto.CreateDto;
-import org.smart.erp.inventory.dto.materialStockDto.ListDto;
+import org.smart.erp.inventory.dto.materialStockDto.MaterialStockAddDto;
+import org.smart.erp.inventory.dto.materialStockDto.MaterialStockPageDto;
 import org.smart.erp.inventory.entity.MaterialStock;
-import org.smart.erp.inventory.vo.MaterialStockVO;
+import org.smart.erp.inventory.vo.MaterialStockVo;
 
 import java.math.BigDecimal;
 
 public interface MaterialStockService extends IService<MaterialStock> {
-    MaterialStockVO createMaterialStock(CreateDto dto);
+    MaterialStockVo addMaterialStock(MaterialStockAddDto dto);
 
-    Page<MaterialStockVO> listMaterialStock(ListDto dto);
+    Page<MaterialStockVo> pageMaterialStock(MaterialStockPageDto dto);
 
-    MaterialStockVO getMaterialStock(Long id);
+    MaterialStockVo getMaterialStock(Long id);
 
     void reserveStock(Long materialId, Long warehouseId, BigDecimal quantity,
                       String businessType, String businessNo, String remark);

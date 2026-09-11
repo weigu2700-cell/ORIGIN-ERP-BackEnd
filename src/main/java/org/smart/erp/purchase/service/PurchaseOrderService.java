@@ -2,23 +2,23 @@ package org.smart.erp.purchase.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.smart.erp.purchase.dto.CreatePurchaseOrderDto;
-import org.smart.erp.purchase.dto.PagePurchaseOrderDto;
-import org.smart.erp.purchase.dto.UpdatePurchaseOrderDto;
+import org.smart.erp.purchase.dto.PurchaseOrderAddDto;
+import org.smart.erp.purchase.dto.PurchaseOrderPageDto;
+import org.smart.erp.purchase.dto.PurchaseOrderUpdateDto;
 import org.smart.erp.purchase.entity.PurchaseOrder;
 import org.smart.erp.purchase.vo.PurchaseOrderVo;
 
 public interface PurchaseOrderService extends IService<PurchaseOrder> {
 
-    void createPurchaseOrder(CreatePurchaseOrderDto dto);
+    void addPurchaseOrder(PurchaseOrderAddDto dto);
 
-    void createPurchaseOrderFromDemand(Long purchaseDemandId);
+    void addPurchaseOrderFromDemand(Long purchaseDemandId);
 
-    Page<PurchaseOrderVo> pagePurchaseOrder(PagePurchaseOrderDto dto);
+    Page<PurchaseOrderVo> pagePurchaseOrder(PurchaseOrderPageDto dto);
 
     PurchaseOrderVo detailPurchaseOrder(Long id);
 
-    void updatePurchaseOrder(Long id, UpdatePurchaseOrderDto dto);
+    void updatePurchaseOrder(Long id, PurchaseOrderUpdateDto dto);
 
     void approvePurchaseOrder(Long id);
 

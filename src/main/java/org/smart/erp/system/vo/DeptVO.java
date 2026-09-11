@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
-public class DeptVO {
+public class DeptVo {
 
     private String id;
 

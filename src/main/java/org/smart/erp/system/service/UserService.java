@@ -2,40 +2,40 @@ package org.smart.erp.system.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.smart.erp.system.dto.LoginDTO;
-import org.smart.erp.system.dto.UserCreateDTO;
-import org.smart.erp.system.dto.UserGetDTO;
-import org.smart.erp.system.dto.UserRoleAssignDTO;
-import org.smart.erp.system.dto.UserStatusUpdateDTO;
-import org.smart.erp.system.dto.UserUpdateDTO;
+import org.smart.erp.system.dto.LoginDto;
+import org.smart.erp.system.dto.UserAddDto;
+import org.smart.erp.system.dto.UserDetailDto;
+import org.smart.erp.system.dto.UserRoleAssignDto;
+import org.smart.erp.system.dto.UserStatusUpdateDto;
+import org.smart.erp.system.dto.UserUpdateDto;
 import org.smart.erp.system.entity.User;
-import org.smart.erp.system.vo.LoginVO;
-import org.smart.erp.system.vo.UserCreateVO;
-import org.smart.erp.system.vo.UserGetVO;
+import org.smart.erp.system.vo.LoginVo;
+import org.smart.erp.system.vo.UserCreateVo;
+import org.smart.erp.system.vo.UserDetailVo;
 
 import java.util.List;
 
 public interface UserService extends IService<User> {
-    User getUserById(Long id);
+    User detailUserById(Long id);
 
     /** 新增用户，仅落库不返回数据 */
-    void createUser(UserCreateDTO dto);
+    void addUser(UserAddDto dto);
 
-    UserGetVO getUserDetail(Long id);
+    UserDetailVo detailUser(Long id);
 
     /** 更新用户，仅落库不返回数据 */
-    void updateUser(Long id, UserUpdateDTO dto);
+    void updateUser(Long id, UserUpdateDto dto);
 
     /** 修改用户状态 */
-    void updateUserStatus(Long id, UserStatusUpdateDTO dto);
+    void updateUserStatus(Long id, UserStatusUpdateDto dto);
 
-    Page<UserGetVO> listUser(UserGetDTO dto);
+    Page<UserDetailVo> pageUser(UserDetailDto dto);
 
     /** 获取当前登录用户信息（含部门、角色） */
-    UserGetVO getCurrentUserInfo();
+    UserDetailVo getCurrentUserInfo();
 
-    void assignRoles(UserRoleAssignDTO dto);
+    void assignRoles(UserRoleAssignDto dto);
 
     /** 删除用户（逻辑删除，同时清理角色关联） */
-    void deleteUser(Long id);
+    void removeUser(Long id);
 }

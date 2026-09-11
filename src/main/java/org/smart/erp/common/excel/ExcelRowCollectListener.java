@@ -16,7 +16,7 @@ import java.util.function.Consumer;
  * 因此 {@code rows} 中下标 {@code i} 对应 Excel 第 {@code excelRowNo(i)} 行，
  * 业务方报错定位行号时可直接使用 {@link #excelRowNo(int)}。</p>
  *
- * @param <T> 行数据模型（标注 {@code @ExcelProperty} 的 DTO）
+ * @param <T> 行数据模型（标注 {@code @ExcelProperty} 的 Dto）
  */
 public class ExcelRowCollectListener<T> implements ReadListener<T> {
 

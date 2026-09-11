@@ -3,21 +3,21 @@ package org.smart.erp.master.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.smart.erp.master.dto.WorkshopDTO.WorkshopCreateDTO;
-import org.smart.erp.master.dto.WorkshopDTO.WorkshopListDTO;
-import org.smart.erp.master.dto.WorkshopDTO.WorkshopUpdateDTO;
+import org.smart.erp.master.dto.WorkshopDto.WorkshopAddDto;
+import org.smart.erp.master.dto.WorkshopDto.WorkshopPageDto;
+import org.smart.erp.master.dto.WorkshopDto.WorkshopUpdateDto;
 import org.smart.erp.master.entity.Workshop;
 import org.smart.erp.master.enums.WorkshopStatus;
-import org.smart.erp.master.vo.WorkshopVO;
+import org.smart.erp.master.vo.WorkshopVo;
 
 public interface WorkshopService extends IService<Workshop> {
-    void createWorkshop(WorkshopCreateDTO dto);
+    void addWorkshop(WorkshopAddDto dto);
 
-    Page<WorkshopVO> listWorkshop(WorkshopListDTO dto);
+    Page<WorkshopVo> pageWorkshop(WorkshopPageDto dto);
 
-    WorkshopVO getWorkshopDetail(Long id);
+    WorkshopVo detailWorkshop(Long id);
 
-    void updateWorkshop(Long id, WorkshopUpdateDTO dto);
+    void updateWorkshop(Long id, WorkshopUpdateDto dto);
 
     void changeStatus(Long id, WorkshopStatus status);
 

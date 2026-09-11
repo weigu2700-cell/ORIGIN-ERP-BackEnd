@@ -4,11 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.JwtUtil;
-import org.smart.erp.system.dto.LoginDTO;
+import org.smart.erp.system.dto.LoginDto;
 import org.smart.erp.system.entity.User;
 import org.smart.erp.system.mapper.UserMapper;
 import org.smart.erp.system.service.LoginService;
-import org.smart.erp.system.vo.LoginVO;
+import org.smart.erp.system.vo.LoginVo;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +26,7 @@ public class LoginServiceImpl extends ServiceImpl<UserMapper, User> implements L
     }
 
     @Override
-    public LoginVO login(LoginDTO dto) {
+    public LoginVo login(LoginDto dto) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<User>();
         queryWrapper.eq(User::getUsername, dto.getUsername());
 
@@ -41,7 +41,7 @@ public class LoginServiceImpl extends ServiceImpl<UserMapper, User> implements L
         }
 
         String token = jwtUtil.generateToken(user.getId());
-        return new LoginVO(token);
+        return new LoginVo(token);
 
     }
 

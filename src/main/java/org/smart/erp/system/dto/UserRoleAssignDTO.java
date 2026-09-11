@@ -10,7 +10,7 @@ import java.util.List;
  * 后端以"全量覆盖"方式写入 sys_user_role 对照表。
  */
 @Data
-public class UserRoleAssignDTO {
+public class UserRoleAssignDto {
 
     /** 用户 id（查的用户，不写入关联表） */
     private Long userId;

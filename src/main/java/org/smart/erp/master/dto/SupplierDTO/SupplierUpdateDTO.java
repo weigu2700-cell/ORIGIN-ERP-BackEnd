@@ -1,9 +1,9 @@
-package org.smart.erp.master.dto.SupplierDTO;
+package org.smart.erp.master.dto.SupplierDto;
 
 import lombok.Data;
 
 @Data
-public class SupplierUpdateDTO {
+public class SupplierUpdateDto {
 
     private String name;
 

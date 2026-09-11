@@ -6,7 +6,7 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
-import org.smart.erp.production.dto.createBOMItemDto;
+import org.smart.erp.production.dto.BOMItemAddDto;
 import org.smart.erp.production.entity.BOM;
 import org.smart.erp.production.entity.BOMItem;
 import org.smart.erp.production.mapper.BOMItemMapper;
@@ -48,7 +48,7 @@ public class BOMItemServiceImpl
 
 
     @Override
-    public BOMItemVo createBOMItem(createBOMItemDto dto,Long bomId, Integer lineNo) {
+    public BOMItemVo addBOMItem(BOMItemAddDto dto,Long bomId, Integer lineNo) {
         BOM bom = bomMapper.selectById(bomId);
         if (Objects.isNull(bom)) {
             throw new BusinessException(404,"BOM不存在");
