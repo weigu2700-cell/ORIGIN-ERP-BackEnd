@@ -1,211 +1,139 @@
-# 原点 ERP · ORIGIN 后端
+<div align="center">
+  <h1>ORIGIN ERP Service</h1>
 
-> 面向制造企业的 ERP 后端服务，基于 Spring Boot 构建，覆盖系统权限、基础资料、销售、库存、BOM、生产及采购业务。
+  <p>面向制造企业的 ERP 后端服务，以可配置权限、可追溯库存和跨业务单据协同为核心。</p>
 
-[![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.5-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![MyBatis-Plus](https://img.shields.io/badge/MyBatis--Plus-3.5.12-000000)](https://baomidou.com/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Swagger](https://img.shields.io/badge/API-Swagger%20UI-brightgreen)](http://localhost:8080/swagger-ui.html)
-
-- 后端仓库：[ORIGIN-ERP-BackEnd](https://github.com/weigu2700-cell/ORIGIN-ERP-BackEnd)
-- 前端仓库：[ORIGIN-ERP--FrontEnd](https://github.com/weigu2700-cell/ORIGIN-ERP--FrontEnd)
-- 移动端仓库：[ORIGIN-ERP-Moblie](https://github.com/weigu2700-cell/ORIGIN-ERP-Moblie.git)
-
----
-
-## 📚 目录
-
-- [项目简介](#项目简介)
-- [✨ 功能特性](#功能特性)
-- [🛠 技术栈](#技术栈)
-- [📁 项目结构](#项目结构)
-- [🚀 快速开始](#快速开始)
-  - [环境要求](#环境要求)
-  - [数据库准备](#数据库准备)
-  - [启动服务](#启动服务)
-- [🔐 认证方式](#认证方式)
-- [📡 常用接口](#常用接口)
-- [🧪 构建与验证](#构建与验证)
-- [💻 开发约定](#开发约定)
-- [🤝 贡献指南](#贡献指南)
-- [📄 许可证](#许可证)
-- [📮 联系方式](#联系方式)
-
----
+  <p>
+    <img src="https://img.shields.io/badge/Java-21-ed8b00?logo=openjdk&logoColor=white" alt="Java 21" />
+    <img src="https://img.shields.io/badge/Spring_Boot-3.4-6db33f?logo=springboot&logoColor=white" alt="Spring Boot 3.4" />
+    <img src="https://img.shields.io/badge/MyBatis--Plus-3.5-2f54eb" alt="MyBatis-Plus 3.5" />
+    <img src="https://img.shields.io/badge/MySQL-8-4479a1?logo=mysql&logoColor=white" alt="MySQL 8" />
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
+  </p>
+</div>
 
 ## 项目简介
 
-原点 ERP 是一套面向中小型制造企业的开源 ERP 系统，采用前后端分离、模块化单体（Modular Monolith）架构。后端基于 Spring Boot 3 + MyBatis-Plus 构建，通过 JWT、RBAC、数据库事务与库存流水保证业务安全与数据一致性；前端与移动端共用同一套账号、权限与业务数据。
+ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boot 模块化单体架构，按照系统、基础资料、销售、库存、生产和采购划分业务边界，并通过 JWT、RBAC、事务、库存流水和状态机式业务校验保障系统安全与数据一致性。
 
-核心设计目标：
+配套项目：
 
-- **权限可配置**：菜单决定页面入口，Permission 决定接口操作权限，支持动态路由。
-- **库存可追溯**：所有出入库均产生流水，可用量 = 在库量 − 预留量。
-- **业务可联动**：销售、采购、生产围绕 BOM 与库存形成闭环。
+- [ORIGIN ERP Web](https://github.com/weigu2700-cell/ORIGIN-ERP--FrontEnd)
+- [ORIGIN ERP 移动端](https://github.com/weigu2700-cell/ORIGIN-ERP-Moblie)
 
-## ✨ 功能特性
+## 项目亮点
 
-### 系统管理
+- **模块化单体架构**：保留单体部署和事务的一致性优势，同时按业务域隔离 Controller、Service、Mapper 和模型。
+- **RBAC 双层权限**：菜单控制页面入口，Permission 控制接口操作，支持角色、部门、菜单和操作权限组合配置。
+- **制造业务闭环**：销售需求可驱动生产，生产订单基于 BOM 计算净需求，缺料衔接采购，出入库同步库存。
+- **库存全程可追溯**：统一维护在库量、预留量和可用量，关键库存变化写入流水。
+- **明确的单据状态流转**：订单确认、审核、下达、开工、完工、取消和上架均在服务端验证前置状态。
+- **多级 BOM 能力**：支持 BOM 版本管理、启用/停用、递归展开和按生产数量计算物料需求。
+- **移动作业复用同一后端**：Web 与移动端共享账户、权限、业务数据和统一响应协议。
+- **开箱即用的接口文档**：通过 Springdoc OpenAPI 提供 Swagger UI，便于联调和接口验收。
 
-- 用户登录、JWT 身份认证和 Spring Security 接口保护
-- 用户分页查询、新增、编辑、真实姓名维护和状态修改
-- 角色、部门、菜单和权限管理
-- 用户分配角色、部门，角色分配菜单和操作权限
-- 当前用户菜单树与前端动态路由
-- 当前用户权限范围内的菜单模糊搜索
-- 超级管理员自动获取全部菜单
+## 业务能力
 
-权限关系：
+| 业务域   | 主要能力                                                 |
+| -------- | -------------------------------------------------------- |
+| 系统管理 | 登录认证、用户、角色、部门、菜单、权限及关联分配         |
+| 基础资料 | 客户、供应商、物料、仓库、工厂、车间、生产线、物料供应商 |
+| 销售管理 | 销售订单、库存预留、销售出库及状态流转                   |
+| 库存管理 | 物料库存、预留/释放、可用量、库存流水、Excel 导入导出    |
+| BOM 管理 | BOM 创建、版本、启用/停用、多级展开、物料需求计算        |
+| 生产管理 | 生产需求、生产订单、下达/开工/完工/取消、生产领料        |
+| 采购管理 | 采购需求、采购订单、采购入库审核与上架                   |
 
-```text
-User ── UserRole ── Role ── RoleMenu ── Menu
-                       └──── RolePermission ── Permission
-```
-
-### 基础资料
-
-- 客户、供应商
-- 工厂、车间、生产线
-- 仓库、物料
-- 物料与供应商关系、优选供应商
-- 基础资料分页查询、详情、维护和状态管理
-
-### 销售管理
-
-- 销售订单及明细的创建、修改、查询和删除
-- 销售订单确认、取消及库存预留联动
-- 销售出库单及明细
-- 出库单确认、完成和取消
-- Redis 生成业务单号
-
-### 库存管理
-
-- 物料库存分页查询和详情
-- 在库量、预留量和可用量
-- 库存预留、释放及出入库联动
-- 库存流水分页查询及 Excel 导入、导出
-- MyBatis-Plus 乐观锁与事务控制
+## 业务链路
 
 ```text
-available = onHand - reserved
+销售订单
+   │
+   ├── 库存充足 ──→ 库存预留 ──→ 销售出库 ──→ 库存流水
+   │
+   └── 库存不足 ──→ 生产需求 ──→ 生产订单 ──→ BOM 净需求
+                                          │
+                                          ├── 库存领料
+                                          └── 采购需求 ──→ 采购订单 ──→ 入库审核/上架
 ```
 
-### BOM 与生产
-
-- BOM 创建、详情、分页查询、启用和禁用
-- 多级 BOM 树形展开
-- 按需求数量计算物料需求
-- 生产需求分页查询和详情
-- 生产订单创建、分页查询和详情
-- 生产订单下达、开工、完工和取消
-- 下达生产订单时计算 BOM 净需求
-
-### 采购管理
-
-- 采购需求（审批）驱动采购订单
-- 采购订单草稿 → 补全 → 审批流转
-- 审批通过后自动生成采购入库单（草稿）
-- 入库单审核（DRAFT → APPROVED）
-- 移动端上架（APPROVED → UPLOADED）并增加库存
-- 移动端审核 / 上架接口标注 `(移动端接口)`
-
-## 🛠 技术栈
-
-| 分类 | 技术 |
-| --- | --- |
-| 运行环境 | Java 21 |
-| 核心框架 | Spring Boot 3.4.5 |
-| Web 与安全 | Spring Web、Spring Security、JWT |
-| 数据访问 | MyBatis-Plus 3.5.12 |
-| 数据库 | MySQL 8.x |
-| 缓存与序号 | Spring Data Redis |
-| 接口文档 | Springdoc OpenAPI |
-| Excel | FastExcel |
-| 构建工具 | Maven Wrapper |
-
-## 📁 项目结构
+库存口径：
 
 ```text
-src/main/java/org/smart/erp
-├── common/       # 返回体、异常、安全、配置、序号和通用工具
-├── system/       # 用户、角色、部门、菜单、权限和登录
-├── master/       # 客户、供应商、工厂、车间、产线、仓库和物料
-├── inventory/    # 物料库存与库存流水
-├── sales/        # 销售订单与销售出库
-├── production/   # BOM、生产需求和生产订单
-└── purchase/     # 采购需求、采购订单、采购入库
-
-sql/smart-erp/
-├── sys_*.sql     # 系统管理表
-├── md_*.sql      # 基础资料表
-├── inv_*.sql     # 库存表
-├── sal_*.sql     # 销售表
-├── prd_*.sql     # 生产表
-├── pur_*.sql     # 采购表
-├── migration_*.sql
-└── mock_data.sql # 本地演示数据
+可用量 = 在库量 - 预留量
 ```
 
-各业务模块内部按 `controller`、`dto`、`entity`、`mapper`、`service`、`vo` 分层。
+## 技术栈
 
-## 🚀 快速开始
+| 分类       | 技术                           |
+| ---------- | ------------------------------ |
+| 运行环境   | Java 21                        |
+| 核心框架   | Spring Boot 3.4.5              |
+| Web 与校验 | Spring Web、Jakarta Validation |
+| 认证授权   | Spring Security、JJWT 0.12     |
+| 数据访问   | MyBatis-Plus 3.5               |
+| 数据库     | MySQL 8.x                      |
+| 缓存与单号 | Spring Data Redis              |
+| 接口文档   | Springdoc OpenAPI 2.7          |
+| Excel      | FastExcel                      |
+| 构建工具   | Maven Wrapper                  |
+
+## 快速开始
 
 ### 环境要求
 
 - JDK 21
 - MySQL 8.x
-- Redis
+- Redis 6+
 - Git
 
-项目包含 Maven Wrapper，无需单独安装 Maven。
+项目已包含 Maven Wrapper，无需额外安装 Maven。
 
-### 数据库准备
-
-默认数据库名为 `smart-erp`。数据库连接和 Redis 地址在 `src/main/resources/application.yaml`。
-
-首次使用时：
-
-1. 创建 `smart-erp` 数据库。
-2. 按依赖关系执行 `sql/smart-erp` 下的建表脚本。
-3. 如需演示数据，执行 `mock_data.sql`。
-4. 已有数据库按文件日期执行尚未应用的 `migration_*.sql`。
-
-> ⚠️ 部署前请使用环境变量或外部配置覆盖数据库密码等敏感配置。
-
-### 启动服务
+### 获取代码
 
 ```bash
 git clone https://github.com/weigu2700-cell/ORIGIN-ERP-BackEnd.git
 cd ORIGIN-ERP-BackEnd
+```
 
-./mvnw clean compile
+### 初始化数据库
+
+1. 创建数据库 `smart-erp`。
+2. 执行 `sql/ORIGIN-ERP/smart-erp` 下的业务表脚本。
+3. 执行 `permission_init.sql` 初始化权限数据。
+4. 如需本地管理员账号，执行 `seed_dev_admin.sql`。
+
+数据库与 Redis 默认配置位于 `src/main/resources/application.yaml`。请根据本机环境调整连接信息；生产环境应使用环境变量或外部配置覆盖账号、密码和 JWT 密钥。
+
+### 启动服务
+
+macOS / Linux：
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-服务默认监听 <http://localhost:8080>，Swagger UI 地址为 <http://localhost:8080/swagger-ui.html>。
+Windows：
 
-如果 8080 端口被占用，可先检查旧进程：
-
-```bash
-lsof -nP -iTCP:8080 -sTCP:LISTEN
+```powershell
+./mvnw.cmd spring-boot:run
 ```
 
-## 🔐 认证方式
+默认服务地址：<http://localhost:8080>
 
-登录接口：
+Swagger UI：<http://localhost:8080/swagger-ui.html>
 
-```http
-POST /auth/login
-```
+OpenAPI JSON：<http://localhost:8080/v3/api-docs>
 
-除登录、错误页和 Swagger 外，其余接口默认需要 Bearer Token：
+## 认证与响应
+
+登录成功后，客户端在受保护请求中携带 JWT：
 
 ```http
 Authorization: Bearer <token>
 ```
 
-统一响应结构：
+接口使用统一响应结构：
 
 ```json
 {
@@ -215,69 +143,84 @@ Authorization: Bearer <token>
 }
 ```
 
-## 📡 常用接口
+权限模型：
 
-| 模块 | 接口 | 说明 |
-| --- | --- | --- |
-| 用户 | `GET /system/user/list` | 用户分页及姓名、状态筛选 |
-| 用户 | `PUT /system/user/{id}/status` | 修改正常、锁定、注销状态 |
-| 菜单 | `GET /system/menu/current` | 当前用户菜单树 |
-| 菜单 | `GET /system/menu/search?keyword=...` | 权限范围内模糊搜索菜单 |
-| 库存 | `GET /inventory/material-stock` | 物料库存分页 |
-| 流水 | `GET /inventory/transaction` | 库存流水分页 |
-| BOM | `GET /prd/bom/{id}/explosion` | 多级 BOM 展开 |
-| BOM | `GET /prd/bom/{id}/requirement` | 物料需求计算 |
-| 生产 | `PUT /production/order/{id}/release` | 下达并计算净需求 |
-| 采购 | `PUT /purchase/in/stock/{id}/approve` | 审核采购入库单（移动端接口） |
-| 采购 | `PUT /purchase/in/stock/{id}/upload` | 上架采购入库单（移动端接口） |
+```text
+User ── UserRole ── Role ── RoleMenu ── Menu
+                       └──── RolePermission ── Permission
+```
 
-完整接口及参数以 Swagger 为准。
+## 项目结构
 
-## 🧪 构建与验证
+```text
+src/main/java/org/smart/erp/
+├── common/       # 响应、异常、安全、配置、序号、Excel 和通用工具
+├── system/       # 用户、角色、部门、菜单、权限和认证
+├── master/       # 客户、供应商、工厂、车间、产线、仓库和物料
+├── inventory/    # 物料库存与库存流水
+├── sales/        # 销售订单与销售出库
+├── production/   # BOM、生产需求、生产订单和生产领料
+└── purchase/     # 采购需求、采购订单和采购入库
+
+sql/ORIGIN-ERP/smart-erp/
+├── sys_*.sql              # 系统与权限表
+├── md_*.sql               # 基础资料表
+├── inv_*.sql              # 库存表
+├── sal_*.sql              # 销售表
+├── prd_*.sql              # BOM 与生产表
+├── pur_*.sql              # 采购表
+├── permission_init.sql    # 权限初始化
+└── seed_dev_admin.sql     # 本地开发管理员数据
+```
+
+每个业务模块通常包含：
+
+```text
+controller → dto → service → mapper → entity / vo
+```
+
+## 构建与验证
 
 ```bash
 # 编译
 ./mvnw clean compile
 
-# 测试
+# 运行测试
 ./mvnw test
 
 # 打包
 ./mvnw clean package
 ```
 
-## 💻 开发约定
+构建产物位于 `target/`。
 
-- 实体主键使用 `Long`，前端按字符串接收雪花 ID，避免 JavaScript 精度丢失。
-- 状态字段使用枚举，并通过 MyBatis-Plus `EnumValue` 映射数据库值。
-- 数据修改放在业务服务中，跨表操作使用事务保证一致性。
-- 菜单与操作权限分开管理；菜单决定页面入口，Permission 决定操作权限。
-- 新增数据库字段时同步更新基础建表脚本和日期迁移脚本。
-- 新增接口后同步维护 Swagger 注解和前端类型。
-- 移动端专用接口（审核、上架等）在 `@Operation` 摘要中标注 `(移动端接口)`。
+## 开发规范
 
-## 🤝 贡献指南
+- Controller 负责参数校验、权限声明和统一响应，核心业务逻辑放在 Service。
+- 跨表写操作使用事务，订单与库存变化必须保持原子性。
+- 状态切换必须校验当前状态，禁止客户端绕过业务流程。
+- 实体主键使用 `Long`；传给 JavaScript 客户端时按字符串处理。
+- 枚举通过 MyBatis-Plus 映射数据库值，避免散落的魔法数字。
+- 新增字段时同步更新实体、DTO、VO、Mapper 查询和 SQL 脚本。
+- 新增或修改接口时同步维护 OpenAPI 注解和客户端类型。
 
-1. Fork 本仓库并创建特性分支：`git checkout -b feature/your-feature`
-2. 提交变更：`git commit -m "feat: 描述你的改动"`
-3. 推送到分支：`git push origin feature/your-feature`
-4. 提交 Pull Request，描述改动目的与影响范围。
+## 生产部署建议
 
-提交前请确保：
+- 使用环境变量或配置中心管理数据库、Redis 和 JWT 配置。
+- 不要在仓库中提交生产密码、私钥或访问令牌。
+- 在反向代理层启用 HTTPS、请求大小限制和访问日志。
+- 对数据库执行定期备份，并对库存、订单等核心表保留审计能力。
+- 部署前执行完整测试和打包，确认目标环境使用 JDK 21。
 
-- `./mvnw clean compile` 通过
-- 新增接口补充 Swagger 注解与 SQL 迁移脚本
-- 涉及库存、订单等核心链路时补充事务与流水
+## 参与贡献
 
-## 📄 许可证
+1. Fork 仓库并创建功能分支：`git checkout -b feature/your-feature`
+2. 完成功能并执行 `./mvnw test`
+3. 使用清晰的提交信息，例如：`feat: add production picking approval`
+4. 推送分支并创建 Pull Request，说明业务规则、数据影响和验证方式
 
-本项目基于 [MIT 许可证](LICENSE) 开源。
+问题与建议请提交到 [GitHub Issues](https://github.com/weigu2700-cell/ORIGIN-ERP-BackEnd/issues)。
 
-## 📮 联系方式
+## 许可证
 
-- 项目主页：<https://github.com/weigu2700-cell/ORIGIN-ERP-BackEnd>
-- 问题反馈：<https://github.com/weigu2700-cell/ORIGIN-ERP-BackEnd/issues>
-
----
-
-⭐ 如果这个项目对你有帮助，欢迎 Star 支持！
+本项目基于 [MIT License](./LICENSE) 开源。
