@@ -59,6 +59,89 @@ public class ProductionPickingServiceImpl
         this.materialStockService = materialStockService;
     }
 
+    /**
+     * 构造一条领料单的基础信息（生产订单、物料、计划数量、领料单号、初始实际数量）。
+     * 状态、仓库、关联采购需求等由调用方按业务补充。
+     *
+     * @param order       生产订单（取订单ID）
+     * @param materialId  领料物料ID
+     * @param plannedQty  计划领料数量（在库部分传库存可用量，缺料部分传缺口量）
+     * @return 已填充基础字段的领料单实体（未持久化）
+     */
+    private ProductionPicking buildPicking(ProductionOrder order, Long materialId, BigDecimal plannedQty) {
+        ProductionPicking picking = new ProductionPicking();
+        picking.setProductionOrderId(order.getId());
+        picking.setMaterialId(materialId);
+        picking.setPlannedQuantity(plannedQty);
+        picking.setActualQuantity(BigDecimal.ZERO);
+        picking.setPickingNo(businessNoGenerator.generateNo("erp:sequence:production-picking:", "PICK"));
+        return picking;
+    }
+
+    /**
+     * 选择可用库存足以覆盖需求量的仓库（多仓库时取首个满足者）。
+     * 可用量 = 在库(onHand) - 预留(reserved)，下限为 0。
+     *
+     * @param materialId 物料ID
+     * @param qty        需求量
+     * @return 满足需求的仓库ID；若没有任何单个仓库可用量足以覆盖需求量则返回 null
+     */
+    private Long findWarehouseCovering(Long materialId, BigDecimal qty) {
+        List<MaterialStock> stocks = materialStockService.list(
+                new LambdaQueryWrapper<MaterialStock>().eq(MaterialStock::getMaterialId, materialId));
+        for (MaterialStock s : stocks) {
+            if (availableOf(s).compareTo(qty) >= 0) {
+                return s.getWarehouseId();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 计算指定仓库中某物料的可用量（在库 - 预留，下限为 0）。
+     * 若仓库无该物料库存记录则返回 0。
+     *
+     * @param materialId  物料ID
+     * @param warehouseId 仓库ID
+     * @return 可用量
+     */
+    private BigDecimal availableAt(Long materialId, Long warehouseId) {
+        MaterialStock stock = materialStockService.getOne(
+                new LambdaQueryWrapper<MaterialStock>()
+                        .eq(MaterialStock::getMaterialId, materialId)
+                        .eq(MaterialStock::getWarehouseId, warehouseId));
+        return stock == null ? BigDecimal.ZERO : availableOf(stock);
+    }
+
+    /**
+     * 计算单条库存记录的可用量：在库(onHand) - 预留(reserved)，下限为 0。
+     *
+     * @param s 库存记录
+     * @return 可用量
+     */
+    private BigDecimal availableOf(MaterialStock s) {
+        BigDecimal onHand = s.getOnHand() == null ? BigDecimal.ZERO : s.getOnHand();
+        BigDecimal reserved = s.getReserved() == null ? BigDecimal.ZERO : s.getReserved();
+        return onHand.subtract(reserved).max(BigDecimal.ZERO);
+    }
+
+    /**
+     * 递归收集 BOM 展开树中的所有组成物料ID（含各级子件）。
+     *
+     * @param vo  当前展开节点
+     * @param acc 用于累积物料ID的集合（递归共享）
+     */
+    private void collectComponentMaterialIds(BOMExplosionVo vo, Set<Long> acc) {
+        if (vo.getMaterialId() != null) {
+            acc.add(vo.getMaterialId());
+        }
+        if (vo.getChildren() != null) {
+            for (BOMExplosionVo child : vo.getChildren()) {
+                collectComponentMaterialIds(child, acc);
+            }
+        }
+    }
+
     @Override
     public void addProductionPicking(ProductionPickingAddDto dto) {
         // 1. 生产订单必须存在
@@ -148,7 +231,7 @@ public class ProductionPickingServiceImpl
                 Long demandId = demandIdByMaterial.get(materialId);
                 ProductionPicking shortPicking = buildPicking(order, materialId, shortage);
                 if (demandId != null) {
-                    shortPicking.setRelatedDemandId(demandId);
+                    shortPicking.setPurchaseDemandId(demandId);
                 }
                 shortPicking.setStatus(ProductionPickingStatus.DRAFT);
                 save(shortPicking);
@@ -205,15 +288,15 @@ public class ProductionPickingServiceImpl
             return;
         }
         // 仅通知“缺料、待采购入库”的领料单（与采购需求一一对应）
-        List<ProductionPicking> waitings = this.list(new LambdaQueryWrapper<ProductionPicking>()
+        List<ProductionPicking> waiting = this.list(new LambdaQueryWrapper<ProductionPicking>()
                 .eq(ProductionPicking::getMaterialId, materialId)
                 .eq(ProductionPicking::getStatus, ProductionPickingStatus.DRAFT)
-                .isNotNull(ProductionPicking::getRelatedDemandId));
-        if (waitings.isEmpty()) {
+                .isNotNull(ProductionPicking::getPurchaseDemandId));
+        if (waiting.isEmpty()) {
             return;
         }
         BigDecimal available = availableAt(materialId, warehouseId);
-        for (ProductionPicking p : waitings) {
+        for (ProductionPicking p : waiting) {
             BigDecimal qty = p.getPlannedQuantity(); // = 缺口量
             BigDecimal reserveQty = qty.min(available.max(BigDecimal.ZERO));
             p.setWarehouseId(warehouseId);
@@ -225,56 +308,6 @@ public class ProductionPickingServiceImpl
             p.setStatus(reserveQty.compareTo(qty) >= 0
                     ? ProductionPickingStatus.APPROVED : ProductionPickingStatus.DRAFT);
             updateById(p);
-        }
-    }
-
-    /** 构造一条领料单基础信息（不含状态/仓库/关联需求） */
-    private ProductionPicking buildPicking(ProductionOrder order, Long materialId, BigDecimal plannedQty) {
-        ProductionPicking picking = new ProductionPicking();
-        picking.setProductionOrderId(order.getId());
-        picking.setMaterialId(materialId);
-        picking.setPlannedQuantity(plannedQty);
-        picking.setActualQuantity(BigDecimal.ZERO);
-        picking.setPickingNo(businessNoGenerator.generateNo("erp:sequence:production-picking:", "PICK"));
-        return picking;
-    }
-
-    /** 选择可用库存足以覆盖需求量的仓库（多仓库取首个满足者） */
-    private Long findWarehouseCovering(Long materialId, BigDecimal qty) {
-        List<MaterialStock> stocks = materialStockService.list(
-                new LambdaQueryWrapper<MaterialStock>().eq(MaterialStock::getMaterialId, materialId));
-        for (MaterialStock s : stocks) {
-            if (availableOf(s).compareTo(qty) >= 0) {
-                return s.getWarehouseId();
-            }
-        }
-        return null;
-    }
-
-    /** 指定仓库对某物料的可用量（在库 - 预留，下限 0） */
-    private BigDecimal availableAt(Long materialId, Long warehouseId) {
-        MaterialStock stock = materialStockService.getOne(
-                new LambdaQueryWrapper<MaterialStock>()
-                        .eq(MaterialStock::getMaterialId, materialId)
-                        .eq(MaterialStock::getWarehouseId, warehouseId));
-        return stock == null ? BigDecimal.ZERO : availableOf(stock);
-    }
-
-    private BigDecimal availableOf(MaterialStock s) {
-        BigDecimal onHand = s.getOnHand() == null ? BigDecimal.ZERO : s.getOnHand();
-        BigDecimal reserved = s.getReserved() == null ? BigDecimal.ZERO : s.getReserved();
-        return onHand.subtract(reserved).max(BigDecimal.ZERO);
-    }
-
-    /** 递归收集 BOM 展开树中的所有组成物料 ID */
-    private void collectComponentMaterialIds(BOMExplosionVo vo, Set<Long> acc) {
-        if (vo.getMaterialId() != null) {
-            acc.add(vo.getMaterialId());
-        }
-        if (vo.getChildren() != null) {
-            for (BOMExplosionVo child : vo.getChildren()) {
-                collectComponentMaterialIds(child, acc);
-            }
         }
     }
 }

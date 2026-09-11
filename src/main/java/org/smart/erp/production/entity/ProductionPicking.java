@@ -20,7 +20,7 @@ public class ProductionPicking {
     private Long productionOrderId;
 
     /** 关联采购需求 ID：缺料物料的领料单与采购需求一一对应，在库物料为空 */
-    private Long relatedDemandId;
+    private Long purchaseDemandId;
 
     private Long materialId;
 
