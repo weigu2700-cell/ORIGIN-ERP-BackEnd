@@ -219,7 +219,8 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             }
         }
         if (dto.getCode() != null) {
-            if (this.count(new LambdaQueryWrapper<Permission>().eq(Permission::getCode, dto.getCode())) > 0) {
+            if (!dto.getCode().equals(permission.getCode())
+                    && this.count(new LambdaQueryWrapper<Permission>().eq(Permission::getCode, dto.getCode())) > 0) {
                 throw new BusinessException(400, "权限编码已存在");
             }
         }
