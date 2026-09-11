@@ -106,6 +106,8 @@ public class PurchaseInStockServiceImpl
         int pageSize = (queryDto.getPageSize() == null || queryDto.getPageSize() < 1) ? 10 : queryDto.getPageSize();
 
         LambdaQueryWrapper<PurchaseInStock> qw = new LambdaQueryWrapper<PurchaseInStock>()
+                .like(StringUtils.hasText(queryDto.getPurchaseInStockNo()),
+                        PurchaseInStock::getInStockNo, queryDto.getPurchaseInStockNo())
                 .like(StringUtils.hasText(queryDto.getPurchaseOrderNo()),
                         PurchaseInStock::getPurchaseOrderNo, queryDto.getPurchaseOrderNo())
                 .eq(Objects.nonNull(queryDto.getMaterialId()),
@@ -118,8 +120,12 @@ public class PurchaseInStockServiceImpl
                         PurchaseInStock::getOperator, queryDto.getOperator())
                 .eq(Objects.nonNull(queryDto.getInType()),
                         PurchaseInStock::getInType, queryDto.getInType())
+                .eq(Objects.nonNull(queryDto.getStatus()),
+                        PurchaseInStock::getStatus, queryDto.getStatus())
                 .eq(Objects.nonNull(queryDto.getProductionDate()),
                         PurchaseInStock::getProductionDate, queryDto.getProductionDate())
+                .eq(Objects.nonNull(queryDto.getDeliveryDate()),
+                        PurchaseInStock::getInDate, queryDto.getDeliveryDate())
                 .orderByDesc(PurchaseInStock::getCreateTime);
 
         // 供应商不在入库单表上，先按供应商查采购订单，再反查入库单

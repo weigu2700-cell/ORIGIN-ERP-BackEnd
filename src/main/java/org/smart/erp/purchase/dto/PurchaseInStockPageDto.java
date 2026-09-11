@@ -1,6 +1,7 @@
 package org.smart.erp.purchase.dto;
 
 import lombok.Data;
+import org.smart.erp.purchase.enums.PurchaseInStockStatus;
 import org.smart.erp.purchase.enums.PurchaseInStockType;
 
 import java.time.LocalDateTime;
@@ -11,6 +12,8 @@ public class PurchaseInStockPageDto {
     private Integer pageNum;
 
     private Integer pageSize;
+
+    private String purchaseInStockNo;
 
     private String purchaseOrderNo;
 
@@ -25,6 +28,8 @@ public class PurchaseInStockPageDto {
     private String operator;
 
     private PurchaseInStockType inType;
+
+    private PurchaseInStockStatus status;
 
     private LocalDateTime productionDate;
 

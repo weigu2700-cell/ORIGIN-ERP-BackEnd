@@ -25,9 +25,19 @@ public class ProductionPickingController {
     @PostMapping("/confirm")
     @PreAuthorize("hasAnyAuthority('production:picking:confirm')")
     @Operation(summary = "确认领料", description = "库存出库并将领料单状态置为已领料；若同订单全部领完则下达生产")
-    public void confirmPicking(@RequestParam @Parameter(description = "领料单ID") Long id) {
+    public Result<Void> confirmPicking(@RequestParam @Parameter(description = "领料单ID") Long id) {
         productionPickingService.confirmPicking(id);
+        return Result.success();
     }
+
+    @PutMapping("/{id}/approve")
+    @PreAuthorize("hasAnyAuthority('production:picking:approve')")
+    @Operation(summary = "审核领料单", description = "设置状态为已审核，允许领料")
+    public Result<Void> approve(@PathVariable @Parameter(description = "领料单ID") Long id) {
+        productionPickingService.approvePicking(id);
+        return Result.success();
+    }
+
 
     @GetMapping
     @PreAuthorize("hasAnyAuthority('production:picking:list')")

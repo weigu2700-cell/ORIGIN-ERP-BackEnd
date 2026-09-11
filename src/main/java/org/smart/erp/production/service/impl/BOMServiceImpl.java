@@ -194,7 +194,9 @@ public class BOMServiceImpl
                         .orderByDesc(BOM::getVersion)
                         .last("limit 1")
         );
-        if (latestBom != null && latestBom.getVersion() >= bom.getVersion()) {
+        if (latestBom != null
+                && !Objects.equals(latestBom.getId(), bom.getId())
+                && latestBom.getVersion() >= bom.getVersion()) {
             throw new BusinessException(400,"BOM版本号必须大于当前物料的BOM版本号");
         }
         List<BOMItem> bomItems = bomItemMapper.selectList(

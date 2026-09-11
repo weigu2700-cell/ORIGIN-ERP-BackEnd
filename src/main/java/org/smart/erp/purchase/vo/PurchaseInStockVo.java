@@ -1,6 +1,7 @@
 package org.smart.erp.purchase.vo;
 
 import lombok.Data;
+import org.smart.erp.purchase.enums.PurchaseInStockStatus;
 import org.smart.erp.purchase.enums.PurchaseInStockType;
 
 import java.math.BigDecimal;
@@ -38,7 +39,13 @@ public class PurchaseInStockVo {
     // 库位
     private String storageLocation;
 
+    /** 入库批次 */
+    private String batchNo;
+
     private PurchaseInStockType inType;
+
+    /** 入库单状态 */
+    private PurchaseInStockStatus status;
 
     private String remark;
 
@@ -55,6 +62,12 @@ public class PurchaseInStockVo {
 
     // 过期日期
     private LocalDateTime expiryDate;
+
+    /** 操作员 */
+    private String operator;
+
+    /** 实际入库时间 */
+    private LocalDateTime inDate;
 
     private LocalDateTime createTime;
 

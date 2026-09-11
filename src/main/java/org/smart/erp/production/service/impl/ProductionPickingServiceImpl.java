@@ -419,4 +419,22 @@ public class ProductionPickingServiceImpl
             updateById(p);
         }
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void approvePicking(Long id) {
+        if (id == null) {
+            throw new BusinessException(400, "领料单ID不能为空");
+        }
+        ProductionPicking productionPicking = this.getById(id);
+        if (productionPicking == null) {
+            throw new BusinessException(400, "领料单不存在");
+        }
+        if (!ProductionPickingStatus.DRAFT.equals(productionPicking.getStatus())) {
+            throw new BusinessException(400, "当前状态不为草稿，无法审核");
+        }
+
+        productionPicking.setStatus(ProductionPickingStatus.APPROVED);
+        this.updateById(productionPicking);
+    }
 }

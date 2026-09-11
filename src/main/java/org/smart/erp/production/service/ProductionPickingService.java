@@ -37,4 +37,6 @@ public interface ProductionPickingService extends IService<ProductionPicking> {
 
     /** 采购入库上架后，通知对应缺料领料单可领料（指定入库仓库并预留） */
     void notifyPickingForInStock(Long materialId, Long warehouseId);
+
+    void approvePicking(Long id);
 }
