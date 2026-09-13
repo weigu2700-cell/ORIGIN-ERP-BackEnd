@@ -11,8 +11,8 @@ public enum BOMStatus {
     INACTIVE(2, "停用");
 
     @EnumValue
-    private final Integer code;
     @JsonValue
+    private final Integer code;
     private final String desc;
 
     BOMStatus(Integer code, String desc) {

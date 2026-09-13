@@ -9,6 +9,7 @@ public enum SupplierStatus {
     INACTIVE(0, "无效");
 
     @EnumValue
+    @com.fasterxml.jackson.annotation.JsonValue
     private final Integer code;
     private final String desc;
 

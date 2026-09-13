@@ -12,6 +12,7 @@ public enum MaterialType {
     OTHER(5, "其他物料");
 
     @EnumValue
+    @com.fasterxml.jackson.annotation.JsonValue
     private final int code;
     private final String desc;
 

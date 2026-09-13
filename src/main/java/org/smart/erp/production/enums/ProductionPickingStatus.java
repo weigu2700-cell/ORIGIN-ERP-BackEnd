@@ -12,8 +12,8 @@ public enum ProductionPickingStatus {
     CANCELLED(3, "已取消");
 
     @EnumValue
-    private final int code;
     @JsonValue
+    private final int code;
     private final String desc;
 
     ProductionPickingStatus(int code, String desc) {

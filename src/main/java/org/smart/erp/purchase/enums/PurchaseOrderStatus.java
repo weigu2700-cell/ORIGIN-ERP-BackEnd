@@ -12,6 +12,7 @@ public enum PurchaseOrderStatus {
     CLOSED(4, "已关闭");
 
     @EnumValue
+    @com.fasterxml.jackson.annotation.JsonValue
     private final int code;
     private final String desc;
 

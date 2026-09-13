@@ -10,6 +10,7 @@ public enum PurchaseInStockStatus {
     UPLOADED(2, "已上架");
 
     @EnumValue
+    @com.fasterxml.jackson.annotation.JsonValue
     private final int code;
     private final String desc;
 

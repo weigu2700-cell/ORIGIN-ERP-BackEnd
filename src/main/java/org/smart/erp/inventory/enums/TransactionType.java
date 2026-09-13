@@ -11,6 +11,7 @@ public enum TransactionType {
     OUTBOUND(4, "出库");
 
     @EnumValue
+    @com.fasterxml.jackson.annotation.JsonValue
     private final Integer code;
     private final String desc;
 

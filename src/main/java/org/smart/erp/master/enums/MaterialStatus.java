@@ -12,6 +12,7 @@ public enum MaterialStatus {
     DISABLE(2, "停用");
 
     @EnumValue
+    @com.fasterxml.jackson.annotation.JsonValue
     private final int code;
     private final String desc;
 

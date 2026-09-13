@@ -14,6 +14,7 @@ public enum SalesDeliveryStatus {
     CANCELLED(2, "已取消");
 
     @EnumValue
+    @com.fasterxml.jackson.annotation.JsonValue
     private final int code;
     private final String desc;
 

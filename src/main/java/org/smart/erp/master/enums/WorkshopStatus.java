@@ -12,6 +12,7 @@ public enum WorkshopStatus {
     DISABLE(0, "禁用");
 
     @EnumValue
+    @com.fasterxml.jackson.annotation.JsonValue
     private final Integer code;
     private final String desc;
 

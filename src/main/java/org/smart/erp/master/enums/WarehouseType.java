@@ -12,6 +12,7 @@ public enum WarehouseType {
     OTHER(4, "其他仓");
 
     @EnumValue
+    @com.fasterxml.jackson.annotation.JsonValue
     private final Integer code;
     private final String desc;
 

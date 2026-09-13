@@ -13,8 +13,8 @@ public enum ProductionReportStatus {
     FINISHED(4, "已完成");
 
     @EnumValue
-    private final Integer code;
     @JsonValue
+    private final Integer code;
     private final String desc;
 
     ProductionReportStatus(Integer code, String desc) {
