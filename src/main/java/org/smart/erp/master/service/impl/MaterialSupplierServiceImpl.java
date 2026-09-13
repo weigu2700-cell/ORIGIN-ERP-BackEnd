@@ -21,7 +21,7 @@ import org.smart.erp.master.mapper.SupplierMapper;
 import org.smart.erp.master.service.MaterialSupplierService;
 import cn.idev.excel.FastExcel;
 import lombok.extern.slf4j.Slf4j;
-import org.smart.erp.master.vo.ExcelPrintVo.MaterialSupplierExportVo;
+import org.smart.erp.master.vo.MaterialSupplierExportVo;
 import org.smart.erp.master.vo.MaterialSupplierVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;

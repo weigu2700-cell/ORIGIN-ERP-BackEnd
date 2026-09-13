@@ -312,7 +312,14 @@ public class MaterialStockServiceImpl
         for (int i = 0; i < maxRetry; i++) {
             MaterialStock materialStock = materialStockMapper.selectOne(queryWrapper);
             if (materialStock == null) {
-                throw new BusinessException(400, "库存记录不存在");
+                // 库存记录不存在则自动创建（成品入库等未预建库存记录的场景），初始零库存后继续走增量更新
+                MaterialStock init = new MaterialStock();
+                init.setMaterialId(materialId);
+                init.setWarehouseId(warehouseId);
+                init.setOnHand(BigDecimal.ZERO);
+                init.setReserved(BigDecimal.ZERO);
+                materialStockMapper.insert(init);
+                continue;
             }
 
             BigDecimal beforeOnHand = materialStock.getOnHand();

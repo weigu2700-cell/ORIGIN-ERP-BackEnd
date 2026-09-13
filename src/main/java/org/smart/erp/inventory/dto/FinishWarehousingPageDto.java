@@ -1,6 +1,7 @@
 package org.smart.erp.inventory.dto;
 
 import lombok.Data;
+import org.smart.erp.inventory.enums.FinishWarehousingStatus;
 
 import java.time.LocalDateTime;
 
@@ -22,6 +23,8 @@ public class FinishWarehousingPageDto {
     private Long warehouseId;
 
     private Long warehousingUserId;
+
+    private FinishWarehousingStatus status;
 
     private LocalDateTime warehousingTime;
 }

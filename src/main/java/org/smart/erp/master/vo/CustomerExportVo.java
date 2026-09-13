@@ -1,4 +1,4 @@
-package org.smart.erp.master.vo.ExcelPrintVo;
+package org.smart.erp.master.vo;
 
 import cn.idev.excel.annotation.ExcelIgnore;
 import cn.idev.excel.annotation.ExcelProperty;
@@ -7,18 +7,18 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-public class SupplierExportVo {
+public class CustomerExportVo {
 
     @ExcelIgnore
     private Long id;
 
-    @ExcelProperty("供应商编码")
+    @ExcelProperty("客户编码")
     private String code;
 
-    @ExcelProperty("供应商名称")
+    @ExcelProperty("客户名称")
     private String name;
 
-    @ExcelProperty("供应商简称")
+    @ExcelProperty("客户简称")
     private String shortName;
 
     @ExcelProperty("联系人")

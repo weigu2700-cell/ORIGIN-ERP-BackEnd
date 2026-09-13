@@ -23,7 +23,7 @@ import org.springframework.util.StringUtils;
 import cn.idev.excel.FastExcel;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.smart.erp.master.vo.ExcelPrintVo.SupplierExportVo;
+import org.smart.erp.master.vo.SupplierExportVo;
 
 import java.io.IOException;
 import java.net.URLEncoder;

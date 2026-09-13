@@ -15,7 +15,7 @@ import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.service.MaterialService;
-import org.smart.erp.master.vo.ExcelPrintVo.MaterialExportVo;
+import org.smart.erp.master.vo.MaterialExportVo;
 import org.smart.erp.master.vo.MaterialVo;
 import org.springframework.beans.BeanUtils;
 import lombok.extern.slf4j.Slf4j;
