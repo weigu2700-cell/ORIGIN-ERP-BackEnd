@@ -21,10 +21,12 @@ import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.entity.ProductionReport;
 import org.smart.erp.production.enums.ProductionOrderStatus;
 import org.smart.erp.production.service.ProductionOrderService;
+import org.smart.erp.production.event.ProductionReportFinishedEvent;
 import org.smart.erp.production.service.ProductionReportService;
 import org.smart.erp.system.entity.User;
 import org.smart.erp.system.service.UserService;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -125,7 +127,50 @@ public class FinishWarehousingServiceImpl
                 Optional.ofNullable(finishWarehousing.getWarehousingTime())
                         .orElse(LocalDateTime.now()));
 
+        // P0: 成品入库数量不能超过对应报工的合格数量（含已入库累计）
+        ProductionReport report = productionReportService.getById(dto.getProductionReportId());
+        checkNull(report, "关联报工单不存在");
+        if (report.getQualifiedQuantity() == null) {
+            throw new BusinessException(400, "报工合格数量为空，无法入库");
+        }
+        BigDecimal alreadyWarehoused = getTotalWarehousingQuantityByReport(dto.getProductionReportId());
+        if (alreadyWarehoused.add(dto.getWarehousingQuantity()).compareTo(report.getQualifiedQuantity()) > 0) {
+            throw new BusinessException(400, "入库数量超过报工合格数量（合格量 "
+                    + report.getQualifiedQuantity() + "，已入库 " + alreadyWarehoused + "）");
+        }
+
         save(finishWarehousing);
+    }
+
+    /**
+     * 监听报工完成事件，自动生成一张草稿态成品入库单（入库量取报工合格量）。
+     * 事件在同事务内同步触发，若报工整体回滚则入库单一并回滚。
+     */
+    @EventListener
+    public void handleProductionReportFinished(ProductionReportFinishedEvent event) {
+        FinishWarehousingAddDto fwDto = new FinishWarehousingAddDto();
+        fwDto.setProductionOrderId(event.getProductionOrderId());
+        fwDto.setProductionReportId(event.getProductionReportId());
+        fwDto.setMaterialId(event.getMaterialId());
+        fwDto.setWarehouseId(event.getWarehouseId());
+        fwDto.setWarehousingQuantity(event.getQualifiedQuantity());
+        fwDto.setWarehousingUserId(event.getWarehousingUserId());
+        addFinishWarehousing(fwDto);
+    }
+
+    /** 统计某报工单已入库（WAREHOUSED）的成品数量，用于校验不超报工合格量 */
+    private BigDecimal getTotalWarehousingQuantityByReport(Long productionReportId) {
+        if (productionReportId == null) {
+            return BigDecimal.ZERO;
+        }
+        List<FinishWarehousing> list = this.list(
+                new LambdaQueryWrapper<FinishWarehousing>()
+                        .eq(FinishWarehousing::getProductionReportId, productionReportId)
+                        .eq(FinishWarehousing::getStatus, FinishWarehousingStatus.WAREHOUSED));
+        return list.stream()
+                .map(FinishWarehousing::getWarehousingQuantity)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     @Override
@@ -278,7 +323,7 @@ public class FinishWarehousingServiceImpl
     @Transactional(rollbackFor = Exception.class)
     public Boolean warehouseFinishWarehousing(Long id) {
         FinishWarehousing finishWarehousing = changeFinishWarehousingStatus(
-                id, FinishWarehousingStatus.APPROVED, FinishWarehousingStatus.WAREHOUSING);
+                id, FinishWarehousingStatus.APPROVED, FinishWarehousingStatus.WAREHOUSED);
 
         checkNull(finishWarehousing.getMaterialId(), "入库单未关联物料，无法入库");
         checkNull(finishWarehousing.getWarehouseId(), "入库单未指定仓库，无法入库");
@@ -321,7 +366,7 @@ public class FinishWarehousingServiceImpl
         List<FinishWarehousing> list = this.list(
                 new LambdaQueryWrapper<FinishWarehousing>()
                         .eq(FinishWarehousing::getProductionOrderId, productionOrderId)
-                        .eq(FinishWarehousing::getStatus, FinishWarehousingStatus.WAREHOUSING));
+                        .eq(FinishWarehousing::getStatus, FinishWarehousingStatus.WAREHOUSED));
         return list.stream()
                 .map(FinishWarehousing::getWarehousingQuantity)
                 .filter(Objects::nonNull)

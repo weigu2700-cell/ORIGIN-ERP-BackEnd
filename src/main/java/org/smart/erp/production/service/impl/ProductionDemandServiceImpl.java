@@ -70,6 +70,16 @@ public class ProductionDemandServiceImpl
             throw new BusinessException(400, "需求数量必须大于0");
         }
 
+        // P1: 防止重复生成——同一来源单 + 同一物料已存在生产需求则跳过（避免取消后重新确认等场景重复建档）
+        boolean exists = this.lambdaQuery()
+                .eq(ProductionDemand::getSourceType, dto.getSourceType())
+                .eq(ProductionDemand::getSourceNo, dto.getSourceNo())
+                .eq(ProductionDemand::getMaterialId, dto.getMaterialId())
+                .exists();
+        if (exists) {
+            return;
+        }
+
         SalesOrder salesOrder = salesOrderMapper.selectOne(
                 new LambdaQueryWrapper<SalesOrder>()
                         .eq(SalesOrder::getOrderNo, dto.getSourceNo())

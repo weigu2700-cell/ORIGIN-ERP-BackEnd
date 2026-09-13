@@ -3,19 +3,25 @@ package org.smart.erp.production.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.jspecify.annotations.NonNull;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.master.entity.Material;
+import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.mapper.MaterialMapper;
+import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.production.dto.ProductionReportAddDto;
 import org.smart.erp.system.entity.User;
 import org.smart.erp.system.mapper.UserMapper;
 import org.smart.erp.production.dto.ProductionReportPageDto;
 import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.entity.ProductionReport;
+import org.smart.erp.production.enums.ProductionOrderStatus;
 import org.smart.erp.production.enums.ProductionReportStatus;
+import org.smart.erp.production.event.ProductionReportFinishedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.smart.erp.production.mapper.ProductionOrderMapper;
 import org.smart.erp.production.mapper.ProductionReportMapper;
 import org.smart.erp.production.service.ProductionReportService;
@@ -42,6 +48,8 @@ public class ProductionReportServiceImpl
     private final MaterialMapper materialMapper;
     private final UserMapper userMapper;
     private final MaterialStockService materialStockService;
+    private final WarehouseMapper warehouseMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     public ProductionReportServiceImpl(
@@ -50,7 +58,9 @@ public class ProductionReportServiceImpl
             CurrentUser currentUser,
             MaterialMapper materialMapper,
             UserMapper userMapper,
-            MaterialStockService materialStockService
+            MaterialStockService materialStockService,
+            WarehouseMapper warehouseMapper,
+            ApplicationEventPublisher eventPublisher
     )
     {
         this.productionOrderMapper = productionOrderMapper;
@@ -59,6 +69,8 @@ public class ProductionReportServiceImpl
         this.materialMapper = materialMapper;
         this.userMapper = userMapper;
         this.materialStockService = materialStockService;
+        this.warehouseMapper = warehouseMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -96,6 +108,29 @@ public class ProductionReportServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void addProductionReport(ProductionReportAddDto dto) {
+        // P0: 报工数量合法性校验
+        BigDecimal reportQty = getReportQty(dto);
+
+        // 关联生产订单状态与物料校验
+        ProductionOrder order = productionOrderMapper.selectById(dto.getProductionOrderId());
+        if (order == null) {
+            throw new BusinessException(404, "生产订单不存在");
+        }
+        if (order.getStatus() != ProductionOrderStatus.RELEASED
+                && order.getStatus() != ProductionOrderStatus.IN_PROGRESS) {
+            throw new BusinessException(400, "生产订单未下达或已结束，无法报工");
+        }
+        if (!Objects.equals(order.getMaterialId(), dto.getMaterialId())) {
+            throw new BusinessException(400, "报工物料与生产订单物料不一致");
+        }
+
+        // P0: 累计报工不能超过生产计划
+        BigDecimal reportedTotal = sumReportQuantity(order.getId());
+        if (reportedTotal.add(reportQty).compareTo(order.getPlannedQuantity()) > 0) {
+            throw new BusinessException(400, "累计报工数量（" + reportedTotal.add(reportQty)
+                    + "）已超过生产计划数量（" + order.getPlannedQuantity() + "）");
+        }
+
         ProductionReport productionReport = new ProductionReport();
         BeanUtils.copyProperties(dto, productionReport);
         productionReport.setProductionReportNo(
@@ -107,6 +142,38 @@ public class ProductionReportServiceImpl
                         .orElse(LocalDateTime.now())
         );
         save(productionReport);
+    }
+
+    private static @NonNull BigDecimal getReportQty(ProductionReportAddDto dto) {
+        BigDecimal reportQty = dto.getReportQuantity();
+        BigDecimal qualifiedQty = dto.getQualifiedQuantity();
+        BigDecimal scrappedQty = dto.getScrappedQuantity();
+        if (reportQty == null || reportQty.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(400, "报工数量必须大于0");
+        }
+        if (qualifiedQty == null || qualifiedQty.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException(400, "合格数量不能为空且不能为负");
+        }
+        if (scrappedQty == null || scrappedQty.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException(400, "报废数量不能为空且不能为负");
+        }
+        if (qualifiedQty.add(scrappedQty).compareTo(reportQty) > 0) {
+            throw new BusinessException(400, "合格数量与报废数量之和不能超过报工数量");
+        }
+        return reportQty;
+    }
+
+    /** 统计生产订单已提交报工（排除取消/驳回）的累计报工数量 */
+    private BigDecimal sumReportQuantity(Long productionOrderId) {
+        List<ProductionReport> reports = this.list(
+                new LambdaQueryWrapper<ProductionReport>()
+                        .eq(ProductionReport::getProductionOrderId, productionOrderId)
+                        .notIn(ProductionReport::getStatus,
+                                ProductionReportStatus.CANCEL, ProductionReportStatus.REJECT));
+        return reports.stream()
+                .map(ProductionReport::getReportQuantity)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     @Override
@@ -143,6 +210,11 @@ public class ProductionReportServiceImpl
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
+        Set<Long> warehouseIds = page.getRecords().stream()
+                .map(ProductionReport::getWarehouseId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
         Map<Long, ProductionOrder> productionOrderMap = productionOrderIds.isEmpty()
                 ? Map.of()
                 : productionOrderMapper
@@ -164,6 +236,13 @@ public class ProductionReportServiceImpl
                     .stream()
                     .collect(Collectors.toMap(User::getId, Function.identity()));
 
+        Map<Long, Warehouse> warehouseMap = warehouseIds.isEmpty()
+                ? Map.of()
+                : warehouseMapper
+                    .selectByIds(warehouseIds)
+                    .stream()
+                    .collect(Collectors.toMap(Warehouse::getId, Function.identity()));
+
         Page<ProductionReportVo> voPage = new Page<>(dto.getPageNum(), dto.getPageSize(), page.getTotal());
 
         return voPage.setRecords(
@@ -181,6 +260,9 @@ public class ProductionReportServiceImpl
                     Long reportUserId = productionReport.getReportUserId();
                     if (reportUserId != null && userMap.containsKey(reportUserId)) {
                         vo.setReportUserName(userMap.get(reportUserId).getUsername());
+                    }
+                    if (warehouseMap.containsKey(productionReport.getWarehouseId())) {
+                        vo.setWarehouseName(warehouseMap.get(productionReport.getWarehouseId()).getName());
                     }
                     return vo;
                 }).collect(Collectors.toList())
@@ -224,6 +306,15 @@ public class ProductionReportServiceImpl
                     }
                 });
 
+        Long warehouseId = productionReport.getWarehouseId();
+        Optional.ofNullable(warehouseId)
+                .ifPresent(id1 -> {
+                    Warehouse warehouse = warehouseMapper.selectById(id1);
+                    if (Objects.nonNull(warehouse)) {
+                        vo.setWarehouseName(warehouse.getName());
+                    }
+                });
+
         return vo;
     }
 
@@ -264,7 +355,29 @@ public class ProductionReportServiceImpl
             throw new BusinessException(400, "合格数量不能为0");
         }
 
-        // TODO: 若合格数量等于生产订单完成数量，需生成成品入库单（暂未实现）
+        // 回写生产订单已完成数量（合格量累计），并完善完成条件：累计合格达到计划量则自动完成
+        ProductionOrder order = productionOrderMapper.selectById(productionReport.getProductionOrderId());
+        if (order != null) {
+            BigDecimal completed = order.getCompletedQuantity() == null ? BigDecimal.ZERO : order.getCompletedQuantity();
+            BigDecimal newCompleted = completed.add(qualifiedQuantity);
+            order.setCompletedQuantity(newCompleted);
+            if (newCompleted.compareTo(order.getPlannedQuantity()) >= 0
+                    && order.getStatus() == ProductionOrderStatus.IN_PROGRESS) {
+                order.setStatus(ProductionOrderStatus.COMPLETED);
+                order.setActualEndTime(LocalDateTime.now());
+            }
+            productionOrderMapper.updateById(order);
+        }
+
+        // P0: 报工完成自动生成成品入库单（草稿态），通过事件解耦，由成品入库服务监听处理
+        eventPublisher.publishEvent(new ProductionReportFinishedEvent(
+                this,
+                productionReport.getProductionOrderId(),
+                productionReport.getId(),
+                productionReport.getMaterialId(),
+                productionReport.getWarehouseId(),
+                qualifiedQuantity,
+                currentUser.getUserId()));
 
         changeReportStatus(
                 id,

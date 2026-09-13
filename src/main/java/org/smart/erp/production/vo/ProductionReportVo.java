@@ -19,6 +19,10 @@ public class ProductionReportVo {
 
     private Long materialId;
 
+    private Long warehouseId;
+
+    private String warehouseName;
+
     private String materialCode;
 
     private String materialName;

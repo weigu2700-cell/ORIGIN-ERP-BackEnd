@@ -21,6 +21,9 @@ public class ProductionReport {
 
     private Long materialId;
 
+    /** 成品入库仓库（报工时指定，用于自动生成成品入库单） */
+    private Long warehouseId;
+
     private BigDecimal reportQuantity;
 
     private BigDecimal qualifiedQuantity;

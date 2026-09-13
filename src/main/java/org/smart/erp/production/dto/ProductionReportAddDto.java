@@ -16,6 +16,9 @@ public class ProductionReportAddDto {
     @NotNull(message = "物料ID不能为空")
     private Long materialId;
 
+    @NotNull(message = "成品仓库不能为空")
+    private Long warehouseId;
+
     @NotNull(message = "报工数量不能为空")
     @Min(value = 0, message = "报工数量不能为负数")
     private BigDecimal reportQuantity;
