@@ -1,0 +1,1 @@
+INSERT INTO `smart-erp`.md_factory (id, name, short_name, code, address, status, remark, create_time, update_time, deleted) VALUES (2098373137156837377, '测试数据工厂', '测试', 'FT356762953460092928', '常州市武进区', 1, '测试备注', '2026-09-11 19:28:36', null, 0);

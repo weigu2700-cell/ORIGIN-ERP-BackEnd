@@ -1,9 +1,0 @@
-INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2096164351460057090, 2096164351401336834, 10, 900000000000541, 1.0000, 5.0000, '');
-INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2096164351472640001, 2096164351401336834, 20, 2093347864462540801, 20.0000, 1.0000, '');
-INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2096166999089238018, 2096166999034712065, 10, 2093347864462540801, 10.0000, 0.0100, '');
-INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2096166999093432322, 2096166999034712065, 20, 900000000000544, 1.0000, 0.0000, '');
-INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2096166999097626626, 2096166999034712065, 30, 900000000000545, 1.0000, 1.0000, '');
-INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2096166999101820929, 2096166999034712065, 40, 2095498251059662850, 1.0000, 0.0000, '');
-INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2096167127082618882, 2096167127070035969, 10, 900000000000542, 1.0000, 1.0000, '');
-INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2096167127091007489, 2096167127070035969, 20, 2093347864462540801, 10.0000, 0.0100, '');
-INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2096167127099396098, 2096167127070035969, 30, 900000000000544, 1.0000, 0.0000, '');

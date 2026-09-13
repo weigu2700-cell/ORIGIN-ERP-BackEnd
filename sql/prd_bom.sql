@@ -1,3 +1,0 @@
-INSERT INTO `smart-erp`.prd_bom (id, bom_no, material_id, status, version, create_time, update_time) VALUES (2096164351401336834, 'BOM202609050006', 2094300771311267842, 1, 1, '2026-09-05 17:11:41', null);
-INSERT INTO `smart-erp`.prd_bom (id, bom_no, material_id, status, version, create_time, update_time) VALUES (2096166999034712065, 'BOM202609050007', 900000000000542, 1, 1, '2026-09-05 17:22:12', null);
-INSERT INTO `smart-erp`.prd_bom (id, bom_no, material_id, status, version, create_time, update_time) VALUES (2096167127070035969, 'BOM202609050008', 900000000000543, 1, 1, '2026-09-05 17:22:43', null);

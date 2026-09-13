@@ -1,0 +1,1 @@
+INSERT INTO `smart-erp`.md_material_supplier (id, material_id, supplier_id, material_supplier_code, purchase_price, lead_time_days, preferred, min_order_qty, status, remark, create_time, update_time, deleted) VALUES (2098375153505570818, 2098374024101138433, 2098374132809109506, 'MS-TEST-001', 100.0000, 10, 1, 1000.0000, 1, '测试备注', '2026-09-11 19:36:37', null, 0);

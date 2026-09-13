@@ -1,0 +1,1 @@
+INSERT INTO `smart-erp`.md_production_line (id, name, code, workshop_id, capacity_per_day, remark, status, create_time, update_time, deleted) VALUES (2098373294166413313, '测试产线', 'PL202609111929138761074', 2098373211077251074, 100.00, '测试备注', 1, '2026-09-11 19:29:14', null, 0);

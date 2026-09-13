@@ -1,0 +1,1 @@
+INSERT INTO `smart-erp`.sal_delivery (id, delivery_no, sales_order_id, sales_order_no, customer_id, status, delivery_date, remark, create_time, update_time) VALUES (2098390876688797698, 'SD202609110007', 2098388076290449410, 'SO202609110029', 2098374910777004033, 1, '2026-09-19 00:00:00', null, '2026-09-11 20:39:06', '2026-09-11 20:39:06');

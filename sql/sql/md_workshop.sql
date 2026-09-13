@@ -1,0 +1,1 @@
+INSERT INTO `smart-erp`.md_workshop (id, code, name, short_name, factory_id, status, remark, create_time, update_time, deleted) VALUES (2098373211077251074, 'WS202609111928540657377', '测试车间', '测试', 2098373137156837377, 1, '测试备注', '2026-09-11 19:28:54', null, 0);

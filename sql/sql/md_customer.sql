@@ -1,0 +1,1 @@
+INSERT INTO `smart-erp`.md_customer (id, code, name, short_name, contact_name, phone, email, address, status, remark, create_time, update_time, deleted) VALUES (2098374910777004033, 'CU356764727071870976', '测试客户', '测试', '测试客户联系人', '122222222222', '13123123131@qq.com', '测试i地址', 1, '测试备注', '2026-09-11 19:35:39', null, 0);

@@ -1,0 +1,1 @@
+INSERT INTO `smart-erp`.md_warehouse (id, name, code, type, factory_id, address, status, remark, create_time, update_time, deleted) VALUES (2098373920455692290, '测试仓库', 'WH202609111931431957377', 0, 2098373137156837377, '测试地址', 1, '测试备注', '2026-09-11 19:31:43', '2026-09-11 20:20:39', 0);

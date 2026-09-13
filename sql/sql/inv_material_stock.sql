@@ -1,0 +1,2 @@
+INSERT INTO `smart-erp`.inv_material_stock (id, warehouse_id, material_id, on_hand, reserved, version, create_time, update_time) VALUES (2098375244165451777, 2098373920455692290, 2098374024101138433, 0.0000, 0.0000, 0, '2026-09-11 19:36:59', null);
+INSERT INTO `smart-erp`.inv_material_stock (id, warehouse_id, material_id, on_hand, reserved, version, create_time, update_time) VALUES (2098388076324003841, 2098373920455692290, 2098384432056832002, 0.0000, 0.0000, 0, '2026-09-11 20:27:58', null);

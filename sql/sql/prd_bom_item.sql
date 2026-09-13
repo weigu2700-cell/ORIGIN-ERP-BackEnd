@@ -1,0 +1,9 @@
+INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2098384838421975042, 2098384838409392130, 10, 2098374024101138433, 5.0000, 1.0000, '测试');
+INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2098384838430363650, 2098384838409392130, 20, 2098383671654682626, 20.0000, 0.1000, '');
+INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2098384838434557953, 2098384838409392130, 30, 2098383836901871618, 6.0000, 0.0100, '');
+INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2098384971863756801, 2098384971855368194, 10, 2098384207099531265, 1.0000, 0.0000, '芯片');
+INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2098385437574107137, 2098385437544747009, 10, 2098374024101138433, 5.0000, 5.0000, '');
+INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2098385437582495746, 2098385437544747009, 20, 2098384207099531265, 1.0000, 0.0000, '');
+INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2098385437590884354, 2098385437544747009, 30, 2098384551405752322, 3.0000, 0.0000, '');
+INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2098385437595078657, 2098385437544747009, 40, 2098383671654682626, 30.0000, 0.0000, '');
+INSERT INTO `smart-erp`.prd_bom_item (id, bom_id, line_no, component_material_id, quantity, loss_rate, remark) VALUES (2098385437599272961, 2098385437544747009, 50, 2098383836901871618, 10.0000, 0.0000, '');
