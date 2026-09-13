@@ -2,9 +2,8 @@ package org.smart.erp.inventory.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.smart.erp.inventory.dto.transactionDto.TransactionPageDto;
+import org.smart.erp.inventory.dto.TransactionPageDto;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.entity.Transaction;
 import org.smart.erp.inventory.enums.TransactionType;

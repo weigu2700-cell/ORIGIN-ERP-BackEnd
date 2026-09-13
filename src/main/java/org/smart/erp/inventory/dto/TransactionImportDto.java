@@ -1,4 +1,4 @@
-package org.smart.erp.inventory.dto.ExcelPrintDto;
+package org.smart.erp.inventory.dto;
 
 import cn.idev.excel.annotation.ExcelProperty;
 import jakarta.validation.constraints.DecimalMin;

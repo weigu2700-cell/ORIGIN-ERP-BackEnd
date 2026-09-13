@@ -1,9 +1,9 @@
-package org.smart.erp.inventory.dto.transactionDto;
+package org.smart.erp.inventory.dto;
 
 import lombok.Data;
 
 @Data
-public class TransactionPageDto {
+public class MaterialStockPageDto {
 
     private Integer pageNum = 1;
 
@@ -13,7 +13,5 @@ public class TransactionPageDto {
 
     private Long warehouseId;
 
-    private String businessType;
-
-    private String businessNo;
+    private String materialCode;
 }

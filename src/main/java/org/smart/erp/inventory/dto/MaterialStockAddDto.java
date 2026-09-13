@@ -1,4 +1,4 @@
-package org.smart.erp.inventory.dto.materialStockDto;
+package org.smart.erp.inventory.dto;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;

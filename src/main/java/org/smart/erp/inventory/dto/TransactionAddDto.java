@@ -1,4 +1,4 @@
-package org.smart.erp.inventory.dto.transactionDto;
+package org.smart.erp.inventory.dto;
 
 import lombok.Data;
 

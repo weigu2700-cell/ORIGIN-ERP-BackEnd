@@ -1,4 +1,4 @@
-package org.smart.erp.inventory.vo.ExcelPrintVo;
+package org.smart.erp.inventory.vo;
 
 import cn.idev.excel.annotation.ExcelProperty;
 import cn.idev.excel.annotation.ExcelIgnore;

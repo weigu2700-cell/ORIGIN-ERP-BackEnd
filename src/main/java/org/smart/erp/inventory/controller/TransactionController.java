@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.inventory.dto.transactionDto.TransactionPageDto;
+import org.smart.erp.inventory.dto.TransactionPageDto;
 import org.smart.erp.inventory.service.TransactionService;
 import org.smart.erp.inventory.vo.TransactionVo;
 import org.springframework.security.access.prepost.PreAuthorize;
