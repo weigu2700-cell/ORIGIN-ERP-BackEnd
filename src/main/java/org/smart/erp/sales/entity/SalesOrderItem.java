@@ -26,6 +26,10 @@ public class SalesOrderItem {
 
     private BigDecimal amount;
 
+    /** 已发货数量（销售出库完成时反向回写，用于展示订单各行发货进度） */
+    @TableField("delivered_quantity")
+    private BigDecimal deliveredQuantity;
+
     private Long warehouseId;
 
     private LocalDateTime deliveryDate;

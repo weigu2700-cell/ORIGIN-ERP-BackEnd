@@ -26,4 +26,6 @@ public class SalesDeliveryItemVo {
     private String warehouseName;
 
     private BigDecimal quantity;
+
+    private BigDecimal reservedQuantity;
 }

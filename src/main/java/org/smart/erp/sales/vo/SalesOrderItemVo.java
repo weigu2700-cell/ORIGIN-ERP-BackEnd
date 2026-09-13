@@ -28,4 +28,6 @@ public class SalesOrderItemVo {
     private BigDecimal unitPrice;
 
     private BigDecimal amount;
+
+    private BigDecimal deliveredQuantity;
 }

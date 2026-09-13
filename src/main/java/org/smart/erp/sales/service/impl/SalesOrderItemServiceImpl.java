@@ -125,6 +125,7 @@ public class SalesOrderItemServiceImpl
         BeanUtils.copyProperties(dto, salesOrderItem);
         // 金额以数量 × 单价为准，避免调用方漏算或算错
         salesOrderItem.setAmount(dto.getQuantity().multiply(dto.getUnitPrice()));
+        salesOrderItem.setDeliveredQuantity(BigDecimal.ZERO);
         if (!salesOrderItem.getSalesOrderId().equals(dto.getSalesOrderId())) {
             throw new BusinessException(409,"销售订单ID不一致");
         }

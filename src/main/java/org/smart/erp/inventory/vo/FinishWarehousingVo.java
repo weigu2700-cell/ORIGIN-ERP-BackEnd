@@ -1,6 +1,7 @@
 package org.smart.erp.inventory.vo;
 
 import lombok.Data;
+import org.smart.erp.inventory.enums.FinishWarehousingStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,6 +36,8 @@ public class FinishWarehousingVo {
     private String warehousingUserName;
 
     private LocalDateTime warehousingTime;
+
+    private FinishWarehousingStatus status;
 
     private String remark;
 }

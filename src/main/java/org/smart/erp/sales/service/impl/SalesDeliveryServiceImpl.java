@@ -89,8 +89,8 @@ public class SalesDeliveryServiceImpl
 
     /**
      * 校验客户存在
-     * @param customerId
-     * @return
+     * @param customerId 客户ID
+     * @return 客户实体
      */
     private Customer getCustomer(Long customerId) {
         Customer customer = customerMapper.selectById(customerId);
@@ -129,41 +129,68 @@ public class SalesDeliveryServiceImpl
     }
 
     /**
-     * 完成出库：逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚
+     * 完成出库：先按本单已预占量补齐差额（生产补货后应已可用），再逐行扣减实际库存
+     * （在库与预占同步减少）；任一行库存仍未补足则整体回滚。
      */
     private void outboundStockForDelivery(Long deliveryId) {
         SalesDelivery delivery = salesDeliveryMapper.selectById(deliveryId);
         if (delivery == null) {
             throw new BusinessException(400, "发货单不存在");
         }
-        List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
+        List<SalesDeliveryItem> items = salesDeliveryItemService.list(
+                new LambdaQueryWrapper<SalesDeliveryItem>().eq(SalesDeliveryItem::getDeliveryId, deliveryId));
         if (items.isEmpty()) {
             throw new BusinessException(400, "发货单明细项不能为空，无法确认出库");
         }
-        for (SalesDeliveryItemVo item : items) {
+        for (SalesDeliveryItem item : items) {
+            Long materialId = item.getMaterialId();
+            Long warehouseId = item.getWarehouseId();
+            BigDecimal required = item.getQuantity();
+            BigDecimal alreadyReserved = item.getReservedQuantity() == null ? BigDecimal.ZERO : item.getReservedQuantity();
+            BigDecimal shortfall = required.subtract(alreadyReserved);
+            if (shortfall.compareTo(BigDecimal.ZERO) > 0) {
+                // 生产补货后可用库存应已覆盖缺口，否则不允许出库，避免发出无货可发的单
+                BigDecimal available = getAvailableStock(materialId, warehouseId);
+                if (available.compareTo(shortfall) < 0) {
+                    throw new BusinessException(400,
+                            "物料[" + materialId + "]库存仍未补足（缺口 " + shortfall + "），无法完成出库");
+                }
+                materialStockService.reserveStock(materialId, warehouseId, shortfall,
+                        "SALES_DELIVERY_RESERVE", delivery.getDeliveryNo(),
+                        "补齐预占 关联销售订单 " + delivery.getSalesOrderNo());
+            }
             materialStockService.outboundStock(
-                    item.getMaterialId(),
-                    item.getWarehouseId(),
-                    item.getQuantity(),
+                    materialId,
+                    warehouseId,
+                    required,
                     "SALES_DELIVERY_OUT",
                     delivery.getDeliveryNo(),
                     "销售出库 关联销售订单 " + delivery.getSalesOrderNo()
             );
+
+            // 反向回写对应销售订单明细的已发货量（原子累加，避免并发丢失更新）
+            if (item.getSalesOrderItemId() != null) {
+                salesOrderItemMapper.increaseDeliveredQuantity(item.getSalesOrderItemId(), required);
+            }
+
+            item.setReservedQuantity(BigDecimal.ZERO);
         }
+        salesDeliveryItemService.updateBatchById(items);
     }
 
-    /** 确认发货时逐行预占库存；库存不足时差额自动转生产需求，不阻断确认 */
+    /** 确认发货时逐行预占库存，并记录实际预占量；库存不足时差额自动转生产需求，不阻断确认 */
     private void reserveStockForDelivery(Long deliveryId) {
         SalesDelivery delivery = salesDeliveryMapper.selectById(deliveryId);
         if (delivery == null) {
             throw new BusinessException(400, "发货单不存在");
         }
-        List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
+        List<SalesDeliveryItem> items = salesDeliveryItemService.list(
+                new LambdaQueryWrapper<SalesDeliveryItem>().eq(SalesDeliveryItem::getDeliveryId, deliveryId));
         if (items.isEmpty()) {
             throw new BusinessException(400, "发货单明细项不能为空，无法预占库存");
         }
         String orderNo = delivery.getSalesOrderNo();
-        for (SalesDeliveryItemVo item : items) {
+        for (SalesDeliveryItem item : items) {
             Long materialId = item.getMaterialId();
             Long warehouseId = item.getWarehouseId();
             BigDecimal required = item.getQuantity();
@@ -172,23 +199,23 @@ public class SalesDeliveryServiceImpl
             // 先查可用库存，避免直接调用 reserveStock 触发“可用库存不足”异常：
             // 该异常发生在 @Transactional 内会把共享事务标记为 rollback-only，即便捕获也无法提交。
             BigDecimal available = getAvailableStock(materialId, warehouseId);
-            if (available.compareTo(required) >= 0) {
-                // 库存充足：正常预占全部数量（此分支不会触发不足异常）
-                materialStockService.reserveStock(materialId, warehouseId, required,
-                        "SALES_DELIVERY_RESERVE", delivery.getDeliveryNo(), remark);
-                continue;
-            }
-            // 库存不足：尽量预占可用部分（并发变动导致失败则忽略，差额由生产需求覆盖）
-            if (available.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal toReserve = available.compareTo(required) >= 0 ? required : available.max(BigDecimal.ZERO);
+            if (toReserve.compareTo(BigDecimal.ZERO) > 0) {
                 try {
-                    materialStockService.reserveStock(materialId, warehouseId, available,
+                    materialStockService.reserveStock(materialId, warehouseId, toReserve,
                             "SALES_DELIVERY_RESERVE", delivery.getDeliveryNo(), remark);
                 } catch (BusinessException ignore) {
-                    // 差额统一由生产需求覆盖
+                    // 并发变动导致预占失败则忽略，差额由生产需求覆盖
+                    toReserve = BigDecimal.ZERO;
                 }
             }
-            generateProductionDemandForDelivery(delivery, materialId, required.subtract(available));
+            // 库存不足部分转为生产需求
+            if (toReserve.compareTo(required) < 0) {
+                generateProductionDemandForDelivery(delivery, materialId, required.subtract(toReserve));
+            }
+            item.setReservedQuantity(toReserve);
         }
+        salesDeliveryItemService.updateBatchById(items);
     }
 
     /** 计算某物料在某仓库的可用库存（在库量 - 已预占），无库存档案视为 0 */
@@ -220,23 +247,29 @@ public class SalesDeliveryServiceImpl
         productionDemandService.addProductionDemand(demandDto);
     }
 
-    /** 取消发货时释放已预占库存（仅“已确认”发货单曾预占）；草稿态无需处理 */
+    /** 取消发货时释放实际已预占库存（仅释放本单记录已预占的部分）；草稿态无需处理 */
     private void releaseStockForDelivery(Long deliveryId) {
         SalesDelivery delivery = salesDeliveryMapper.selectById(deliveryId);
         if (delivery == null) {
             throw new BusinessException(400, "发货单不存在");
         }
-        List<SalesDeliveryItemVo> items = salesDeliveryItemService.getItemVoByDeliveryIds(List.of(deliveryId));
-        for (SalesDeliveryItemVo item : items) {
-            materialStockService.releaseStock(
-                    item.getMaterialId(),
-                    item.getWarehouseId(),
-                    item.getQuantity(),
-                    "SALES_DELIVERY_RELEASE",
-                    delivery.getDeliveryNo(),
-                    "释放预占 关联销售订单 " + delivery.getSalesOrderNo()
-            );
+        List<SalesDeliveryItem> items = salesDeliveryItemService.list(
+                new LambdaQueryWrapper<SalesDeliveryItem>().eq(SalesDeliveryItem::getDeliveryId, deliveryId));
+        for (SalesDeliveryItem item : items) {
+            BigDecimal reserved = item.getReservedQuantity() == null ? BigDecimal.ZERO : item.getReservedQuantity();
+            if (reserved.compareTo(BigDecimal.ZERO) > 0) {
+                materialStockService.releaseStock(
+                        item.getMaterialId(),
+                        item.getWarehouseId(),
+                        reserved,
+                        "SALES_DELIVERY_RELEASE",
+                        delivery.getDeliveryNo(),
+                        "释放预占 关联销售订单 " + delivery.getSalesOrderNo()
+                );
+            }
+            item.setReservedQuantity(BigDecimal.ZERO);
         }
+        salesDeliveryItemService.updateBatchById(items);
     }
 
     //接口实现:--------------------------------------------------
@@ -357,6 +390,7 @@ public class SalesDeliveryServiceImpl
                 di.setMaterialId(item.getMaterialId());
                 di.setWarehouseId(item.getWarehouseId());
                 di.setQuantity(item.getQuantity());
+                di.setReservedQuantity(BigDecimal.ZERO);
                 allDeliveryItems.add(di);
                 lineNo += 10;
             }

@@ -30,6 +30,10 @@ public class SalesDeliveryItem {
 
     private BigDecimal quantity;
 
+    /** 本次确认时已实际预占的数量（缺货时为部分预占；用于出库时补齐预占、取消时释放） */
+    @TableField("reserved_quantity")
+    private BigDecimal reservedQuantity;
+
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;

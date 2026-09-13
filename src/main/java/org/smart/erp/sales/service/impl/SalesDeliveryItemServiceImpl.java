@@ -163,6 +163,7 @@ public class SalesDeliveryItemServiceImpl
         salesDeliveryItem.setMaterialId(orderItem.getMaterialId());
         salesDeliveryItem.setWarehouseId(orderItem.getWarehouseId());
         salesDeliveryItem.setQuantity(dto.getQuantity());
+        salesDeliveryItem.setReservedQuantity(BigDecimal.ZERO);
         save(salesDeliveryItem);
 
         SalesDeliveryItemVo salesDeliveryItemVo = new SalesDeliveryItemVo();
