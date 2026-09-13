@@ -7,7 +7,6 @@ import org.jspecify.annotations.NonNull;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
-import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.mapper.MaterialMapper;
@@ -47,7 +46,6 @@ public class ProductionReportServiceImpl
     private final CurrentUser currentUser;
     private final MaterialMapper materialMapper;
     private final UserMapper userMapper;
-    private final MaterialStockService materialStockService;
     private final WarehouseMapper warehouseMapper;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -58,7 +56,6 @@ public class ProductionReportServiceImpl
             CurrentUser currentUser,
             MaterialMapper materialMapper,
             UserMapper userMapper,
-            MaterialStockService materialStockService,
             WarehouseMapper warehouseMapper,
             ApplicationEventPublisher eventPublisher
     )
@@ -68,7 +65,6 @@ public class ProductionReportServiceImpl
         this.currentUser = currentUser;
         this.materialMapper = materialMapper;
         this.userMapper = userMapper;
-        this.materialStockService = materialStockService;
         this.warehouseMapper = warehouseMapper;
         this.eventPublisher = eventPublisher;
     }
@@ -355,17 +351,12 @@ public class ProductionReportServiceImpl
             throw new BusinessException(400, "合格数量不能为0");
         }
 
-        // 回写生产订单已完成数量（合格量累计），并完善完成条件：累计合格达到计划量则自动完成
+        // 回写生产订单已完成数量（合格量累计），仅用于进度展示；
+        // 生产订单的 COMPLETED 以实际成品入库为准（累计入库达到 plannedQuantity 时由 warehouseFinishWarehousing 置为完成）
         ProductionOrder order = productionOrderMapper.selectById(productionReport.getProductionOrderId());
         if (order != null) {
             BigDecimal completed = order.getCompletedQuantity() == null ? BigDecimal.ZERO : order.getCompletedQuantity();
-            BigDecimal newCompleted = completed.add(qualifiedQuantity);
-            order.setCompletedQuantity(newCompleted);
-            if (newCompleted.compareTo(order.getPlannedQuantity()) >= 0
-                    && order.getStatus() == ProductionOrderStatus.IN_PROGRESS) {
-                order.setStatus(ProductionOrderStatus.COMPLETED);
-                order.setActualEndTime(LocalDateTime.now());
-            }
+            order.setCompletedQuantity(completed.add(qualifiedQuantity));
             productionOrderMapper.updateById(order);
         }
 

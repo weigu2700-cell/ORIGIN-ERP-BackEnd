@@ -34,6 +34,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -49,6 +50,7 @@ public class ProductionPickingServiceImpl
 {
 
     private final BusinessNoGenerator businessNoGenerator;
+    private final ProductionPickingMapper productionPickingMapper;
     private final ProductionOrderMapper productionOrderMapper;
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
@@ -58,6 +60,7 @@ public class ProductionPickingServiceImpl
 
     public ProductionPickingServiceImpl(
             BusinessNoGenerator businessNoGenerator,
+            ProductionPickingMapper productionPickingMapper,
             ProductionOrderMapper productionOrderMapper,
             MaterialMapper materialMapper,
             WarehouseMapper warehouseMapper,
@@ -66,6 +69,7 @@ public class ProductionPickingServiceImpl
             MaterialStockService materialStockService)
     {
         this.businessNoGenerator = businessNoGenerator;
+        this.productionPickingMapper = productionPickingMapper;
         this.productionOrderMapper = productionOrderMapper;
         this.materialMapper = materialMapper;
         this.warehouseMapper = warehouseMapper;
@@ -298,6 +302,14 @@ public class ProductionPickingServiceImpl
 
     @Override
     public Page<ProductionPickingVo> pageProductionPicking(ProductionPickingPageDto dto) {
+        ProductionPickingStatus status = null;
+        if (dto.getStatus() != null) {
+            status = Arrays.stream(ProductionPickingStatus.values())
+                    .filter(candidate -> candidate.getCode() == dto.getStatus())
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessException(400, "领料单状态编码无效"));
+        }
+
         LambdaQueryWrapper<ProductionPicking> queryWrapper =
                 new LambdaQueryWrapper<ProductionPicking>()
                     .eq(Objects.nonNull(dto.getProductionOrderId()),
@@ -312,8 +324,8 @@ public class ProductionPickingServiceImpl
                     .eq(Objects.nonNull(dto.getWarehouseId()),
                             ProductionPicking::getWarehouseId, dto.getWarehouseId())
 
-                    .eq(Objects.nonNull(dto.getStatus()),
-                            ProductionPicking::getStatus, dto.getStatus())
+                    .eq(Objects.nonNull(status),
+                            ProductionPicking::getStatus, status)
 
                     .ge(Objects.nonNull(dto.getPickingTimeStart()),
                             ProductionPicking::getPickingTime, dto.getPickingTimeStart())
@@ -323,21 +335,47 @@ public class ProductionPickingServiceImpl
 
                     .orderByAsc(ProductionPicking::getCreateTime);
 
-        Page<ProductionPicking> page = this.page(new Page<>(dto.getPageNum(), dto.getPageSize()), queryWrapper);
+        Page<ProductionPicking> page = productionPickingMapper.selectPage(
+                new Page<>(dto.getPageNum(), dto.getPageSize()), queryWrapper);
 
-        Set<Long> materialIds = page.getRecords().stream()
+        List<ProductionPickingVo> voList = convertToVo(page.getRecords());
+
+        Page<ProductionPickingVo> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        voPage.setRecords(voList);
+        return voPage;
+    }
+
+    @Override
+    public ProductionPickingVo getProductionPicking(Long id) {
+        if (id == null) {
+            throw new BusinessException(400, "领料单ID不能为空");
+        }
+        ProductionPicking picking = productionPickingMapper.selectById(id);
+        if (picking == null) {
+            throw new BusinessException(404, "领料单不存在");
+        }
+        return convertToVo(List.of(picking)).getFirst();
+    }
+
+    /** 分页与详情共用同一批量关联查询和 VO 映射，避免字段漂移及逐行查询。 */
+    private List<ProductionPickingVo> convertToVo(List<ProductionPicking> pickings) {
+        if (pickings.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Long> materialIds = pickings.stream()
                 .map(ProductionPicking::getMaterialId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
 
-        Set<Long> warehouseIds = page.getRecords().stream()
+        Set<Long> warehouseIds = pickings.stream()
                 .map(ProductionPicking::getWarehouseId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
 
-        Set<Long> orderIds = page.getRecords().stream()
+        Set<Long> orderIds = pickings.stream()
                 .map(ProductionPicking::getProductionOrderId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
 
-        Set<Long> demandIds = page.getRecords().stream()
+        Set<Long> demandIds = pickings.stream()
                 .map(ProductionPicking::getPurchaseDemandId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
 
@@ -361,7 +399,7 @@ public class ProductionPickingServiceImpl
                 : purchaseDemandMapper.selectByIds(demandIds).stream()
                     .collect(Collectors.toMap(PurchaseDemand::getId, d -> d));
 
-        List<ProductionPickingVo> voList = page.getRecords().stream().map(picking -> {
+        return pickings.stream().map(picking -> {
             ProductionPickingVo vo = new ProductionPickingVo();
             BeanUtils.copyProperties(picking, vo);
 
@@ -384,10 +422,6 @@ public class ProductionPickingServiceImpl
             }
             return vo;
         }).toList();
-
-        Page<ProductionPickingVo> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        voPage.setRecords(voList);
-        return voPage;
     }
 
     @Override

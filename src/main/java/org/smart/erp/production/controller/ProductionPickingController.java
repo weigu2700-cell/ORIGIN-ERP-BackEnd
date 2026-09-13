@@ -38,6 +38,13 @@ public class ProductionPickingController {
         return Result.success();
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('production:picking:get')")
+    @Operation(summary = "获取领料单详情")
+    public Result<ProductionPickingVo> get(
+            @PathVariable @Parameter(description = "领料单ID") Long id) {
+        return Result.success(productionPickingService.getProductionPicking(id));
+    }
 
     @GetMapping
     @PreAuthorize("hasAnyAuthority('production:picking:list')")

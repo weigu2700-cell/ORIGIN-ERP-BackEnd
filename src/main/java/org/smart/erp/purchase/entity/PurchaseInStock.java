@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("pur_purchase_in_stock")
+@TableName("pur_in_stock")
 public class PurchaseInStock {
 
     @TableId(value = "id", type = IdType.ASSIGN_ID)

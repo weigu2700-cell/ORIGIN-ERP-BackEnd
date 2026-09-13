@@ -1,4 +1,4 @@
-package org.smart.erp.master.convertor;
+package org.smart.erp.master.converter;
 
 import org.smart.erp.master.dto.CustomerDto.CustomerUpdateDto;
 import org.smart.erp.master.dto.SupplierDto.SupplierUpdateDto;

@@ -20,4 +20,29 @@ public enum ProductionOrderStatus {
         this.code = code;
         this.desc = desc;
     }
+
+    /**
+     * 查询参数绑定用：兼容数字码（如 "2"）与枚举名（如 "IN_PROGRESS"）。
+     */
+    public static ProductionOrderStatus from(String source) {
+        if (source == null || source.isBlank()) {
+            return null;
+        }
+        String trimmed = source.trim();
+        try {
+            int code = Integer.parseInt(trimmed);
+            for (ProductionOrderStatus value : values()) {
+                if (value.code == code) {
+                    return value;
+                }
+            }
+        } catch (NumberFormatException ignored) {
+            // 非数字，按名称匹配
+        }
+        try {
+            return ProductionOrderStatus.valueOf(trimmed.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
 }

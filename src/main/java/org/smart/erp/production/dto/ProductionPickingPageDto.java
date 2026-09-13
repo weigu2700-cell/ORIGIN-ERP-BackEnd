@@ -1,8 +1,6 @@
 package org.smart.erp.production.dto;
 
 import lombok.Data;
-import org.smart.erp.production.enums.ProductionPickingStatus;
-
 import java.time.LocalDateTime;
 
 @Data
@@ -24,8 +22,8 @@ public class ProductionPickingPageDto {
     /** 领料仓库 ID */
     private Long warehouseId;
 
-    /** 领料单状态 */
-    private ProductionPickingStatus status;
+    /** 领料单状态稳定编码：0 草稿、1 已审批、2 已领料、3 已取消。 */
+    private Integer status;
 
     /** 领料时间起 */
     private LocalDateTime pickingTimeStart;

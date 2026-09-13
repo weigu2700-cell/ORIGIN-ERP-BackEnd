@@ -135,10 +135,20 @@ public class MaterialStockServiceImpl
                         .eq(dto.getMaterialId() != null, MaterialStock::getMaterialId, dto.getMaterialId())
                         .eq(dto.getWarehouseId() != null, MaterialStock::getWarehouseId, dto.getWarehouseId());
 
-        // 物料编码模糊过滤：先查匹配的物料 id，再 in
-        if (StringUtils.hasText(dto.getMaterialCode())) {
+        boolean hasMaterialCode = StringUtils.hasText(dto.getMaterialCode());
+        boolean hasKeyword = StringUtils.hasText(dto.getKeyword());
+        if (hasMaterialCode || hasKeyword) {
+            String materialCode = hasMaterialCode ? dto.getMaterialCode().trim() : null;
+            String keyword = hasKeyword ? dto.getKeyword().trim() : null;
+            LambdaQueryWrapper<Material> materialQuery = new LambdaQueryWrapper<Material>()
+                    .eq(hasMaterialCode, Material::getCode, materialCode)
+                    .and(hasKeyword, condition -> condition
+                            .like(Material::getCode, keyword)
+                            .or()
+                            .like(Material::getName, keyword));
+
             List<Long> matchedIds = materialMapper.selectList(
-                    new LambdaQueryWrapper<Material>().like(Material::getCode, dto.getMaterialCode())
+                    materialQuery
             ).stream().map(Material::getId).toList();
             if (matchedIds.isEmpty()) {
                 return new Page<>(dto.getPageNum(), dto.getPageSize());
@@ -146,7 +156,8 @@ public class MaterialStockServiceImpl
             queryWrapper.in(MaterialStock::getMaterialId, matchedIds);
         }
 
-        Page<MaterialStock> page = this.page(new Page<>(dto.getPageNum(), dto.getPageSize()), queryWrapper);
+        Page<MaterialStock> page = materialStockMapper.selectPage(
+                new Page<>(dto.getPageNum(), dto.getPageSize()), queryWrapper);
 
         List<Long> materialIds = page.getRecords().stream().map(MaterialStock::getMaterialId).distinct().toList();
         List<Long> warehouseIds = page.getRecords().stream().map(MaterialStock::getWarehouseId).distinct().toList();

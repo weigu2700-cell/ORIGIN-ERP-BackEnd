@@ -13,5 +13,9 @@ public class MaterialStockPageDto {
 
     private Long warehouseId;
 
+    /** 物料编码精确匹配。 */
     private String materialCode;
+
+    /** 物料编码或名称模糊匹配。 */
+    private String keyword;
 }

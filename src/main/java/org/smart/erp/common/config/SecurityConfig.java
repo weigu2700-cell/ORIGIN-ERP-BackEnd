@@ -3,6 +3,8 @@ package org.smart.erp.common.config;
 
 import jakarta.annotation.Resource;
 import org.smart.erp.common.security.JwtAuthenticationFilter;
+import org.smart.erp.common.security.RestAccessDeniedHandler;
+import org.smart.erp.common.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -26,12 +28,22 @@ public class SecurityConfig {
     @Resource
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Resource
+    private RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+
+    @Resource
+    private RestAccessDeniedHandler restAccessDeniedHandler;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exception -> exception
+                    .authenticationEntryPoint(restAuthenticationEntryPoint)
+                    .accessDeniedHandler(restAccessDeniedHandler)
+            )
             .authorizeHttpRequests(authorize -> authorize
                     // CORS 预检请求放行
                     .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()

@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.common.utils.SnowflakeIdGenerator;
-import org.smart.erp.master.convertor.ApplyUpdate;
+import org.smart.erp.master.converter.ApplyUpdate;
 import org.smart.erp.master.dto.SupplierDto.SupplierAddDto;
 import org.smart.erp.master.dto.SupplierDto.SupplierPageDto;
 import org.smart.erp.master.dto.SupplierDto.SupplierUpdateDto;

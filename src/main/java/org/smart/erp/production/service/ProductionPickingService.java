@@ -18,6 +18,9 @@ public interface ProductionPickingService extends IService<ProductionPicking> {
     /** 按条件分页查询领料单（返回展示 Vo） */
     Page<ProductionPickingVo> pageProductionPicking(ProductionPickingPageDto dto);
 
+    /** 获取领料单详情（返回与分页列表一致的展示 Vo）。 */
+    ProductionPickingVo getProductionPicking(Long id);
+
     /**
      * 由生产订单按 BOM 生成领料单：
      * - 在库物料：选择有可用库存的仓库预留后，状态置“已审批/可领料”
