@@ -104,6 +104,16 @@ public class ProductionOrderServiceImpl
         order.setProductionOrderNo(businessNoGenerator.generateNo("erp:sequence:production-order:", "PO"));
         order.setStatus(ProductionOrderStatus.DRAFT);
         order.setCompletedQuantity(BigDecimal.ZERO);
+        // 草稿单的计划时间/备注待排产时补全；此处给占位默认值，避免 NOT NULL 列无默认值报错
+        if (order.getPlannedStartTime() == null) {
+            order.setPlannedStartTime(LocalDateTime.now());
+        }
+        if (order.getPlannedEndTime() == null) {
+            order.setPlannedEndTime(LocalDateTime.now());
+        }
+        if (order.getRemark() == null) {
+            order.setRemark("");
+        }
         save(order);
     }
 

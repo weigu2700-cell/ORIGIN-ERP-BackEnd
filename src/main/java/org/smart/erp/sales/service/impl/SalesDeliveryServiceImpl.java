@@ -26,6 +26,10 @@ import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.sales.vo.SalesDeliveryItemVo;
 import org.smart.erp.sales.vo.SalesDeliveryVo;
+import org.smart.erp.production.dto.ProductionDemandAddDto;
+import org.smart.erp.production.enums.ProductionSourceType;
+import org.smart.erp.production.service.ProductionDemandService;
+import org.smart.erp.inventory.entity.MaterialStock;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,6 +56,7 @@ public class SalesDeliveryServiceImpl
     private final SalesOrderItemMapper salesOrderItemMapper;
     private final SalesDeliveryItemService salesDeliveryItemService;
     private final MaterialStockService materialStockService;
+    private final ProductionDemandService productionDemandService;
     private final BusinessNoGenerator businessNoGenerator;
     private final CustomerMapper customerMapper;
     @Lazy
@@ -60,6 +66,7 @@ public class SalesDeliveryServiceImpl
             SalesDeliveryMapper salesDeliveryMapper,
             SalesDeliveryItemService salesDeliveryItemService,
             MaterialStockService materialStockService,
+            ProductionDemandService productionDemandService,
             BusinessNoGenerator businessNoGenerator,
             CustomerMapper customerMapper,
             SalesOrderMapper salesOrderMapper,
@@ -70,6 +77,7 @@ public class SalesDeliveryServiceImpl
         this.salesDeliveryMapper = salesDeliveryMapper;
         this.salesDeliveryItemService = salesDeliveryItemService;
         this.materialStockService = materialStockService;
+        this.productionDemandService = productionDemandService;
         this.businessNoGenerator = businessNoGenerator;
         this.customerMapper = customerMapper;
         this.salesOrderMapper = salesOrderMapper;
@@ -144,7 +152,7 @@ public class SalesDeliveryServiceImpl
         }
     }
 
-    /** 确认发货时逐行预占库存（可用库存不足则整体回滚）；预占由出货单决定 */
+    /** 确认发货时逐行预占库存；库存不足时差额自动转生产需求，不阻断确认 */
     private void reserveStockForDelivery(Long deliveryId) {
         SalesDelivery delivery = salesDeliveryMapper.selectById(deliveryId);
         if (delivery == null) {
@@ -154,16 +162,62 @@ public class SalesDeliveryServiceImpl
         if (items.isEmpty()) {
             throw new BusinessException(400, "发货单明细项不能为空，无法预占库存");
         }
+        String orderNo = delivery.getSalesOrderNo();
         for (SalesDeliveryItemVo item : items) {
-            materialStockService.reserveStock(
-                    item.getMaterialId(),
-                    item.getWarehouseId(),
-                    item.getQuantity(),
-                    "SALES_DELIVERY_RESERVE",
-                    delivery.getDeliveryNo(),
-                    "销售预占 关联销售订单 " + delivery.getSalesOrderNo()
-            );
+            Long materialId = item.getMaterialId();
+            Long warehouseId = item.getWarehouseId();
+            BigDecimal required = item.getQuantity();
+            String remark = "销售预占 关联销售订单 " + orderNo;
+
+            // 先查可用库存，避免直接调用 reserveStock 触发“可用库存不足”异常：
+            // 该异常发生在 @Transactional 内会把共享事务标记为 rollback-only，即便捕获也无法提交。
+            BigDecimal available = getAvailableStock(materialId, warehouseId);
+            if (available.compareTo(required) >= 0) {
+                // 库存充足：正常预占全部数量（此分支不会触发不足异常）
+                materialStockService.reserveStock(materialId, warehouseId, required,
+                        "SALES_DELIVERY_RESERVE", delivery.getDeliveryNo(), remark);
+                continue;
+            }
+            // 库存不足：尽量预占可用部分（并发变动导致失败则忽略，差额由生产需求覆盖）
+            if (available.compareTo(BigDecimal.ZERO) > 0) {
+                try {
+                    materialStockService.reserveStock(materialId, warehouseId, available,
+                            "SALES_DELIVERY_RESERVE", delivery.getDeliveryNo(), remark);
+                } catch (BusinessException ignore) {
+                    // 差额统一由生产需求覆盖
+                }
+            }
+            generateProductionDemandForDelivery(delivery, materialId, required.subtract(available));
         }
+    }
+
+    /** 计算某物料在某仓库的可用库存（在库量 - 已预占），无库存档案视为 0 */
+    private BigDecimal getAvailableStock(Long materialId, Long warehouseId) {
+        MaterialStock stock = materialStockService.getOne(
+                new LambdaQueryWrapper<MaterialStock>()
+                        .eq(MaterialStock::getMaterialId, materialId)
+                        .eq(MaterialStock::getWarehouseId, warehouseId),
+                false
+        );
+        if (stock == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal onHand = stock.getOnHand() == null ? BigDecimal.ZERO : stock.getOnHand();
+        BigDecimal reserved = stock.getReserved() == null ? BigDecimal.ZERO : stock.getReserved();
+        return onHand.subtract(reserved);
+    }
+
+    /** 为发货单的库存缺口生成生产需求单（来源关联销售订单） */
+    private void generateProductionDemandForDelivery(SalesDelivery delivery, Long materialId, BigDecimal shortfall) {
+        if (shortfall.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        ProductionDemandAddDto demandDto = new ProductionDemandAddDto();
+        demandDto.setMaterialId(materialId);
+        demandDto.setQuantity(shortfall);
+        demandDto.setSourceType(ProductionSourceType.SALES_ORDER);
+        demandDto.setSourceNo(delivery.getSalesOrderNo());
+        productionDemandService.addProductionDemand(demandDto);
     }
 
     /** 取消发货时释放已预占库存（仅“已确认”发货单曾预占）；草稿态无需处理 */
@@ -214,6 +268,10 @@ public class SalesDeliveryServiceImpl
         salesDelivery.setSalesOrderNo(salesOrder.getOrderNo());
         salesDelivery.setCustomerId(customer.getId());
         salesDelivery.setStatus(SalesDeliveryStatus.DRAFT);
+        if (salesDelivery.getDeliveryDate() == null) {
+            salesDelivery.setDeliveryDate(salesOrder.getDeliveryDate() != null
+                    ? salesOrder.getDeliveryDate() : LocalDateTime.now());
+        }
         save(salesDelivery);
 
         // 批量加载销售订单明细，校验归属同一订单并避免逐条查询
@@ -286,6 +344,8 @@ public class SalesDeliveryServiceImpl
             delivery.setSalesOrderNo(salesOrder.getOrderNo());
             delivery.setCustomerId(salesOrder.getCustomerId());
             delivery.setStatus(SalesDeliveryStatus.DRAFT);
+            delivery.setDeliveryDate(salesOrder.getDeliveryDate() != null
+                    ? salesOrder.getDeliveryDate() : LocalDateTime.now());
             salesDeliveryMapper.insert(delivery);
 
             int lineNo = 10;

@@ -3,8 +3,6 @@ package org.smart.erp.sales.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
-import org.smart.erp.inventory.entity.MaterialStock;
-import org.smart.erp.inventory.mapper.MaterialStockMapper;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.enums.MaterialStatus;
@@ -13,7 +11,6 @@ import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.sales.dto.salesOrderItemDto.SalesOrderItemAddDto;
 import org.smart.erp.sales.dto.salesOrderItemDto.SalesOrderItemUpdateDto;
-import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.entity.SalesOrderItem;
 import org.smart.erp.sales.mapper.SalesOrderItemMapper;
 import org.smart.erp.sales.service.SalesOrderItemService;
@@ -39,19 +36,16 @@ public class SalesOrderItemServiceImpl
     private final SalesOrderItemMapper salesOrderItemMapper;
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
-    private final MaterialStockMapper materialStockMapper;
 
     public SalesOrderItemServiceImpl(
             SalesOrderItemMapper salesOrderItemMapper,
             MaterialMapper materialMapper,
-            WarehouseMapper warehouseMapper,
-            MaterialStockMapper materialStockMapper
+            WarehouseMapper warehouseMapper
     )
     {
         this.salesOrderItemMapper = salesOrderItemMapper;
         this.materialMapper = materialMapper;
         this.warehouseMapper = warehouseMapper;
-        this.materialStockMapper = materialStockMapper;
     }
 
     /**
@@ -60,9 +54,15 @@ public class SalesOrderItemServiceImpl
      * @return 物料信息
      */
     private Material getMaterial(Long materialId) {
+        if (materialId == null) {
+            throw new BusinessException(400, "物料ID不能为空");
+        }
         Material material = materialMapper.selectById(materialId);
-        if (material == null || material.getStatus() != MaterialStatus.ENABLE) {
-            throw new BusinessException(404,"物料不存在或物料被禁用");
+        if (material == null) {
+            throw new BusinessException(404, "物料不存在：id=" + materialId);
+        }
+        if (material.getStatus() != MaterialStatus.ENABLE) {
+            throw new BusinessException(409, "物料[" + material.getName() + "]已停用，无法下单");
         }
         return material;
     }
@@ -78,28 +78,6 @@ public class SalesOrderItemServiceImpl
             throw new BusinessException(404,"仓库不存在或者仓库状态不为启用");
         }
         return warehouse.getName();
-    }
-
-    /**
-     * 校验某物料在某仓库的可用库存是否足以满足需求数量。
-     * 可用库存 = 在库量(onHand) - 已预占(reserved)；字段为 null 时按 0 处理。
-     */
-    private void checkAvailableStock(Long materialId, Long warehouseId, BigDecimal requiredQty) {
-        MaterialStock stock = materialStockMapper.selectOne(
-                new LambdaQueryWrapper<MaterialStock>()
-                        .eq(MaterialStock::getMaterialId, materialId)
-                        .eq(MaterialStock::getWarehouseId, warehouseId)
-        );
-        if (stock == null) {
-            throw new BusinessException(400, "该物料在所选仓库暂无库存档案，无法下单");
-        }
-        BigDecimal onHand = stock.getOnHand() == null ? BigDecimal.ZERO : stock.getOnHand();
-        BigDecimal reserved = stock.getReserved() == null ? BigDecimal.ZERO : stock.getReserved();
-        BigDecimal available = onHand.subtract(reserved);
-        if (available.compareTo(requiredQty) < 0) {
-            throw new BusinessException(400, "可用库存不足：物料 " + materialId
-                    + " 在仓库 " + warehouseId + " 可用 " + available + "，需求 " + requiredQty);
-        }
     }
 
     /**
@@ -142,8 +120,6 @@ public class SalesOrderItemServiceImpl
 
         Material material = getMaterial(dto.getMaterialId());
         String warehouseName = getWarehouse(dto.getWarehouseId());
-        // 出库需求不得超过该物料在所选仓库的可用库存（可用 = 在库量 - 已预占）
-        checkAvailableStock(dto.getMaterialId(), dto.getWarehouseId(), dto.getQuantity());
 
         SalesOrderItem salesOrderItem = new SalesOrderItem();
         BeanUtils.copyProperties(dto, salesOrderItem);
@@ -253,8 +229,6 @@ public class SalesOrderItemServiceImpl
                 continue;
             }
 
-            // 更新数量同样受可用库存约束
-            checkAvailableStock(dto.getMaterialId(), dto.getWarehouseId(), dto.getQuantity());
             BeanUtils.copyProperties(dto, existingItem);
             existingItem.setAmount(dto.getQuantity().multiply(dto.getUnitPrice()));
             salesOrderItemMapper.updateById(existingItem);

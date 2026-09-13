@@ -21,6 +21,7 @@ import org.smart.erp.sales.mapper.SalesOrderMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -97,7 +98,7 @@ public class ProductionDemandServiceImpl
     public Page<ProductionDemandVo> pageProductionDemand(ProductionDemandPageDto dto) {
         LambdaQueryWrapper<ProductionDemand> queryWrapper =
                 new LambdaQueryWrapper<ProductionDemand>()
-                        .eq(Objects.nonNull(dto.getDemandNo()),
+                        .eq(StringUtils.hasText(dto.getDemandNo()),
                                 ProductionDemand::getDemandNo, dto.getDemandNo())
 
                         .eq(Objects.nonNull(dto.getSourceType()),

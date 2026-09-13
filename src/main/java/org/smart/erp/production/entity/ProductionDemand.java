@@ -27,6 +27,7 @@ public class ProductionDemand {
 
     private Long materialId;
 
+    @TableField("demand_quantity")
     private BigDecimal quantity;
 
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")

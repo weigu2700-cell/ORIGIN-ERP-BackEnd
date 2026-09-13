@@ -105,8 +105,11 @@ public class SalesDeliveryItemServiceImpl
             throw new BusinessException(400, "物料不能为空");
         }
         Material material = materialMapper.selectById(materialId);
-        if (material == null || material.getStatus() != MaterialStatus.ENABLE) {
-            throw new BusinessException(404, "物料不存在或物料被禁用");
+        if (material == null) {
+            throw new BusinessException(404, "物料不存在：id=" + materialId);
+        }
+        if (material.getStatus() != MaterialStatus.ENABLE) {
+            throw new BusinessException(409, "物料[" + material.getName() + "]已停用，无法出库");
         }
         return material;
     }
