@@ -18,16 +18,16 @@ public class PermissionsRedis extends RedisUtil {
         super(redisTemplate);
     }
 
-    public PermissionCacheVo getPermissionCache(Long id) {
-        return getCache(PERMISSIONS_KEY_PREFIX, id);
+    public PermissionCacheVo getPermissionCache(Long userId) {
+        return getCache(PERMISSIONS_KEY_PREFIX, userId);
     }
 
     public void activePermissionCache(PermissionCacheVo permission) {
         activeCache(PERMISSIONS_KEY_PREFIX, permission.getId(), permission, Duration.ofHours(2));
     }
 
-    public void evictPermissionCache(Long id) {
-        evictCache(PERMISSIONS_KEY_PREFIX, id);
+    public void evictPermissionCache(Long userId) {
+        evictCache(PERMISSIONS_KEY_PREFIX, userId);
     }
 
     /**

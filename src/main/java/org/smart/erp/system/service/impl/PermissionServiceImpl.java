@@ -53,7 +53,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
 
     /**
      * 权限缓存读取（旁路缓存）。
-     * 先查 Redis，未命中则回源数据库并回填缓存。
+     * 先按权限 id 查 Redis，未命中则回源数据库并回填缓存。
      * @param permissionId 权限 id
      * @return 权限缓存对象；权限不存在时返回 null
      */
