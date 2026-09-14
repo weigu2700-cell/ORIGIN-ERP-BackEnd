@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
+import org.smart.erp.system.cache.PermissionsRedis;
 import org.smart.erp.system.converter.RoleConverter;
 import org.smart.erp.system.dto.PermissionAddDto;
 import org.smart.erp.system.dto.PermissionDetailDto;
@@ -15,11 +16,13 @@ import org.smart.erp.system.Enum.Status;
 import org.smart.erp.system.mapper.PermissionMapper;
 import org.smart.erp.system.mapper.RolePermissionMapper;
 import org.smart.erp.system.service.PermissionService;
+import org.smart.erp.system.vo.PermissionCacheVo;
 import org.smart.erp.system.vo.PermissionTreeVo;
 import org.smart.erp.system.vo.PermissionVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,17 +35,48 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     private final CurrentUser currentUser;
     private final RoleConverter roleConverter;
     private final RolePermissionMapper rolePermissionMapper;
+    private final PermissionsRedis permissionsRedis;
 
-    public PermissionServiceImpl(CurrentUser currentUser, RoleConverter roleConverter, RolePermissionMapper rolePermissionMapper) {
+    public PermissionServiceImpl(
+            CurrentUser currentUser,
+            RoleConverter roleConverter,
+            RolePermissionMapper rolePermissionMapper,
+            PermissionsRedis permissionsRedis
+    ) {
         this.currentUser = currentUser;
         this.roleConverter = roleConverter;
         this.rolePermissionMapper = rolePermissionMapper;
+        this.permissionsRedis = permissionsRedis;
+    }
+
+
+    /**
+     * 权限缓存读取（旁路缓存）。
+     * 先查 Redis，未命中则回源数据库并回填缓存。
+     * @param permissionId 权限 id
+     * @return 权限缓存对象；权限不存在时返回 null
+     */
+    private PermissionCacheVo activePermissionWithCache(Long permissionId) {
+        PermissionCacheVo permissionCacheVo = permissionsRedis.getPermissionCache(permissionId);
+        if (permissionCacheVo != null) {
+            return permissionCacheVo;
+        }
+        Permission entity = this.getById(permissionId);
+        if (entity == null) {
+            return null;
+        }
+        permissionCacheVo = permissionsRedis.buildPermissionCache(entity);
+        permissionsRedis.activePermissionCache(permissionCacheVo);
+        return permissionCacheVo;
     }
 
     /**
      * 将权限实体转换为 Vo。
      * parentNameById 为父级 id -> 父级名称 的映射，可由调用方批量查询后传入；
      * 不需要父级名称时传空 Map 即可（parentName 置为 null）。
+     * @param p 权限实体
+     * @param parentNameById 父级 id -> 父级名称 的映射
+     * @return 权限 Vo
      */
     private PermissionTreeVo toVO(Permission p, Map<Long, String> parentNameById) {
         PermissionTreeVo vo = new PermissionTreeVo();
@@ -79,33 +113,71 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
 
         List<Long> permissionIds = rolePermissions.stream()
                 .map(RolePermission::getPermissionId)
+                .distinct()
                 .toList();
 
-        Map<Long, Permission> permissionMap = this.listByIds(permissionIds)
-                .stream()
-                .collect(Collectors.toMap(Permission::getId, p -> p));
+        // 优先走缓存；缓存层异常（如 Redis 未启动）时整体回退数据库，
+        // 避免认证链路因缓存故障直接 401 把用户踢回登录页
+        Map<Long, PermissionCacheVo> permissionMap = loadPermissionMap(permissionIds);
 
-        List<PermissionVo> vos = new java.util.ArrayList<>();
+        List<PermissionVo> vos = new ArrayList<>();
         for (RolePermission rolePermission : rolePermissions) {
-            Permission permission = permissionMap.get(rolePermission.getPermissionId());
-            if (permission != null) {
+            PermissionCacheVo cacheVo = permissionMap.get(rolePermission.getPermissionId());
+            if (cacheVo != null) {
                 PermissionVo vo = new PermissionVo();
-                BeanUtils.copyProperties(permission, vo);
+                BeanUtils.copyProperties(cacheVo, vo);
                 vos.add(vo);
             }
         }
         return vos;
     }
 
+    /**
+     * 读取权限映射。缓存可用时逐条走旁路缓存；缓存不可用时回退数据库，
+     * 保证登录 / 鉴权链路不依赖 Redis 存活。
+     */
+    private Map<Long, PermissionCacheVo> loadPermissionMap(List<Long> permissionIds) {
+        try {
+            Map<Long, PermissionCacheVo> cached = permissionIds.stream()
+                    .map(this::activePermissionWithCache)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toMap(PermissionCacheVo::getId, vo -> vo));
+            if (cached.size() == permissionIds.size()) {
+                return cached;
+            }
+            // 部分未命中（如数据库已无该权限）时用数据库补齐，避免漏权限
+            return fillFromDb(permissionIds, cached);
+        } catch (Exception ex) {
+            // Redis 未启动 / 网络异常等缓存故障：直接走数据库兜底
+            return fillFromDb(permissionIds, new java.util.HashMap<>());
+        }
+    }
+
+    private Map<Long, PermissionCacheVo> fillFromDb(
+            List<Long> permissionIds,
+            Map<Long, PermissionCacheVo> base
+    ) {
+        if (permissionIds.isEmpty()) {
+            return base;
+        }
+        this.listByIds(permissionIds).forEach(p -> {
+            PermissionCacheVo vo = new PermissionCacheVo();
+            BeanUtils.copyProperties(p, vo);
+            base.putIfAbsent(p.getId(), vo);
+        });
+        return base;
+    }
+
     @Override
     public Page<PermissionTreeVo> pagePermission(PermissionDetailDto dto) {
-        LambdaQueryWrapper<Permission> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.like(dto.getName() != null, Permission::getName, dto.getName());
-        queryWrapper.like(dto.getCode() != null, Permission::getCode, dto.getCode());
-        queryWrapper.eq(dto.getType() != null, Permission::getType, dto.getType());
-        queryWrapper.eq(dto.getStatus() != null, Permission::getStatus, dto.getStatus());
-        queryWrapper.eq(dto.getParentId() != null, Permission::getParentId, dto.getParentId());
-        queryWrapper.orderByDesc(Permission::getSort);
+        LambdaQueryWrapper<Permission> queryWrapper =
+                new LambdaQueryWrapper<Permission>()
+                        .like(dto.getName() != null, Permission::getName, dto.getName())
+                        .like(dto.getCode() != null, Permission::getCode, dto.getCode())
+                        .eq(dto.getType() != null, Permission::getType, dto.getType())
+                        .eq(dto.getStatus() != null, Permission::getStatus, dto.getStatus())
+                        .eq(dto.getParentId() != null, Permission::getParentId, dto.getParentId())
+                        .orderByDesc(Permission::getSort);
 
         Page<Permission> page = this.page(new Page<>(dto.getPage(), dto.getPageSize()), queryWrapper);
 
@@ -132,7 +204,6 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
 
     /**
      * 查询权限树（父子层级结构）。
-     *
      * 思路：
      * 1. 一次性查出所有未删除的权限（权限表通常数据量不大，全量查即可，避免递归 SQL）。
      * 2. 先全部转成 Vo，并建立 "id -> Vo" 的索引，方便子节点快速挂到父节点下。
@@ -140,7 +211,6 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
      *    - 若 parentId 为空或为 0，说明是顶级节点，放入树的根列表；
      *    - 否则从索引里找到父节点，把自己加进父节点的 children 列表。
      * 4. 按 sort 倒序（与列表接口保持一致），让前端展示有序。
-     *
      * 时间复杂度 O(n)，只查一次数据库，没有 N+1 问题。
      */
     @Override
@@ -232,6 +302,8 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         if (dto.getRemark() != null) permission.setRemark(dto.getRemark());
 
         this.updateById(permission);
+        // 写后失效，避免缓存残留旧数据（TTL 2h 兜底）
+        permissionsRedis.evictPermissionCache(permission.getId());
     }
 
     @Override

@@ -3,7 +3,6 @@ package org.smart.erp.system.cache;
 import org.smart.erp.common.utils.RedisUtil;
 import org.smart.erp.system.entity.Permission;
 import org.smart.erp.system.vo.PermissionCacheVo;
-import org.smart.erp.system.vo.PermissionVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -11,29 +10,24 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 @Component
-public class PermissionsCache extends RedisUtil {
+public class PermissionsRedis extends RedisUtil {
 
-    private final String PERMISSIONS_KEY = "erp:auth:permissions";
+    private final String PERMISSIONS_KEY_PREFIX = "erp:auth:permissions";
 
-    public PermissionsCache(RedisTemplate<String, Object> redisTemplate) {
+    public PermissionsRedis(RedisTemplate<String, Object> redisTemplate) {
         super(redisTemplate);
     }
 
     public PermissionCacheVo getPermissionCache(Long id) {
-        return getCache(PERMISSIONS_KEY, id);
+        return getCache(PERMISSIONS_KEY_PREFIX, id);
     }
 
-    public void activePermissionCache(Permission permission) {
-        activeCache(
-                PERMISSIONS_KEY,
-                permission.getId(),
-                buildPermissionCache(permission),
-                Duration.ofHours(1)
-        );
+    public void activePermissionCache(PermissionCacheVo permission) {
+        activeCache(PERMISSIONS_KEY_PREFIX, permission.getId(), permission, Duration.ofHours(2));
     }
 
     public Boolean evictPermissionCache(Long id) {
-        return evictCache(PERMISSIONS_KEY, id);
+        return evictCache(PERMISSIONS_KEY_PREFIX, id);
     }
 
     /**

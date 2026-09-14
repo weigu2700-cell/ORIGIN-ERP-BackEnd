@@ -27,7 +27,7 @@ public class BOMRedis extends RedisUtil {
     }
 
     public void cacheActiveBom(BOMCacheDto bomCacheDto) {
-        activeCache(BOM_CACHE_KEY_PREFIX, bomCacheDto.getMaterialId(), bomCacheDto, Duration.ofHours(1));
+        activeCache(BOM_CACHE_KEY_PREFIX, bomCacheDto.getMaterialId(), bomCacheDto, Duration.ofHours(2));
     }
 
     public void evictBomCache(Long materialId) {
