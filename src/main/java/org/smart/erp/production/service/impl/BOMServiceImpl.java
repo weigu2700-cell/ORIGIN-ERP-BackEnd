@@ -10,9 +10,8 @@ import org.smart.erp.inventory.mapper.MaterialStockMapper;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
-import org.smart.erp.production.dto.BOMAddDto;
-import org.smart.erp.production.dto.BOMItemAddDto;
-import org.smart.erp.production.dto.BOMPageDto;
+import org.smart.erp.production.cache.BOMRedis;
+import org.smart.erp.production.dto.*;
 import org.smart.erp.production.entity.BOM;
 import org.smart.erp.production.entity.BOMItem;
 import org.smart.erp.production.enums.BOMStatus;
@@ -46,6 +45,8 @@ public class BOMServiceImpl
     private final BOMItemService bomItemService;
     private final BusinessNoGenerator businessNoGenerator;
     private final MaterialStockMapper materialStockMapper;
+    private final BOMRedis bomRedis;
+
 
     public BOMServiceImpl(
             MaterialMapper materialMapper,
@@ -53,7 +54,8 @@ public class BOMServiceImpl
             BOMItemService bomItemService,
             BusinessNoGenerator businessNoGenerator,
             BOMMapper bomMapper,
-            MaterialStockMapper materialStockMapper
+            MaterialStockMapper materialStockMapper,
+            BOMRedis bomRedis
     )
     {
         this.materialMapper = materialMapper;
@@ -62,8 +64,41 @@ public class BOMServiceImpl
         this.businessNoGenerator = businessNoGenerator;
         this.bomMapper = bomMapper;
         this.materialStockMapper = materialStockMapper;
+        this.bomRedis = bomRedis;
     }
 
+    /**
+     * 获取有效的 BOM 缓存
+     * 优先从缓存中获取，如果缓存不存在，则从数据库中获取，并缓存到 Redis 中
+     * @param materialId 物料 ID
+     * @return BOM 缓存
+     */
+    private BOMCacheDto getActiveBomWithCache ( Long materialId ) {
+
+        BOMCacheDto cache = bomRedis.getBomCache(materialId);
+        if (cache != null) return cache;
+
+        BOM bom = this.getOne(
+                new LambdaQueryWrapper<BOM>()
+                        .eq(BOM::getMaterialId, materialId)
+                        .eq(BOM::getStatus, BOMStatus.ACTIVE)
+                        .orderByDesc(BOM::getVersion)
+                        .last("limit 1")
+        );
+        if (bom == null) return null;
+
+        List<BOMItem> bomItems = bomItemMapper.selectList(
+                new LambdaQueryWrapper<BOMItem>()
+                        .eq(BOMItem::getBomId, bom.getId())
+                        .orderByAsc(BOMItem::getLineNo)
+        );
+
+        BOMCacheDto bomCacheDto = bomRedis.buildBomCache(bom, bomItems);
+
+        bomRedis.cacheActiveBom(bomCacheDto);
+        return bomCacheDto;
+
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -175,6 +210,7 @@ public class BOMServiceImpl
         }
         bom.setStatus(BOMStatus.INACTIVE);
         baseMapper.updateById(bom);
+        bomRedis.evictBomCache(bom.getMaterialId());
     }
 
     @Override
@@ -207,6 +243,7 @@ public class BOMServiceImpl
         }
         bom.setStatus(BOMStatus.ACTIVE);
         baseMapper.updateById(bom);
+        bomRedis.evictBomCache(bom.getMaterialId());
     }
 
     @Override
@@ -218,12 +255,8 @@ public class BOMServiceImpl
             throw new BusinessException(400, "展开数量必须大于0");
         }
 
-        BOM bom = baseMapper.selectOne(new LambdaQueryWrapper<BOM>()
-                .eq(BOM::getMaterialId, materialId)
-                .eq(BOM::getStatus, BOMStatus.ACTIVE)
-                .orderByDesc(BOM::getVersion)
-                .last("limit 1"));
-        if (Objects.isNull(bom)) {
+        BOMCacheDto bomCache = getActiveBomWithCache(materialId);
+        if (bomCache == null) {
             throw new BusinessException(404, "BOM不存在");
         }
 
@@ -238,33 +271,31 @@ public class BOMServiceImpl
         root.setMaterialName(material.getName());
         root.setQuantity(quantity);
         root.setLevel(0);
-        root.setChildren(buildExplosionChildren(bom, quantity, 1, new HashSet<>()));
+        root.setChildren(buildExplosionChildren(bomCache, quantity, 1, new HashSet<>()));
         return List.of(root);
     }
 
-    /** 将 BOM 明细按父子关系递归构造成树，并在每条路径上检测循环引用。 */
+    /**
+     * 将 BOM 明细按父子关系递归构造成树，并在每条路径上检测循环引用。
+     * 每个节点的 BOM 及其明细优先走 Redis 旁路缓存（getActiveBomWithCache）。
+     */
     private List<BOMExplosionVo> buildExplosionChildren(
-            BOM parentBom, BigDecimal parentQuantity, int level, Set<Long> path) {
+            BOMCacheDto parentBom, BigDecimal parentQuantity, int level, Set<Long> path) {
         if (!path.add(parentBom.getMaterialId())) {
             throw new BusinessException(400, "BOM存在循环引用");
         }
-        List<BOMItem> bomItems = bomItemMapper.selectList(
-                new LambdaQueryWrapper<BOMItem>().eq(BOMItem::getBomId, parentBom.getId()));
+        List<BOMItemCacheDto> bomItems = Optional.ofNullable(parentBom.getItems())
+                .orElse(Collections.emptyList());
         if (bomItems.isEmpty()) {
             return Collections.emptyList();
         }
 
         Map<Long, Material> materials = materialMapper.selectByIds(bomItems.stream()
-                        .map(BOMItem::getComponentMaterialId).distinct().toList())
+                        .map(BOMItemCacheDto::getComponentMaterialId).distinct().toList())
                 .stream().collect(Collectors.toMap(Material::getId, Function.identity()));
-        Map<Long, BOM> activeBoms = bomMapper.selectList(new LambdaQueryWrapper<BOM>()
-                        .in(BOM::getMaterialId, materials.keySet())
-                        .eq(BOM::getStatus, BOMStatus.ACTIVE))
-                .stream().collect(Collectors.toMap(BOM::getMaterialId, Function.identity(),
-                        (first, second) -> first));
 
         List<BOMExplosionVo> result = new ArrayList<>();
-        for (BOMItem bomItem : bomItems) {
+        for (BOMItemCacheDto bomItem : bomItems) {
             BOMExplosionVo vo = new BOMExplosionVo();
             vo.setMaterialId(bomItem.getComponentMaterialId());
             Material material = materials.get(bomItem.getComponentMaterialId());
@@ -277,9 +308,10 @@ public class BOMServiceImpl
             BigDecimal explodedQty = unitQty.multiply(parentQuantity).multiply(BigDecimal.ONE.add(lossRate));
             vo.setQuantity(explodedQty);
             vo.setLevel(level);
-            BOM childBom = activeBoms.get(bomItem.getComponentMaterialId());
-            if (childBom != null) {
-                vo.setChildren(buildExplosionChildren(childBom, explodedQty, level + 1, new HashSet<>(path)));
+            // 子件若为自制件（存在 ACTIVE BOM）则递归展开，命中缓存可省去 DB 查询
+            BOMCacheDto childCache = getActiveBomWithCache(bomItem.getComponentMaterialId());
+            if (childCache != null) {
+                vo.setChildren(buildExplosionChildren(childCache, explodedQty, level + 1, new HashSet<>(path)));
             }
             result.add(vo);
         }
