@@ -225,7 +225,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             permission.setStatus(Status.ENABLE);
         }
         this.save(permission);
-        permissionsRedis.evictPermissionsCache(permission.getId());
+        permissionsRedis.evictAllPermissionsCache();
     }
 
     @Override
@@ -255,8 +255,8 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         if (dto.getRemark() != null) permission.setRemark(dto.getRemark());
 
         this.updateById(permission);
-        // 写后失效，避免缓存残留旧数据（TTL 2h 兜底）
-        permissionsRedis.evictPermissionsCache(permission.getId());
+        // 权限变更影响所有用户，全量失效，避免缓存残留旧数据（TTL 2h 兜底）
+        permissionsRedis.evictAllPermissionsCache();
     }
 
     @Override

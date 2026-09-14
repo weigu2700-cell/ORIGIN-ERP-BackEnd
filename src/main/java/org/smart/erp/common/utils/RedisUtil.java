@@ -1,6 +1,5 @@
 package org.smart.erp.common.utils;
 
-import org.smart.erp.system.vo.PermissionCacheVo;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +26,18 @@ public class RedisUtil {
      */
     public String getRedisKey(String cacheKey, Long id) {
         return cacheKey + id;
+    }
+
+    /**
+     * 判断缓存 key 是否存在（未写入 / 已过期均视为不存在）
+     * 用于区分 "缓存未命中" 与 "缓存命中但内容为空"，避免把空结果误判为命中
+     * @param cacheKey 缓存Key
+     * @param id 实体ID
+     * @return 是否存在
+     */
+    public boolean hasCache(String cacheKey, Long id) {
+        String key = getRedisKey(cacheKey, id);
+        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
     }
 
     /**
@@ -119,17 +130,15 @@ public class RedisUtil {
      * @param id       实体对象Id
      * @param values   缓存对象
      * @param ttl      过期时间
-     * @return
      */
-    public <T> Set<PermissionCacheVo> activeSetCache(String cacheKey, Long id, Set<T> values, Duration ttl) {
-        if (values == null || id == null) return null;
+    public <T> void activeSetCache(String cacheKey, Long id, Set<T> values, Duration ttl) {
+        if (values == null || id == null) return;
         String key = getRedisKey(cacheKey, id);
         // add 是变参方法，需把 Set 展开为元素逐个写入；过期时间单独设置
         redisTemplate.opsForSet().add(key, values.toArray());
         if (ttl != null) {
             redisTemplate.expire(key, ttl);
         }
-        return null;
     }
 
     /**
