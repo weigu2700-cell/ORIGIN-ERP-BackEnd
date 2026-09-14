@@ -1,5 +1,6 @@
 package org.smart.erp.common.utils;
 
+import org.smart.erp.system.vo.PermissionCacheVo;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -113,19 +114,22 @@ public class RedisUtil {
 
     /**
      * 激活Set缓存
+     *
      * @param cacheKey 缓存key
-     * @param id 实体对象Id
-     * @param values 缓存对象
-     * @param ttl 过期时间
+     * @param id       实体对象Id
+     * @param values   缓存对象
+     * @param ttl      过期时间
+     * @return
      */
-    public <T> void activeSetCache(String cacheKey, Long id, Set<T> values, Duration ttl) {
-        if (values == null || id == null) return;
+    public <T> Set<PermissionCacheVo> activeSetCache(String cacheKey, Long id, Set<T> values, Duration ttl) {
+        if (values == null || id == null) return null;
         String key = getRedisKey(cacheKey, id);
         // add 是变参方法，需把 Set 展开为元素逐个写入；过期时间单独设置
         redisTemplate.opsForSet().add(key, values.toArray());
         if (ttl != null) {
             redisTemplate.expire(key, ttl);
         }
+        return null;
     }
 
     /**

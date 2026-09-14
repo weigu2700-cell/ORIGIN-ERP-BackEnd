@@ -23,10 +23,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import javax.management.relation.Role;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,23 +50,38 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
 
 
     /**
-     * 权限缓存读取（旁路缓存）。
-     * 先按权限 id 查 Redis，未命中则回源数据库并回填缓存。
-     * @param permissionId 权限 id
-     * @return 权限缓存对象；权限不存在时返回 null
+     * 获取当前用户的权限
+     * 优先从缓存中获取，如果缓存不存在，则从数据库中获取，并将数据库中的数据存入缓存中
+     * @param userId 用户id
+     * @return 权限集合
+     * @throws BusinessException 如果缓存异常，则回退数据库，避免登录 / 鉴权链路因缓存故障直接 401 把用户踢回登录页
      */
-    private PermissionCacheVo activePermissionWithCache(Long permissionId) {
-        PermissionCacheVo permissionCacheVo = permissionsRedis.getPermissionCache(permissionId);
+    public Set<PermissionCacheVo> activePermissionWithCache(Long userId) {
+
+        Set<PermissionCacheVo> permissionCacheVo = permissionsRedis.getPermissionsCache(userId);
         if (permissionCacheVo != null) {
             return permissionCacheVo;
         }
-        Permission entity = this.getById(permissionId);
-        if (entity == null) {
-            return null;
+
+        List<Long> roleIds = roleConverter.getCurrentRoleIds(userId);
+        if (roleIds.isEmpty()) {
+            return Collections.emptySet();
         }
-        permissionCacheVo = permissionsRedis.buildPermissionCache(entity);
-        permissionsRedis.activePermissionCache(permissionCacheVo);
-        return permissionCacheVo;
+        List<RolePermission> rolePermissions = rolePermissionMapper.selectList(
+                new LambdaQueryWrapper<RolePermission>()
+                        .in(RolePermission::getRoleId, roleIds)
+        );
+        if (rolePermissions.isEmpty()) {
+            return Collections.emptySet();
+        }
+        List<Long> permissionIds = rolePermissions.stream()
+                .map(RolePermission::getPermissionId)
+                .distinct()
+                .toList();
+        List<Permission> permissions = this.listByIds(permissionIds);
+        Set<PermissionCacheVo> permissionCacheVos = permissionsRedis.buildPermissionCache(permissions);
+        permissionsRedis.activePermissionsCache(userId, permissionCacheVos);
+        return permissionCacheVos;
     }
 
     /**
@@ -96,77 +109,14 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     // 获取当前用户的权限
     @Override
     public List<PermissionVo> detailCurrentUserPermission(Long currentUserId) {
-        List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
-        // 用户没有角色时直接返回空权限：in() 传入空集合会拼出 "IN ()"，导致 SQL 语法错误
-        if (roleIds.isEmpty()) {
-            return List.of();
-        }
-
-        List<RolePermission> rolePermissions =
-                rolePermissionMapper.selectList(
-                        new LambdaQueryWrapper<RolePermission>()
-                                .in(RolePermission::getRoleId, roleIds)
-                );
-        // 角色没有配置任何权限时同样短路，避免 listByIds 拼出空 IN
-        if (rolePermissions.isEmpty()) {
-            return List.of();
-        }
-
-        List<Long> permissionIds = rolePermissions.stream()
-                .map(RolePermission::getPermissionId)
-                .distinct()
-                .toList();
-
-        // 优先走缓存；缓存层异常（如 Redis 未启动）时整体回退数据库，
-        // 避免认证链路因缓存故障直接 401 把用户踢回登录页
-        Map<Long, PermissionCacheVo> permissionMap = loadPermissionMap(permissionIds);
-
+        Set<PermissionCacheVo> permissionCacheVos = activePermissionWithCache(currentUserId);
         List<PermissionVo> vos = new ArrayList<>();
-        for (RolePermission rolePermission : rolePermissions) {
-            PermissionCacheVo cacheVo = permissionMap.get(rolePermission.getPermissionId());
-            if (cacheVo != null) {
-                PermissionVo vo = new PermissionVo();
-                BeanUtils.copyProperties(cacheVo, vo);
-                vos.add(vo);
-            }
-        }
-        return vos;
-    }
-
-    /**
-     * 读取权限映射。缓存可用时逐条走旁路缓存；缓存不可用时回退数据库，
-     * 保证登录 / 鉴权链路不依赖 Redis 存活。
-     */
-    private Map<Long, PermissionCacheVo> loadPermissionMap(List<Long> permissionIds) {
-        try {
-            Map<Long, PermissionCacheVo> cached = permissionIds.stream()
-                    .map(this::activePermissionWithCache)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toMap(PermissionCacheVo::getId, vo -> vo));
-            if (cached.size() == permissionIds.size()) {
-                return cached;
-            }
-            // 部分未命中（如数据库已无该权限）时用数据库补齐，避免漏权限
-            return fillFromDb(permissionIds, cached);
-        } catch (Exception ex) {
-            // Redis 未启动 / 网络异常等缓存故障：直接走数据库兜底
-            return fillFromDb(permissionIds, new java.util.HashMap<>());
-        }
-    }
-
-    private Map<Long, PermissionCacheVo> fillFromDb(
-            List<Long> permissionIds,
-            Map<Long, PermissionCacheVo> base
-    ) {
-        if (permissionIds.isEmpty()) {
-            return base;
-        }
-        this.listByIds(permissionIds).forEach(p -> {
-            PermissionCacheVo vo = new PermissionCacheVo();
-            BeanUtils.copyProperties(p, vo);
-            base.putIfAbsent(p.getId(), vo);
+        permissionCacheVos.forEach(permissionCacheVo -> {
+            PermissionVo vo = new PermissionVo();
+            BeanUtils.copyProperties(permissionCacheVo, vo);
+            vos.add(vo);
         });
-        return base;
+        return vos;
     }
 
     @Override
@@ -275,7 +225,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             permission.setStatus(Status.ENABLE);
         }
         this.save(permission);
-        permissionsRedis.evictPermissionCache(permission.getId());
+        permissionsRedis.evictPermissionsCache(permission.getId());
     }
 
     @Override
@@ -306,7 +256,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
 
         this.updateById(permission);
         // 写后失效，避免缓存残留旧数据（TTL 2h 兜底）
-        permissionsRedis.evictPermissionCache(permission.getId());
+        permissionsRedis.evictPermissionsCache(permission.getId());
     }
 
     @Override

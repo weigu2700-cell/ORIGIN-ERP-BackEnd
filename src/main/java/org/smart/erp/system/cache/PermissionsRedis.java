@@ -8,6 +8,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 public class PermissionsRedis extends RedisUtil {
@@ -18,27 +21,23 @@ public class PermissionsRedis extends RedisUtil {
         super(redisTemplate);
     }
 
-    public PermissionCacheVo getPermissionCache(Long userId) {
-        return getCache(PERMISSIONS_KEY_PREFIX, userId);
+    public Set<PermissionCacheVo> getPermissionsCache(Long userId) {
+        return getSetCache(PERMISSIONS_KEY_PREFIX, userId);
     }
 
-    public void activePermissionCache(PermissionCacheVo permission) {
-        activeCache(PERMISSIONS_KEY_PREFIX, permission.getId(), permission, Duration.ofHours(2));
+    public void activePermissionsCache(Long userId, Set<PermissionCacheVo> permissions) {
+        activeSetCache(PERMISSIONS_KEY_PREFIX, userId, permissions, Duration.ofHours(2));
     }
 
-    public void evictPermissionCache(Long userId) {
-        evictCache(PERMISSIONS_KEY_PREFIX, userId);
+    public void evictPermissionsCache(Long permissionId) {
+        evictCache(PERMISSIONS_KEY_PREFIX, permissionId);
     }
 
-    /**
-     * 构建权限缓存对象
-     * @param permission 权限实体
-     * @return 权限缓存对象
-     */
-    public PermissionCacheVo buildPermissionCache(Permission permission) {
-        PermissionCacheVo permissionCacheVo = new PermissionCacheVo();
-        BeanUtils.copyProperties(permission, permissionCacheVo);
-        return permissionCacheVo;
+    public Set<PermissionCacheVo> buildPermissionCache(List<Permission> permissions) {
+        return permissions.stream().map(permission -> {
+            PermissionCacheVo permissionCacheVo = new PermissionCacheVo();
+            BeanUtils.copyProperties(permission, permissionCacheVo);
+            return permissionCacheVo;
+        }).collect(Collectors.toSet());
     }
-
 }
