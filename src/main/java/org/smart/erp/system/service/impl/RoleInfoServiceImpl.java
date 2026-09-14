@@ -5,18 +5,18 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.util.PageConvertUtils;
+import org.smart.erp.system.cache.MenuRedis;
+import org.smart.erp.system.cache.PermissionsRedis;
 import org.smart.erp.system.dto.RoleDetailDto;
 import org.smart.erp.system.dto.RoleMenuAssignDto;
 import org.smart.erp.system.dto.RolePermissionAssignDto;
 import org.smart.erp.system.dto.RoleUpdateDto;
-import org.smart.erp.system.entity.Menu;
-import org.smart.erp.system.entity.RoleInfo;
-import org.smart.erp.system.entity.RoleMenu;
-import org.smart.erp.system.entity.RolePermission;
+import org.smart.erp.system.entity.*;
 import org.smart.erp.system.Enum.RoleEnum;
 import org.smart.erp.system.mapper.RoleInfoMapper;
 import org.smart.erp.system.mapper.RoleMenuMapper;
 import org.smart.erp.system.mapper.RolePermissionMapper;
+import org.smart.erp.system.mapper.UserRoleMapper;
 import org.smart.erp.system.service.RoleInfoService;
 import org.smart.erp.system.vo.RoleInfoVo;
 import org.springframework.stereotype.Service;
@@ -30,12 +30,24 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
     private final RoleInfoMapper roleInfoMapper;
     private final RolePermissionMapper rolePermissionMapper;
     private final RoleMenuMapper roleMenuMapper;
+    private final MenuRedis menuRedis;
+    private final UserRoleMapper userRoleMapper;
+    private final PermissionsRedis permissionsRedis;
 
-    public RoleInfoServiceImpl(RoleInfoMapper roleInfoMapper,
-                               RolePermissionMapper rolePermissionMapper, RoleMenuMapper roleMenuMapper) {
+    public RoleInfoServiceImpl(
+            RoleInfoMapper roleInfoMapper,
+            RolePermissionMapper rolePermissionMapper,
+            RoleMenuMapper roleMenuMapper,
+            MenuRedis menuRedis,
+            PermissionsRedis permissionsRedis,
+            UserRoleMapper userRoleMapper
+    ) {
         this.roleInfoMapper = roleInfoMapper;
         this.rolePermissionMapper = rolePermissionMapper;
         this.roleMenuMapper = roleMenuMapper;
+        this.menuRedis = menuRedis;
+        this.permissionsRedis = permissionsRedis;
+        this.userRoleMapper = userRoleMapper;
     }
 
     /**
@@ -149,6 +161,8 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
             throw new BusinessException(404, "角色不存在");
         }
 
+        Long userId = userRoleMapper.selectById(dto.getRoleId()).getUserId();
+
         // 2. 删除该角色原有关联（全量覆盖的前提：先清后写）
         LambdaQueryWrapper<RolePermission> deleteWrapper = new LambdaQueryWrapper<>();
         deleteWrapper.eq(RolePermission::getRoleId, dto.getRoleId());
@@ -165,6 +179,8 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
             }).toList();
             // 逐条 insert（BaseMapper 无批量 insert，数据量小可接受）
             relations.forEach(rolePermissionMapper::insert);
+            permissionsRedis.evictPermissionsCache(userId);
+            menuRedis.evictMenuCache(userId);
         }
     }
 
@@ -192,6 +208,8 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
             throw new BusinessException(404, "角色不存在");
         }
 
+        Long userId = userRoleMapper.selectById(dto.getRoleId()).getUserId();
+
         LambdaQueryWrapper<RoleMenu> deleteWrapper = new LambdaQueryWrapper<>();
         deleteWrapper.eq(RoleMenu::getRoleId, dto.getRoleId());
         roleMenuMapper.delete(deleteWrapper);
@@ -205,6 +223,8 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
                 return rm;
             }).toList();
             relations.forEach(roleMenuMapper::insert);
+            menuRedis.evictMenuCache(userId);
+            permissionsRedis.evictPermissionsCache(userId);
         }
     }
 

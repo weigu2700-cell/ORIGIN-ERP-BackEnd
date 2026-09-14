@@ -78,7 +78,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .setAuthentication(authentication);
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
-            // 异常被静默吞掉会导致 401 无迹可寻，打印真实原因以便定位（token 失效 / 用户不存在 / 权限查询异常等）
             log.warn("JWT 认证失败，已清除 SecurityContext：{}", e.getMessage(), e);
         }
         filterChain.doFilter(request, response);
