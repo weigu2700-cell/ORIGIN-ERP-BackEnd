@@ -29,6 +29,7 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 - **库存全程可追溯**：统一维护在库量、预留量和可用量，关键库存变化写入流水。
 - **明确的单据状态流转**：订单确认、审核、下达、开工、完工、取消和上架均在服务端验证前置状态。
 - **多级 BOM 能力**：支持 BOM 版本管理、启用/停用、递归展开和按生产数量计算物料需求。
+- **全链路缓存**：基于 Redis 的旁路缓存（Cache-Aside），BOM 展开查询优先命中缓存，显著降低多级 BOM 递归查询的数据库压力，并在 BOM 激活/停用时主动失效。
 - **移动作业复用同一后端**：Web 与移动端共享账户、权限、业务数据和统一响应协议。
 - **开箱即用的接口文档**：通过 Springdoc OpenAPI 提供 Swagger UI，便于联调和接口验收。
 
@@ -77,6 +78,46 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 | 接口文档   | Springdoc OpenAPI 2.7          |
 | Excel      | FastExcel                      |
 | 构建工具   | Maven Wrapper                  |
+
+## 缓存设计
+
+系统采用 **Cache-Aside（旁路缓存）** 模式，以 Redis 作为集中缓存，目标是减少读多写少场景（尤其是多级 BOM 递归展开）对数据库的重复查询。
+
+### BOM 缓存
+
+BOM 展开是典型的高读压力场景：一次展开可能递归数十个节点，每个节点都要查询 BOM 头与 BOM 明细。为此引入物料级 active BOM 缓存。
+
+- **缓存键**：`erp:bom:active:{materialId}`
+- **缓存值**：`BOMCacheDto`，包含 BOM 头字段与 `BOMItemCacheDto` 明细列表，代表某物料当前 `ACTIVE` 版本（version 最大）的 BOM。
+- **TTL**：2 小时（兜底最终一致，避免脏数据长期驻留）。
+
+读取流程（`getActiveBomWithCache`）：
+
+```text
+1. 查 Redis（key = erp:bom:active:{materialId}）
+   ├── 命中 → 直接返回 BOMCacheDto
+   └── 未命中
+        2. 查 DB：取该物料 status=ACTIVE 且 version 最大的 BOM，及其 BOM 明细
+        3. 写入 Redis（TTL 2h）
+        4. 返回
+```
+
+`BOMController` 的 BOM 展开（`getBOMExplosion`）及递归 `buildExplosionChildren` 均通过该入口取数，树中公共子件（如 A→B→D 与 A→C→D 的 D）第二次起直接命中缓存。
+
+### 失效策略（写时失效）
+
+旁路缓存必须保证写入后缓存不脏读，因此在 BOM 状态变更时主动删除缓存键：
+
+| 操作       | 触发方法      | 缓存动作                           |
+| ---------- | ------------- | ---------------------------------- |
+| 激活 BOM   | `activeBOM`   | `evictBomCache(materialId)`        |
+| 停用 BOM   | `disableBOM`  | `evictBomCache(materialId)`        |
+| 新增 BOM   | `addBOM`      | 不影响（新增为 DRAFT，不参与缓存） |
+
+### 已知权衡
+
+- **缓存穿透**：对不存在 active BOM 的采购件 / 原材料，`getActiveBomWithCache` 返回 `null` 且不写空标记，叶子节点在单次展开中被多次引用时会触发多次 DB 未命中。后续可写入极短 TTL 的空标记（null placeholder）以缓解。
+- **TTL 兜底**：极端情况下（如缓存删除失败）最多 2 小时内读到旧值，依赖 TTL 自动过期保证最终一致。
 
 ## 快速开始
 
@@ -211,6 +252,13 @@ controller → dto → service → mapper → entity / vo
 - 在反向代理层启用 HTTPS、请求大小限制和访问日志。
 - 对数据库执行定期备份，并对库存、订单等核心表保留审计能力。
 - 部署前执行完整测试和打包，确认目标环境使用 JDK 21。
+
+## 未来计划
+
+以下能力处于规划阶段，尚未落地：
+
+- **WebSocket 任务推送**：服务端通过 WebSocket 主动向客户端推送任务与消息，例如生产任务下发、审批待办提醒、库存预警与单据状态变更通知，替代前端轮询，降低延迟与无效请求。
+- **AI 智能问答助手**：基于企业业务数据（库存、订单、生产进度、采购等）的自然语言问答与辅助决策，支持以对话方式查询经营指标、定位异常单据，并逐步接入流程建议与自动化工单。
 
 ## 参与贡献
 

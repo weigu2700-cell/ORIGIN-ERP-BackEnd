@@ -6,6 +6,7 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
+import org.smart.erp.production.cache.BOMRedis;
 import org.smart.erp.production.dto.BOMItemAddDto;
 import org.smart.erp.production.entity.BOM;
 import org.smart.erp.production.entity.BOMItem;
@@ -29,16 +30,25 @@ public class BOMItemServiceImpl
 
     private final BOMMapper bomMapper;
     private final MaterialMapper materialMapper;
+    private final BOMRedis bomRedis;
 
     public BOMItemServiceImpl(
             BOMMapper bomMapper,
-            MaterialMapper materialMapper
+            MaterialMapper materialMapper,
+            BOMRedis bomRedis
     )
     {
         this.bomMapper = bomMapper;
         this.materialMapper = materialMapper;
+        this.bomRedis = bomRedis;
     }
 
+    /**
+     *
+     * 获取物料列表
+     * @param materialIds 物料ID列表
+     * @return 物料Map，键为物料ID，值为物料对象
+     */
     private Map<Long, Material> getMaterialList(List<Long> materialIds) {
 
         List<Material> materials = materialMapper.selectByIds(materialIds);
@@ -74,6 +84,7 @@ public class BOMItemServiceImpl
         bomItem.setLineNo(lineNo);
         bomItem.setLossRate(lossRate);
         save(bomItem);
+        bomRedis.evictBomCache(bom.getMaterialId());
 
         BOMItemVo vo = new BOMItemVo();
         BeanUtils.copyProperties(bomItem,vo);
