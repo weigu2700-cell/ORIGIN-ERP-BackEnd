@@ -352,9 +352,17 @@ public class BOMServiceImpl
     /**
      * 预扫描整棵 BOM 树。visited 仅保证每个物料只扫描一次（如 A→B→D 与 A→C→D 中 D 只加载一次）；
      * 真正的循环 BOM 检测由 calculateRequirementRecursive 的 path 完成。
+     * @param materialId 当前物料 ID
+     * @param visited 已扫描过的物料 ID 集合
+     * @param componentIds 收集的组件物料 ID 集合
+     * @param bomItemsCache 物料 BOM 明细缓存
      */
-    private void collectBomTree(Long materialId, Set<Long> visited,
-                                Set<Long> componentIds, Map<Long, List<BOMItemCacheDto>> bomItemsCache) {
+    private void collectBomTree(
+            Long materialId,
+            Set<Long> visited,
+            Set<Long> componentIds,
+            Map<Long, List<BOMItemCacheDto>> bomItemsCache
+    ) {
 
         // 已扫描过则跳过
         if (!visited.add(materialId)) {
@@ -366,8 +374,10 @@ public class BOMServiceImpl
         if (cache == null) {
             return;
         }
-        bomItemsCache.put(materialId, cache.getItems());
-        for (BOMItemCacheDto bomItem : cache.getItems()) {
+        List<BOMItemCacheDto> items = Optional.ofNullable(cache.getItems())
+                .orElse(Collections.emptyList());
+        bomItemsCache.put(materialId, items);
+        for (BOMItemCacheDto bomItem : items) {
             Long componentId = bomItem.getComponentMaterialId();
             if (componentId == null) {
                 continue;
@@ -380,15 +390,23 @@ public class BOMServiceImpl
     /**
      * 净需求递归：毛需求 → 库存抵扣 → 净需求/shortage → 仅 shortage>0 才用 shortage 继续展开该组件 BOM。
      * remainingStock 为共享库存池，按遇到顺序扣减，同一库存不会被多个 BOM 路径重复使用。
+     * @param materialId 当前物料 ID
+     * @param parentQuantity 父级物料需求数量
+     * @param path 当前递归路径，用于检测循环引用
+     * @param remainingStock 共享库存池
+     * @param bomItemsMap 当前 MRP 计算上下文
      */
     private List<MaterialRequirementVo> calculateRequirementRecursive(
-            Long materialId, BigDecimal parentQuantity, Set<Long> path,
-            Map<Long, BigDecimal> remainingStock, Map<Long, List<BOMItemCacheDto>> bomItemsCache) {
+            Long materialId, BigDecimal parentQuantity,
+            Set<Long> path,
+            Map<Long, BigDecimal> remainingStock,
+            Map<Long, List<BOMItemCacheDto>> bomItemsMap
+    ) {
         // path 为当前递归路径，第二次进入同一物料即发现循环引用
         if (!path.add(materialId)) {
             throw new BusinessException(400, "BOM存在循环引用");
         }
-        List<BOMItemCacheDto> bomItems = bomItemsCache.get(materialId);
+        List<BOMItemCacheDto> bomItems = bomItemsMap.get(materialId);
         // 当前物料无 BOM：叶子物料，结束
         if (bomItems == null || bomItems.isEmpty()) {
             return Collections.emptyList();
@@ -423,7 +441,7 @@ public class BOMServiceImpl
             // 仅存在净需求才展开该组件自己的 BOM，且传下去的是 shortage 而非 gross
             if (shortageQuantity.compareTo(BigDecimal.ZERO) > 0) {
                 result.addAll(calculateRequirementRecursive(
-                        componentId, shortageQuantity, new HashSet<>(path), remainingStock, bomItemsCache));
+                        componentId, shortageQuantity, new HashSet<>(path), remainingStock, bomItemsMap));
             }
         }
         return result;
