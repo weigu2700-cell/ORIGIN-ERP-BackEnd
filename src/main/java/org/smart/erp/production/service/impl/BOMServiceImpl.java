@@ -78,7 +78,7 @@ public class BOMServiceImpl
         BOMCacheDto cache = bomRedis.getBomCache(materialId);
         if (cache != null) return cache;
 
-        BOM bom = this.getOne(
+        BOM bom = bomMapper.selectOne(
                 new LambdaQueryWrapper<BOM>()
                         .eq(BOM::getMaterialId, materialId)
                         .eq(BOM::getStatus, BOMStatus.ACTIVE)
@@ -329,7 +329,7 @@ public class BOMServiceImpl
 
         // 第一阶段：预扫描整棵 BOM 树，收集组件物料并缓存 BOM 明细（用于一次性批量查库存）
         Set<Long> componentIds = new HashSet<>();
-        Map<Long, List<BOMItem>> bomItemsCache = new HashMap<>();
+        Map<Long, List<BOMItemCacheDto>> bomItemsCache = new HashMap<>();
         collectBomTree(materialId, new HashSet<>(), componentIds, bomItemsCache);
 
         // 顶层物料必须存在 ACTIVE BOM
@@ -354,26 +354,20 @@ public class BOMServiceImpl
      * 真正的循环 BOM 检测由 calculateRequirementRecursive 的 path 完成。
      */
     private void collectBomTree(Long materialId, Set<Long> visited,
-                                Set<Long> componentIds, Map<Long, List<BOMItem>> bomItemsCache) {
+                                Set<Long> componentIds, Map<Long, List<BOMItemCacheDto>> bomItemsCache) {
+
         // 已扫描过则跳过
         if (!visited.add(materialId)) {
             return;
         }
-        BOM bom = bomMapper.selectOne(
-                new LambdaQueryWrapper<BOM>()
-                        .eq(BOM::getMaterialId, materialId)
-                        .eq(BOM::getStatus, BOMStatus.ACTIVE)
-                        .last("limit 1"));
+        // 优先走 Redis 旁路缓存（getActiveBomWithCache）；未命中查库并回填缓存
+        BOMCacheDto cache = getActiveBomWithCache(materialId);
         // 无 ACTIVE BOM：采购件/原材料，作为叶子节点结束
-        if (Objects.isNull(bom)) {
+        if (cache == null) {
             return;
         }
-        List<BOMItem> bomItems = bomItemMapper.selectList(
-                new LambdaQueryWrapper<BOMItem>()
-                        .eq(BOMItem::getBomId, bom.getId())
-                        .orderByAsc(BOMItem::getLineNo));
-        bomItemsCache.put(materialId, bomItems);
-        for (BOMItem bomItem : bomItems) {
+        bomItemsCache.put(materialId, cache.getItems());
+        for (BOMItemCacheDto bomItem : cache.getItems()) {
             Long componentId = bomItem.getComponentMaterialId();
             if (componentId == null) {
                 continue;
@@ -389,19 +383,19 @@ public class BOMServiceImpl
      */
     private List<MaterialRequirementVo> calculateRequirementRecursive(
             Long materialId, BigDecimal parentQuantity, Set<Long> path,
-            Map<Long, BigDecimal> remainingStock, Map<Long, List<BOMItem>> bomItemsCache) {
+            Map<Long, BigDecimal> remainingStock, Map<Long, List<BOMItemCacheDto>> bomItemsCache) {
         // path 为当前递归路径，第二次进入同一物料即发现循环引用
         if (!path.add(materialId)) {
             throw new BusinessException(400, "BOM存在循环引用");
         }
-        List<BOMItem> bomItems = bomItemsCache.get(materialId);
+        List<BOMItemCacheDto> bomItems = bomItemsCache.get(materialId);
         // 当前物料无 BOM：叶子物料，结束
         if (bomItems == null || bomItems.isEmpty()) {
             return Collections.emptyList();
         }
 
         List<MaterialRequirementVo> result = new ArrayList<>();
-        for (BOMItem bomItem : bomItems) {
+        for (BOMItemCacheDto bomItem : bomItems) {
             Long componentId = bomItem.getComponentMaterialId();
             if (componentId == null) {
                 continue;
