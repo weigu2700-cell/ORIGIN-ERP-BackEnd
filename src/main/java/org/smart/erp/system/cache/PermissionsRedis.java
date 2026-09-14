@@ -12,7 +12,7 @@ import java.time.Duration;
 @Component
 public class PermissionsRedis extends RedisUtil {
 
-    private final String PERMISSIONS_KEY_PREFIX = "erp:auth:permissions";
+    private final String PERMISSIONS_KEY_PREFIX = "erp:auth:permissions:";
 
     public PermissionsRedis(RedisTemplate<String, Object> redisTemplate) {
         super(redisTemplate);
@@ -26,8 +26,8 @@ public class PermissionsRedis extends RedisUtil {
         activeCache(PERMISSIONS_KEY_PREFIX, permission.getId(), permission, Duration.ofHours(2));
     }
 
-    public Boolean evictPermissionCache(Long id) {
-        return evictCache(PERMISSIONS_KEY_PREFIX, id);
+    public void evictPermissionCache(Long id) {
+        evictCache(PERMISSIONS_KEY_PREFIX, id);
     }
 
     /**

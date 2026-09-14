@@ -53,11 +53,9 @@ public class RedisUtil {
      * 失效缓存
      * @param cacheKey 缓存Key
      * @param id 实体ID
-     * @return 是否失效成功
      */
-    public Boolean evictCache(String cacheKey, Long id) {
+    public void evictCache(String cacheKey, Long id) {
         String key = getRedisKey(cacheKey, id);
         redisTemplate.delete(key);
-        return true;
     }
 }

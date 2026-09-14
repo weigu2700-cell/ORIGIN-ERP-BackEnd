@@ -21,6 +21,7 @@ import org.smart.erp.system.vo.PermissionTreeVo;
 import org.smart.erp.system.vo.PermissionVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -274,9 +275,11 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             permission.setStatus(Status.ENABLE);
         }
         this.save(permission);
+        permissionsRedis.evictPermissionCache(permission.getId());
     }
 
     @Override
+    @Transactional
     public void updatePermission(PermissionUpdateDto dto) {
         Permission permission = this.getById(dto.getId());
         if (permission == null) {

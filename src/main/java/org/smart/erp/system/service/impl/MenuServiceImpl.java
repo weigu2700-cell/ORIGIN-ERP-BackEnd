@@ -8,6 +8,7 @@ import org.jspecify.annotations.NonNull;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.common.security.CurrentUserImpl;
+import org.smart.erp.system.cache.MenuRedis;
 import org.smart.erp.system.converter.RoleConverter;
 import org.smart.erp.system.dto.MenuAddDto;
 import org.smart.erp.system.dto.MenuDetailDto;
@@ -42,26 +43,42 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     private final MenuMapper menuMapper;
     private final RoleMenuMapper roleMenuMapper;
     private final CurrentUser currentUser;
-    private final UserRoleMapper userRoleMapper;
     private final RoleConverter roleConverter;
     private final RoleInfoMapper roleInfoMapper;
+    private final MenuRedis menuRedis;
 
     public MenuServiceImpl(
             MenuMapper menuMapper ,
             RoleMenuMapper roleMenuMapper ,
             CurrentUser currentUser,
-            UserRoleMapper userRoleMapper,
             RoleConverter roleConverter,
-            RoleInfoMapper roleInfoMapper
+            RoleInfoMapper roleInfoMapper,
+            MenuRedis menuRedis
     )
     {
         this.menuMapper = menuMapper;
         this.roleMenuMapper = roleMenuMapper;
         this.currentUser = currentUser;
-        this.userRoleMapper = userRoleMapper;
         this.roleConverter = roleConverter;
         this.roleInfoMapper = roleInfoMapper;
+        this.menuRedis = menuRedis;
     }
+
+    private List<MenuTreeVo> activeMenuWithCache(Long userId) {
+        try {
+            List<MenuTreeVo> menuTree = menuRedis.getMenuCache(userId);
+            if (menuTree != null) {
+                return menuTree;
+            }
+            menuTree = buildCurrentUserMenu(userId);
+            menuRedis.activeMenuCache(userId, menuTree);
+            return menuTree;
+        } catch (Exception ex) {
+            // Redis 不可用等缓存故障时回退数据库，保证菜单接口不依赖 Redis 存活
+            return buildCurrentUserMenu(userId);
+        }
+    }
+
 
     /** 判断角色列表中是否包含超级管理员（角色编码为 admin） */
     private boolean isSuperAdmin(List<Long> roleIds) {
@@ -196,6 +213,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             menu.setStatus(Status.ENABLE);
         }
         this.save(menu);
+        menuRedis.evictMenuCache(currentUser.getUserId());
     }
 
     @Override
@@ -214,6 +232,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
        if (dto.getStatus() != null) menu.setStatus(dto.getStatus());
 
        this.updateById(menu);
+       menuRedis.evictMenuCache(menu.getId());
     }
 
     @Override
@@ -228,12 +247,16 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             throw new BusinessException(400, "菜单已被角色使用，无法删除");
         }
         this.removeById(id);
+        menuRedis.evictMenuCache(currentUser.getUserId());
     }
 
     @Override
     public List<MenuTreeVo> getCurrentUserMenu() {
+        return activeMenuWithCache(currentUser.getUserId());
+    }
 
-        Long currentUserId = currentUser.getUserId();
+    /** 按用户角色构建菜单树（缓存未命中或缓存故障时的数据源） */
+    private List<MenuTreeVo> buildCurrentUserMenu(Long currentUserId) {
         List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
 
         // 超级管理员默认拥有全部菜单
@@ -258,7 +281,6 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
                 .toList();
 
         return getMenuTreeVoS(menuIds);
-
     }
 
     @Override
