@@ -7,14 +7,14 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.common.util.PageConvertUtils;
 import org.smart.erp.system.Enum.UserStatus;
+import org.smart.erp.system.cache.MenuRedis;
+import org.smart.erp.system.cache.PermissionsRedis;
 import org.smart.erp.system.dto.UserAddDto;
 import org.smart.erp.system.dto.UserDetailDto;
 import org.smart.erp.system.dto.UserRoleAssignDto;
 import org.smart.erp.system.dto.UserStatusUpdateDto;
 import org.smart.erp.system.dto.UserUpdateDto;
-import org.smart.erp.system.entity.Dept;
-import org.smart.erp.system.entity.User;
-import org.smart.erp.system.entity.UserRole;
+import org.smart.erp.system.entity.*;
 import org.smart.erp.system.mapper.*;
 import org.smart.erp.system.service.UserService;
 import org.smart.erp.system.vo.UserDetailVo;
@@ -23,7 +23,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import org.smart.erp.system.entity.RoleInfo;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +36,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final RoleInfoMapper roleInfoMapper;
     private final UserRoleMapper userRoleMapper;
     private final CurrentUser currentUser;
+    private final MenuRedis menuRedis;
+    private final PermissionsRedis permissionsRedis;
 
     public UserServiceImpl(
             UserMapper userMapper ,
@@ -44,7 +45,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             DeptMapper deptMapper,
             RoleInfoMapper roleInfoMapper,
             UserRoleMapper userRoleMapper,
-            CurrentUser currentUser)
+            CurrentUser currentUser,
+            MenuRedis menuRedis,
+            PermissionsRedis permissionsRedis
+    )
     {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
@@ -52,6 +56,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         this.roleInfoMapper = roleInfoMapper;
         this.userRoleMapper = userRoleMapper;
         this.currentUser = currentUser;
+        this.menuRedis = menuRedis;
+        this.permissionsRedis = permissionsRedis;
     }
 
     /**
@@ -243,6 +249,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             // 逐条 insert（BaseMapper 无批量 insert，数据量小可接受）
             relations.forEach(userRoleMapper::insert);
         }
+        menuRedis.evictMenuCache(dto.getUserId());
+        permissionsRedis.evictPermissionsCache(dto.getUserId());
     }
 
     @Override
