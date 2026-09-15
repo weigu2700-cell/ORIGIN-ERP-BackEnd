@@ -186,7 +186,6 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
         }
         for (Long user : userId) {
             permissionsRedis.evictPermissionsCache(user);
-            menuRedis.evictMenuCache(user);
         }
     }
 

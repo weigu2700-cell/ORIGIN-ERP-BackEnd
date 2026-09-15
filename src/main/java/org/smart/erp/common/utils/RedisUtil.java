@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -37,7 +38,7 @@ public class RedisUtil {
      */
     public boolean hasCache(String cacheKey, Long id) {
         String key = getRedisKey(cacheKey, id);
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
+        return redisTemplate.hasKey(key);
     }
 
     /**
@@ -50,6 +51,34 @@ public class RedisUtil {
     public <T> T getCache(String cacheKey, Long id) {
         String key = getRedisKey(cacheKey, id);
         return (T) redisTemplate.opsForValue().get(key);
+    }
+
+    /**
+     * 获取缓存List
+     * @param cacheKey 缓存key
+     * @param id 实体ID
+     * @return 缓存List对象
+     * @param <T> 值类型
+     */
+    @SuppressWarnings("unchecked")
+    public <T> List<T> getListCache(String cacheKey, Long id) {
+        String key = getRedisKey(cacheKey, id);
+
+        List<Object> members = redisTemplate.opsForList().range(key, 0, -1);
+
+        if (members == null || members.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return (List<T>) members.stream()
+                .map(RedisUtil::castToType)
+                .toList();
+
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T castToType(Object member) {
+        return (T) member;
     }
 
     /**
@@ -121,6 +150,23 @@ public class RedisUtil {
         if (value == null || id == null) return;
         String key = getRedisKey(cacheKey, id);
         redisTemplate.opsForValue().set(key, value, ttl);
+    }
+
+    /**
+     * 激活List缓存
+     * @param cacheKey 缓存key
+     * @param id 实体对象Id
+     * @param values 缓存对象
+     * @param ttl 过期时间
+     * @param <T> 值类型
+     */
+    public <T> void activeListCache(String cacheKey, Long id, List<T> values, Duration ttl) {
+        if (values == null || id == null) return;
+        String key = getRedisKey(cacheKey, id);
+        redisTemplate.opsForList().rightPushAll(key, values.toArray());
+        if (ttl != null) {
+            redisTemplate.expire(key, ttl);
+        }
     }
 
     /**

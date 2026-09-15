@@ -42,6 +42,8 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             RolePermissionMapper rolePermissionMapper,
             PermissionsRedis permissionsRedis
     ) {
+
+
         this.currentUser = currentUser;
         this.roleConverter = roleConverter;
         this.rolePermissionMapper = rolePermissionMapper;
