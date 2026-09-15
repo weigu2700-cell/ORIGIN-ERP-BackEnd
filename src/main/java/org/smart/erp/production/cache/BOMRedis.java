@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
-public class BOMBRedis extends BaseRedis {
+public class BOMRedis extends BaseRedis {
 
     private final String BOM_CACHE_KEY_PREFIX = "erp:bom:active:";
 
@@ -22,19 +22,22 @@ public class BOMBRedis extends BaseRedis {
 
     public static final BOMCacheDto EMPTY_BOM_MARKER = new BOMCacheDto();
 
-    public BOMBRedis(RedisTemplate<String, Object> redisTemplate) {
+    public BOMRedis(RedisTemplate<String, Object> redisTemplate) {
         super(redisTemplate);
     }
 
     public BOMCacheDto getBomCache(Long materialId) {
         Object cached = getCache(BOM_CACHE_KEY_PREFIX, materialId);
         if (cached == null) {
-            return null;
+            return null; // 未命中，调用方需回源查库
         }
         if (EMPTY_BOM.equals(cached)) {
             return EMPTY_BOM_MARKER;
         }
-        return (BOMCacheDto) cached;
+        if (cached instanceof BOMCacheDto dto) {
+            return dto; // 命中生效 BOM
+        }
+        return null;
     }
 
     public void cacheActiveBom(BOMCacheDto bomCacheDto) {

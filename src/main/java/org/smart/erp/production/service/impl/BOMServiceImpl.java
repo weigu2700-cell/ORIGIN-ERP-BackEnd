@@ -10,7 +10,7 @@ import org.smart.erp.inventory.mapper.MaterialStockMapper;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
-import org.smart.erp.production.cache.BOMBRedis;
+import org.smart.erp.production.cache.BOMRedis;
 import org.smart.erp.production.dto.*;
 import org.smart.erp.production.entity.BOM;
 import org.smart.erp.production.entity.BOMItem;
@@ -45,7 +45,7 @@ public class BOMServiceImpl
     private final BOMItemService bomItemService;
     private final BusinessNoGenerator businessNoGenerator;
     private final MaterialStockMapper materialStockMapper;
-    private final BOMBRedis bomRedis;
+    private final BOMRedis bomRedis;
 
 
     public BOMServiceImpl(
@@ -55,7 +55,7 @@ public class BOMServiceImpl
             BusinessNoGenerator businessNoGenerator,
             BOMMapper bomMapper,
             MaterialStockMapper materialStockMapper,
-            BOMBRedis bomRedis
+            BOMRedis bomRedis
     )
     {
         this.materialMapper = materialMapper;
@@ -77,7 +77,7 @@ public class BOMServiceImpl
 
         BOMCacheDto cache = bomRedis.getBomCache(materialId);
         if (cache != null) {
-            return cache == BOMBRedis.EMPTY_BOM_MARKER ? null : cache;
+            return cache == BOMRedis.EMPTY_BOM_MARKER ? null : cache;
         }
 
         BOM bom = bomMapper.selectOne(

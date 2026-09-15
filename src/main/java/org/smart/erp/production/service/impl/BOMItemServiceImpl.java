@@ -6,7 +6,7 @@ import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.mapper.MaterialMapper;
-import org.smart.erp.production.cache.BOMBRedis;
+import org.smart.erp.production.cache.BOMRedis;
 import org.smart.erp.production.dto.BOMItemAddDto;
 import org.smart.erp.production.entity.BOM;
 import org.smart.erp.production.entity.BOMItem;
@@ -30,12 +30,12 @@ public class BOMItemServiceImpl
 
     private final BOMMapper bomMapper;
     private final MaterialMapper materialMapper;
-    private final BOMBRedis bomRedis;
+    private final BOMRedis bomRedis;
 
     public BOMItemServiceImpl(
             BOMMapper bomMapper,
             MaterialMapper materialMapper,
-            BOMBRedis bomRedis
+            BOMRedis bomRedis
     )
     {
         this.bomMapper = bomMapper;
