@@ -8,6 +8,7 @@ create table `smart-erp`.sal_delivery_item
     material_id         bigint         not null comment '物料id',
     warehouse_id        bigint         not null comment '仓库id',
     quantity            decimal(18, 4) not null comment '出库数量',
+    reserved_quantity   decimal(18, 4) default 0.0000 not null comment '本单已预占数量',
     create_time         datetime       not null comment '创建时间',
     update_time         datetime       null comment '更新时间'
 )
@@ -21,4 +22,3 @@ create index idx_material_warehouse
 
 create index idx_sales_order_item_id
     on `smart-erp`.sal_delivery_item (sales_order_item_id);
-

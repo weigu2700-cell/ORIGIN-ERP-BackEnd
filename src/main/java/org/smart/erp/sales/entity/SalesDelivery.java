@@ -28,6 +28,9 @@ public class SalesDelivery {
 
     private String remark;
 
+    @Version
+    private Integer version;
+
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;

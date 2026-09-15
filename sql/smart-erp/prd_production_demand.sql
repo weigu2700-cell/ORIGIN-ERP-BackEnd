@@ -4,6 +4,7 @@ create table `smart-erp`.prd_production_demand
         primary key,
     demand_no       varchar(100)      not null comment '需求单号',
     material_id     bigint            not null comment '所需物料id',
+    warehouse_id    bigint            null comment '目标入库仓库id',
     demand_quantity decimal(18, 4)    not null comment '所需数量',
     source_type     tinyint           not null comment '来源类型',
     source_no       varchar(100)      not null comment '来源单号',
@@ -22,3 +23,5 @@ create index idx_material_id
 create index idx_source
     on `smart-erp`.prd_production_demand (source_type, source_no);
 
+create index idx_source_material_warehouse
+    on `smart-erp`.prd_production_demand (source_type, source_no, material_id, warehouse_id);

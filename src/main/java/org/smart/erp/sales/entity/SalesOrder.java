@@ -39,4 +39,7 @@ public class SalesOrder {
 
     private String remark;
 
+    @Version
+    private Integer version;
+
 }

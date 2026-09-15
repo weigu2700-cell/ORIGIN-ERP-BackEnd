@@ -1,6 +1,6 @@
 package org.smart.erp.production.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -113,8 +113,10 @@ class ProductionPickingServiceImplTests {
 
         service.pageProductionPicking(dto);
 
-        ArgumentCaptor<Wrapper<ProductionPicking>> queryCaptor = ArgumentCaptor.forClass(Wrapper.class);
+        ArgumentCaptor<LambdaQueryWrapper<ProductionPicking>> queryCaptor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
         verify(productionPickingMapper).selectPage(any(Page.class), queryCaptor.capture());
+        assertThat(queryCaptor.getValue().getSqlSegment()).contains("status =");
         assertThat(queryCaptor.getValue().getParamNameValuePairs().values())
                 .contains(ProductionPickingStatus.APPROVED);
     }

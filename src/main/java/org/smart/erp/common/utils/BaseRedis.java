@@ -261,4 +261,23 @@ public class BaseRedis {
         if (value == null) return;
         redisTemplate.opsForValue().set(key, value, ttl);
     }
+
+    /**
+     * 设置缓存如果不存在（基于完整 key，不拼接 id）
+     * @param key 完整 Redis key
+     * @param value 缓存对象
+     * @param ttl 过期时间
+     * @return 是否设置成功
+     */
+    public boolean setIfAbsent(String key, Object value, Duration ttl){
+        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key, value, ttl));
+    }
+
+    /**
+     * 删除缓存（基于完整 key，不拼接 id）
+     * @param key 完整 Redis key
+     */
+    public void deleteCache(String key) {
+        redisTemplate.delete(key);
+    }
 }

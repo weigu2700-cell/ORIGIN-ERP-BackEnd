@@ -14,4 +14,7 @@ public interface ProductionDemandService extends IService<ProductionDemand> {
     Page<ProductionDemandVo> pageProductionDemand(ProductionDemandPageDto dto);
 
     ProductionDemandVo DetailProductionDemand(Long id);
+
+    /** 取消销售订单仍未下达生产的需求；已进入生产流程时拒绝取消销售订单。 */
+    void cancelBySalesOrder(String salesOrderNo);
 }

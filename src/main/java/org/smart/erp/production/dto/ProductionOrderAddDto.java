@@ -16,6 +16,9 @@ public class ProductionOrderAddDto {
     @NotNull(message = "生产物料不能为空")
     private Long materialId;
 
+    /** 生产完成后的目标入库仓库 */
+    private Long warehouseId;
+
     @NotNull(message = "计划数量不能为空")
     @DecimalMin(value = "0", inclusive = false, message = "计划数量必须大于0")
     private BigDecimal plannedQuantity;

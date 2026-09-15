@@ -20,6 +20,8 @@ public class ProductionDemandVo {
 
     private String materialName;
 
+    private Long warehouseId;
+
     private BigDecimal quantity;
 
     private ProductionSourceType sourceType;

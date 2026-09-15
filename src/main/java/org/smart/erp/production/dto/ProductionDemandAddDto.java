@@ -14,6 +14,9 @@ public class ProductionDemandAddDto {
     @NotNull(message = "生产物料不能为空")
     private Long materialId;
 
+    /** 销售短缺需要补入的目标仓库 */
+    private Long warehouseId;
+
     @NotNull(message = "需求数量不能为空")
     @DecimalMin(value = "0", inclusive = false, message = "需求数量必须大于0")
     private BigDecimal quantity;

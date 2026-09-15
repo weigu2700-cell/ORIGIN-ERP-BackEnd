@@ -9,6 +9,7 @@ create table `smart-erp`.sal_delivery
     status         tinyint default 0 not null comment '出库单状态',
     delivery_date  datetime          not null comment '出库日期',
     remark         varchar(255)      null comment '备注',
+    version        int default 0     not null comment '乐观锁版本号',
     create_time    datetime          not null comment '创建时间',
     update_time    datetime          null comment '更新时间',
     constraint uk_delivery_no
@@ -21,4 +22,3 @@ create index idx_customer_id
 
 create index idx_sales_order_id
     on `smart-erp`.sal_delivery (sales_order_id);
-

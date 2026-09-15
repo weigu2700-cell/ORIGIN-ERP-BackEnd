@@ -20,6 +20,8 @@ public class ProductionOrderVo {
 
     private String materialName;
 
+    private Long warehouseId;
+
     private BigDecimal plannedQuantity;
 
     private BigDecimal completedQuantity;

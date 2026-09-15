@@ -9,6 +9,7 @@ create table `smart-erp`.sal_order
     delivery_date datetime                    null comment '要求交货日期',
     total_amount  decimal(18, 2) default 0.00 not null comment '总金额',
     remark        varchar(255)                null comment '备注',
+    version       int            default 0    not null comment '乐观锁版本号',
     create_time   datetime                    not null comment '创建时间',
     update_time   datetime                    null comment '更新时间',
     deleted       tinyint        default 0    not null comment '删除',
@@ -22,4 +23,3 @@ create index idx_customer_id
 
 create index idx_order_date
     on `smart-erp`.sal_order (order_date);
-

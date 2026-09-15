@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.sales.cache.SalesDeliveryRedis;
 import org.springframework.context.annotation.Lazy;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.master.entity.Customer;
@@ -37,6 +38,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,6 +63,7 @@ public class SalesDeliveryServiceImpl
     private final CustomerMapper customerMapper;
     @Lazy
     private final SalesOrderService salesOrderService;
+    private final SalesDeliveryRedis salesDeliveryRedis;
 
     public SalesDeliveryServiceImpl(
             SalesDeliveryMapper salesDeliveryMapper,
@@ -71,7 +74,8 @@ public class SalesDeliveryServiceImpl
             CustomerMapper customerMapper,
             SalesOrderMapper salesOrderMapper,
             SalesOrderItemMapper salesOrderItemMapper,
-            @Lazy SalesOrderService salesOrderService
+            @Lazy SalesOrderService salesOrderService,
+            SalesDeliveryRedis salesDeliveryRedis
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
@@ -83,6 +87,27 @@ public class SalesDeliveryServiceImpl
         this.salesOrderMapper = salesOrderMapper;
         this.salesOrderItemMapper = salesOrderItemMapper;
         this.salesOrderService = salesOrderService;
+        this.salesDeliveryRedis = salesDeliveryRedis;
+    }
+
+    //缓存方法:--------------------------------------------------
+
+    /**
+     * 设置发货单缓存
+     * 如果缓存存在，则抛出异常
+     * @param salesDelivery 发货单实体
+     * @throws BusinessException 如果缓存存在，则抛出异常
+     */
+    private void setSalesDeliveryCache(SalesDelivery salesDelivery) {
+        Boolean isSuccess = salesDeliveryRedis.setDeliveryCacheIfAbsent(
+                salesDelivery.getId()
+                ,salesDelivery
+        );
+
+        if (!isSuccess) {
+            throw new BusinessException(409,"正在处理中，请勿重复操作");
+        }
+
     }
 
     //业务方法:--------------------------------------------------
@@ -122,10 +147,17 @@ public class SalesDeliveryServiceImpl
         if (delivery.getStatus() != expected) {
             throw new BusinessException(400, rejectMsg);
         }
-        beforeUpdate.run();
-        delivery.setStatus(target);
-        salesDeliveryMapper.updateById(delivery);
-        return detailSalesDeliveryVo(id);
+        setSalesDeliveryCache(delivery);
+        try {
+            beforeUpdate.run();
+            delivery.setStatus(target);
+            if (salesDeliveryMapper.updateById(delivery) != 1) {
+                throw new BusinessException(409, "发货单已被其他操作修改，请刷新后重试");
+            }
+            return detailSalesDeliveryVo(id);
+        } finally {
+            salesDeliveryRedis.evictDeliveryCache(id);
+        }
     }
 
     /**
@@ -190,6 +222,7 @@ public class SalesDeliveryServiceImpl
             throw new BusinessException(400, "发货单明细项不能为空，无法预占库存");
         }
         String orderNo = delivery.getSalesOrderNo();
+        Map<StockDemandKey, BigDecimal> shortageByStock = new LinkedHashMap<>();
         for (SalesDeliveryItem item : items) {
             Long materialId = item.getMaterialId();
             Long warehouseId = item.getWarehouseId();
@@ -201,21 +234,23 @@ public class SalesDeliveryServiceImpl
             BigDecimal available = getAvailableStock(materialId, warehouseId);
             BigDecimal toReserve = available.compareTo(required) >= 0 ? required : available.max(BigDecimal.ZERO);
             if (toReserve.compareTo(BigDecimal.ZERO) > 0) {
-                try {
-                    materialStockService.reserveStock(materialId, warehouseId, toReserve,
-                            "SALES_DELIVERY_RESERVE", delivery.getDeliveryNo(), remark);
-                } catch (BusinessException ignore) {
-                    // 并发变动导致预占失败则忽略，差额由生产需求覆盖
-                    toReserve = BigDecimal.ZERO;
-                }
+                // 预占竞争失败必须让整次确认回滚；捕获加入同一事务的异常会留下 rollback-only 状态。
+                materialStockService.reserveStock(materialId, warehouseId, toReserve,
+                        "SALES_DELIVERY_RESERVE", delivery.getDeliveryNo(), remark);
             }
-            // 库存不足部分转为生产需求
+            // 同一发货单内按物料+仓库汇总缺口，避免多明细重复建需求时丢量。
             if (toReserve.compareTo(required) < 0) {
-                generateProductionDemandForDelivery(delivery, materialId, required.subtract(toReserve));
+                shortageByStock.merge(
+                        new StockDemandKey(materialId, warehouseId),
+                        required.subtract(toReserve),
+                        BigDecimal::add);
             }
             item.setReservedQuantity(toReserve);
         }
         salesDeliveryItemService.updateBatchById(items);
+        shortageByStock.forEach((key, quantity) ->
+                generateProductionDemandForDelivery(
+                        delivery, key.materialId(), key.warehouseId(), quantity));
     }
 
     /** 计算某物料在某仓库的可用库存（在库量 - 已预占），无库存档案视为 0 */
@@ -235,17 +270,24 @@ public class SalesDeliveryServiceImpl
     }
 
     /** 为发货单的库存缺口生成生产需求单（来源关联销售订单） */
-    private void generateProductionDemandForDelivery(SalesDelivery delivery, Long materialId, BigDecimal shortfall) {
+    private void generateProductionDemandForDelivery(
+            SalesDelivery delivery,
+            Long materialId,
+            Long warehouseId,
+            BigDecimal shortfall) {
         if (shortfall.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
         ProductionDemandAddDto demandDto = new ProductionDemandAddDto();
         demandDto.setMaterialId(materialId);
+        demandDto.setWarehouseId(warehouseId);
         demandDto.setQuantity(shortfall);
         demandDto.setSourceType(ProductionSourceType.SALES_ORDER);
         demandDto.setSourceNo(delivery.getSalesOrderNo());
         productionDemandService.addProductionDemand(demandDto);
     }
+
+    private record StockDemandKey(Long materialId, Long warehouseId) {}
 
     /** 取消发货时释放实际已预占库存（仅释放本单记录已预占的部分）；草稿态无需处理 */
     private void releaseStockForDelivery(Long deliveryId) {

@@ -5,6 +5,7 @@ create table `smart-erp`.prd_production_order
     production_order_no  varchar(100)                  not null comment '生产订单编号',
     production_demand_id bigint                        null comment '生产需求id',
     material_id          bigint                        not null comment '生产物料id',
+    warehouse_id         bigint                        null comment '目标入库仓库id',
     planned_quantity     decimal(18, 4)                not null comment '计划生产数量',
     completed_quantity   decimal(18, 4) default 0.0000 not null comment '已完成数量',
     status               tinyint        default 0      not null comment '订单状态',
@@ -28,4 +29,3 @@ create index idx_production_demand_id
 
 create index idx_production_status
     on `smart-erp`.prd_production_order (status);
-

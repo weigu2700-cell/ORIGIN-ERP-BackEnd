@@ -11,6 +11,9 @@ import org.smart.erp.production.dto.ProductionDemandAddDto;
 import org.smart.erp.production.dto.ProductionOrderAddDto;
 import org.smart.erp.production.dto.ProductionDemandPageDto;
 import org.smart.erp.production.entity.ProductionDemand;
+import org.smart.erp.production.entity.ProductionOrder;
+import org.smart.erp.production.enums.ProductionOrderStatus;
+import org.smart.erp.production.enums.ProductionSourceType;
 import org.smart.erp.production.enums.ProductionStatus;
 import org.smart.erp.production.mapper.ProductionDemandMapper;
 import org.smart.erp.production.service.ProductionDemandService;
@@ -40,18 +43,21 @@ public class ProductionDemandServiceImpl
     private final MaterialMapper materialMapper;
     private final BusinessNoGenerator businessNoGenerator;
     private final ProductionOrderService productionOrderService;
+    private final ProductionDemandMapper productionDemandMapper;
 
     public ProductionDemandServiceImpl(
             SalesOrderMapper salesOrderMapper,
             MaterialMapper materialMapper,
             BusinessNoGenerator businessNoGenerator,
-            ProductionOrderService productionOrderService
+            ProductionOrderService productionOrderService,
+            ProductionDemandMapper productionDemandMapper
     )
     {
         this.salesOrderMapper = salesOrderMapper;
         this.materialMapper = materialMapper;
         this.businessNoGenerator = businessNoGenerator;
         this.productionOrderService = productionOrderService;
+        this.productionDemandMapper = productionDemandMapper;
     }
 
     @Override
@@ -70,12 +76,18 @@ public class ProductionDemandServiceImpl
             throw new BusinessException(400, "需求数量必须大于0");
         }
 
-        // P1: 防止重复生成——同一来源单 + 同一物料已存在生产需求则跳过（避免取消后重新确认等场景重复建档）
-        boolean exists = this.lambdaQuery()
+        if (dto.getSourceType() == ProductionSourceType.SALES_ORDER && dto.getWarehouseId() == null) {
+            throw new BusinessException(400, "销售生产需求必须指定目标仓库");
+        }
+
+        // 自动销售需求按来源单+物料+目标仓库保持幂等；上游已在单张出货单内汇总相同库存维度的缺口。
+        boolean exists = productionDemandMapper.selectCount(
+                new LambdaQueryWrapper<ProductionDemand>()
                 .eq(ProductionDemand::getSourceType, dto.getSourceType())
                 .eq(ProductionDemand::getSourceNo, dto.getSourceNo())
                 .eq(ProductionDemand::getMaterialId, dto.getMaterialId())
-                .exists();
+                .eq(dto.getWarehouseId() != null, ProductionDemand::getWarehouseId, dto.getWarehouseId())
+                .isNull(dto.getWarehouseId() == null, ProductionDemand::getWarehouseId)) > 0;
         if (exists) {
             return;
         }
@@ -99,9 +111,43 @@ public class ProductionDemandServiceImpl
         // ProductionDemand → 生成成品生产订单（草稿态，下达时再算 BOM 净需求）
         ProductionOrderAddDto orderDto = new ProductionOrderAddDto();
         orderDto.setMaterialId(dto.getMaterialId());
+        orderDto.setWarehouseId(dto.getWarehouseId());
         orderDto.setPlannedQuantity(dto.getQuantity());
         orderDto.setProductionDemandId(productionDemand.getId());
         productionOrderService.addProductionOrder(orderDto);
+
+        productionDemand.setStatus(ProductionStatus.PLANNED);
+        productionDemandMapper.updateById(productionDemand);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelBySalesOrder(String salesOrderNo) {
+        if (!StringUtils.hasText(salesOrderNo)) {
+            throw new BusinessException(400, "销售订单号不能为空");
+        }
+
+        List<ProductionDemand> demands = productionDemandMapper.selectList(
+                new LambdaQueryWrapper<ProductionDemand>()
+                        .eq(ProductionDemand::getSourceType, ProductionSourceType.SALES_ORDER)
+                        .eq(ProductionDemand::getSourceNo, salesOrderNo)
+                        .ne(ProductionDemand::getStatus, ProductionStatus.CANCELLED));
+
+        for (ProductionDemand demand : demands) {
+            List<ProductionOrder> orders = productionOrderService.list(
+                    new LambdaQueryWrapper<ProductionOrder>()
+                            .eq(ProductionOrder::getProductionDemandId, demand.getId()));
+            for (ProductionOrder order : orders) {
+                if (order.getStatus() == ProductionOrderStatus.DRAFT) {
+                    productionOrderService.cancelProductionOrder(order.getId());
+                } else if (order.getStatus() != ProductionOrderStatus.CANCELLED) {
+                    throw new BusinessException(400,
+                            "生产订单[" + order.getProductionOrderNo() + "]已进入生产流程，销售订单不可直接取消");
+                }
+            }
+            demand.setStatus(ProductionStatus.CANCELLED);
+            productionDemandMapper.updateById(demand);
+        }
     }
 
     @Override

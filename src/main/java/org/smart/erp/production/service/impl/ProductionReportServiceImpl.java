@@ -119,6 +119,10 @@ public class ProductionReportServiceImpl
         if (!Objects.equals(order.getMaterialId(), dto.getMaterialId())) {
             throw new BusinessException(400, "报工物料与生产订单物料不一致");
         }
+        if (order.getWarehouseId() != null
+                && !Objects.equals(order.getWarehouseId(), dto.getWarehouseId())) {
+            throw new BusinessException(400, "报工入库仓库与销售短缺目标仓库不一致");
+        }
 
         // P0: 累计报工不能超过生产计划
         BigDecimal reportedTotal = sumReportQuantity(order.getId());

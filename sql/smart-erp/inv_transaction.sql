@@ -5,8 +5,8 @@ create table `smart-erp`.inv_transaction
     warehouse_id     bigint         not null comment '仓库id',
     material_id      bigint         not null comment '物料id',
     transaction_type tinyint        not null comment '库存业务类型',
-    business_type    tinyint        not null comment '来源业务类型',
-    business_no      tinyint        not null comment '来源业务单号',
+    business_type    varchar(64)    not null comment '来源业务类型',
+    business_no      varchar(100)   not null comment '来源业务单号',
     quantity         decimal(18, 4) not null comment '本次数量变化',
     before_on_hand   decimal(18, 4) not null comment '变动前在库库存',
     after_on_hand    decimal(18, 4) not null comment '变动后在库库存',
@@ -25,4 +25,3 @@ create index idx_material_id
 
 create index idx_warehouse_id
     on `smart-erp`.inv_transaction (warehouse_id);
-

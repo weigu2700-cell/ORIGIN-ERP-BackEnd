@@ -7,7 +7,8 @@ import lombok.Getter;
 public enum ProductionStatus {
     PENDING(0,"待生产"),
     PLANNED(1,"已计划"),
-    CANCELLED(2,"已取消");
+    CANCELLED(2,"已取消"),
+    COMPLETED(3,"已完成");
 
     @EnumValue
     @com.fasterxml.jackson.annotation.JsonValue

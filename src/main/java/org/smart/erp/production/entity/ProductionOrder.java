@@ -21,6 +21,8 @@ public class ProductionOrder {
 
     private Long materialId;
 
+    private Long warehouseId;
+
     private BigDecimal plannedQuantity;
 
     private BigDecimal completedQuantity;

@@ -27,6 +27,8 @@ public class ProductionDemand {
 
     private Long materialId;
 
+    private Long warehouseId;
+
     @TableField("demand_quantity")
     private BigDecimal quantity;
 

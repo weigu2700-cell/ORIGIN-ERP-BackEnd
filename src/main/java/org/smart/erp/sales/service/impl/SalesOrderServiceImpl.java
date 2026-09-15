@@ -11,6 +11,7 @@ import org.smart.erp.master.entity.Warehouse;
 import org.smart.erp.master.mapper.CustomerMapper;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
+import org.smart.erp.production.service.ProductionDemandService;
 import org.smart.erp.sales.dto.salesOrderDto.SalesOrderAddDto;
 import org.smart.erp.sales.dto.salesOrderDto.SalesOrderPageDto;
 import org.smart.erp.sales.dto.salesOrderDto.SalesOrderUpdateDto;
@@ -55,6 +56,7 @@ public class SalesOrderServiceImpl
     private final WarehouseMapper warehouseMapper;
     private final SalesDeliveryMapper salesDeliveryMapper;
     private final SalesDeliveryService salesDeliveryService;
+    private final ProductionDemandService productionDemandService;
 
     public SalesOrderServiceImpl(
             SalesOrderMapper salesOrderMapper,
@@ -65,7 +67,8 @@ public class SalesOrderServiceImpl
             MaterialMapper materialMapper,
             WarehouseMapper warehouseMapper,
             SalesDeliveryMapper salesDeliveryMapper,
-            SalesDeliveryService salesDeliveryService
+            SalesDeliveryService salesDeliveryService,
+            ProductionDemandService productionDemandService
     )
     {
         this.salesOrderMapper = salesOrderMapper;
@@ -77,6 +80,7 @@ public class SalesOrderServiceImpl
         this.warehouseMapper = warehouseMapper;
         this.salesDeliveryMapper = salesDeliveryMapper;
         this.salesDeliveryService = salesDeliveryService;
+        this.productionDemandService = productionDemandService;
     }
     //业务封装：------------------------------------------------
 
@@ -107,7 +111,9 @@ public class SalesOrderServiceImpl
         beforeUpdate.run();
 
         salesOrder.setStatus(targetStatus);
-        salesOrderMapper.updateById(salesOrder);
+        if (salesOrderMapper.updateById(salesOrder) != 1) {
+            throw new BusinessException(409, "销售订单已被其他操作修改，请刷新后重试");
+        }
 
         return detailSalesOrderVo(id);
     }
@@ -374,6 +380,8 @@ public class SalesOrderServiceImpl
                             salesDeliveryService.cancelSalesDeliveryById(d.getId());
                         }
                     }
+                    SalesOrder current = salesOrderMapper.selectById(id);
+                    productionDemandService.cancelBySalesOrder(current.getOrderNo());
                 }
         );
     }
@@ -402,7 +410,9 @@ public class SalesOrderServiceImpl
         }
         // 订单仅作里程碑展示，实际库存由出货单完成出库时扣减，此处不再操作库存
         salesOrder.setStatus(SalesOrderStatus.COMPLETED);
-        salesOrderMapper.updateById(salesOrder);
+        if (salesOrderMapper.updateById(salesOrder) != 1) {
+            throw new BusinessException(409, "销售订单已被其他操作修改，请刷新后重试");
+        }
     }
 
 }

@@ -12,6 +12,7 @@ import org.smart.erp.production.dto.ProductionOrderPageDto;
 import org.smart.erp.production.entity.ProductionDemand;
 import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.enums.ProductionOrderStatus;
+import org.smart.erp.production.enums.ProductionStatus;
 import org.smart.erp.production.mapper.ProductionDemandMapper;
 import org.smart.erp.production.mapper.ProductionOrderMapper;
 import org.smart.erp.production.service.BOMService;
@@ -78,6 +79,7 @@ public class ProductionOrderServiceImpl
 
         Long materialId = dto.getMaterialId();
         BigDecimal plannedQuantity = dto.getPlannedQuantity();
+        Long warehouseId = dto.getWarehouseId();
 
         // 由生产需求建单：物料与数量以需求为准
         if (dto.getProductionDemandId() != null) {
@@ -87,6 +89,7 @@ public class ProductionOrderServiceImpl
             }
             materialId = demand.getMaterialId();
             plannedQuantity = demand.getQuantity();
+            warehouseId = demand.getWarehouseId();
             if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException(400, "生产需求数量为空或非法");
             }
@@ -100,6 +103,7 @@ public class ProductionOrderServiceImpl
         ProductionOrder order = new ProductionOrder();
         BeanUtils.copyProperties(dto, order);
         order.setMaterialId(materialId);
+        order.setWarehouseId(warehouseId);
         order.setPlannedQuantity(plannedQuantity);
         order.setProductionOrderNo(businessNoGenerator.generateNo("erp:sequence:production-order:", "PO"));
         order.setStatus(ProductionOrderStatus.DRAFT);
@@ -252,16 +256,33 @@ public class ProductionOrderServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void completeProductionOrder(Long id) {
+        ProductionOrder order = getOrderOrThrow(id);
         transition(id, ProductionOrderStatus.IN_PROGRESS, ProductionOrderStatus.COMPLETED,
                 "生产单状态不为进行中，无法完成生产",
                 o -> o.setActualEndTime(LocalDateTime.now()));
+        updateDemandStatus(order.getProductionDemandId(), ProductionStatus.COMPLETED);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void cancelProductionOrder(Long id) {
+        ProductionOrder order = getOrderOrThrow(id);
         transition(id, ProductionOrderStatus.DRAFT, ProductionOrderStatus.CANCELLED,
                 "生产单状态不为草稿，无法取消", null);
+        updateDemandStatus(order.getProductionDemandId(), ProductionStatus.CANCELLED);
+    }
+
+    private void updateDemandStatus(Long demandId, ProductionStatus status) {
+        if (demandId == null) {
+            return;
+        }
+        ProductionDemand demand = productionDemandMapper.selectById(demandId);
+        if (demand != null) {
+            demand.setStatus(status);
+            productionDemandMapper.updateById(demand);
+        }
     }
 
     @Override

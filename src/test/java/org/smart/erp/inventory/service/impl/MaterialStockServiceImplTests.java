@@ -1,6 +1,6 @@
 package org.smart.erp.inventory.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,7 +76,8 @@ class MaterialStockServiceImplTests {
             assertThat(vo.getAvailable()).isEqualByComparingTo("8");
         });
 
-        ArgumentCaptor<Wrapper<Material>> queryCaptor = ArgumentCaptor.forClass(Wrapper.class);
+        ArgumentCaptor<LambdaQueryWrapper<Material>> queryCaptor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
         verify(materialMapper).selectList(queryCaptor.capture());
         String sql = queryCaptor.getValue().getSqlSegment();
         assertThat(sql).contains("code LIKE").contains("name LIKE").contains("OR");
@@ -94,7 +95,8 @@ class MaterialStockServiceImplTests {
         Page<MaterialStockVo> result = service.pageMaterialStock(dto);
 
         assertThat(result.getRecords()).isEmpty();
-        ArgumentCaptor<Wrapper<Material>> queryCaptor = ArgumentCaptor.forClass(Wrapper.class);
+        ArgumentCaptor<LambdaQueryWrapper<Material>> queryCaptor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
         verify(materialMapper).selectList(queryCaptor.capture());
         assertThat(queryCaptor.getValue().getSqlSegment()).contains("code =").doesNotContain("LIKE");
         assertThat(queryCaptor.getValue().getParamNameValuePairs().values()).contains("MAT-001");
