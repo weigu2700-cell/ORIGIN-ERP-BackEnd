@@ -1,6 +1,6 @@
 package org.smart.erp.production.cache;
 
-import org.smart.erp.common.utils.RedisUtil;
+import org.smart.erp.common.utils.BaseRedis;
 import org.smart.erp.production.dto.BOMCacheDto;
 import org.smart.erp.production.dto.BOMItemCacheDto;
 import org.smart.erp.production.entity.BOM;
@@ -14,11 +14,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
-public class BOMRedis extends RedisUtil {
+public class BOMBRedis extends BaseRedis {
 
     private final String BOM_CACHE_KEY_PREFIX = "erp:bom:active:";
 
-    public BOMRedis(RedisTemplate<String, Object> redisTemplate) {
+    public BOMBRedis(RedisTemplate<String, Object> redisTemplate) {
         super(redisTemplate);
     }
 

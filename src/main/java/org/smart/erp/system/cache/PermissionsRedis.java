@@ -1,6 +1,6 @@
 package org.smart.erp.system.cache;
 
-import org.smart.erp.common.utils.RedisUtil;
+import org.smart.erp.common.utils.BaseRedis;
 import org.smart.erp.system.entity.Permission;
 import org.smart.erp.system.vo.PermissionCacheVo;
 import org.springframework.beans.BeanUtils;
@@ -13,7 +13,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
-public class PermissionsRedis extends RedisUtil {
+public class PermissionsRedis extends BaseRedis {
 
     private final String PERMISSIONS_KEY_PREFIX = "erp:auth:permissions:";
     private final String PERMISSIONS_USERS_INDEX = "erp:auth:permissions:users";

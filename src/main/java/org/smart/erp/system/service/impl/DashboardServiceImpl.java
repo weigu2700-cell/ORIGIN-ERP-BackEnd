@@ -2,7 +2,6 @@ package org.smart.erp.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.production.entity.ProductionDemand;
 import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.enums.ProductionOrderStatus;
@@ -18,7 +17,7 @@ import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.enums.SalesOrderStatus;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.system.cache.DashboardRedis;
-import org.smart.erp.system.entity.Dashboard;
+import org.smart.erp.system.vo.DashboardVo;
 import org.smart.erp.system.service.DashboardService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -50,13 +49,13 @@ public class DashboardServiceImpl implements DashboardService
     }
 
     @Override
-    public Dashboard getDashboard() {
-        Dashboard dashboard = dashboardRedis.getDashboardCache();
-        if (dashboard != null) return dashboard;
+    public DashboardVo getDashboard() {
+        DashboardVo dashboardVo = dashboardRedis.getDashboardCache();
+        if (dashboardVo != null) return dashboardVo;
 
-        Dashboard newDashboard = buildDashboard();
-        dashboardRedis.activeDashboardCache(newDashboard);
-        return newDashboard;
+        DashboardVo newDashboardVo = buildDashboard();
+        dashboardRedis.activeDashboardCache(newDashboardVo);
+        return newDashboardVo;
     }
 
 
@@ -71,47 +70,47 @@ public class DashboardServiceImpl implements DashboardService
         return statusCount;
     }
 
-    private Dashboard buildDashboard() {
-        Dashboard dashboard = new Dashboard();
+    private DashboardVo buildDashboard() {
+        DashboardVo dashboardVo = new DashboardVo();
 
-        dashboard.setPendingProductionDemandCount(productionDemandService.count(
+        dashboardVo.setPendingProductionDemandCount(productionDemandService.count(
                 new LambdaQueryWrapper<ProductionDemand>()
                         .eq(ProductionDemand::getStatus, ProductionStatus.PENDING))
         );
 
-        dashboard.setConfirmedSalesOrderCount( salesOrderService.count(
+        dashboardVo.setConfirmedSalesOrderCount( salesOrderService.count(
                 new LambdaQueryWrapper<SalesOrder>()
                         .eq(SalesOrder::getStatus, SalesOrderStatus.CONFIRMED))
         );
 
-        dashboard.setDraftPurchaseOrderCount(purchaseOrderService.count(
+        dashboardVo.setDraftPurchaseOrderCount(purchaseOrderService.count(
                 new LambdaQueryWrapper<PurchaseOrder>()
                         .eq(PurchaseOrder::getStatus, PurchaseOrderStatus.DRAFT))
         );
 
-        dashboard.setShippedPurchaseOrderCount(purchaseOrderService.count(
+        dashboardVo.setShippedPurchaseOrderCount(purchaseOrderService.count(
                 new LambdaQueryWrapper<PurchaseOrder>()
                         .eq(PurchaseOrder::getStatus, PurchaseOrderStatus.SHIPPED))
         );
 
-        dashboard.setProductionOrderStatusCount(buildProductionOrderStatusCount());
+        dashboardVo.setProductionOrderStatusCount(buildProductionOrderStatusCount());
 
         // 最近订单：按创建时间倒序取前 4 条
-        dashboard.setRecentProductionOrders(
+        dashboardVo.setRecentProductionOrders(
                 productionOrderService.page(new Page<>(1, 4),
                                 new LambdaQueryWrapper<ProductionOrder>().orderByDesc(ProductionOrder::getCreateTime))
                         .getRecords().stream()
                         .map(this::toProductionOrderVo)
                         .toList());
 
-        dashboard.setRecentPurchaseOrders(
+        dashboardVo.setRecentPurchaseOrders(
                 purchaseOrderService.page(new Page<>(1, 4),
                                 new LambdaQueryWrapper<PurchaseOrder>().orderByDesc(PurchaseOrder::getCreateTime))
                         .getRecords().stream()
                         .map(this::toPurchaseOrderVo)
                         .toList());
 
-        return dashboard;
+        return dashboardVo;
     }
 
     private ProductionOrderVo toProductionOrderVo(ProductionOrder order) {

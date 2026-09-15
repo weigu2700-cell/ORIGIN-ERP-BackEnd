@@ -11,11 +11,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
-public class RedisUtil {
+public class BaseRedis {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    public RedisUtil(RedisTemplate<String, Object> redisTemplate) {
+    public BaseRedis(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
 
@@ -71,7 +71,7 @@ public class RedisUtil {
         }
 
         return (List<T>) members.stream()
-                .map(RedisUtil::castToType)
+                .map(BaseRedis::castToType)
                 .toList();
 
     }

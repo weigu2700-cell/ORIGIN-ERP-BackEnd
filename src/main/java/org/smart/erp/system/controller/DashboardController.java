@@ -3,7 +3,7 @@ package org.smart.erp.system.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.common.result.Result;
-import org.smart.erp.system.entity.Dashboard;
+import org.smart.erp.system.vo.DashboardVo;
 import org.smart.erp.system.service.DashboardService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,7 +22,7 @@ public class DashboardController {
 
     @GetMapping
     @Operation(summary = "获取看板")
-    public Result<Dashboard> getDashboard() {
+    public Result<DashboardVo> getDashboard() {
         return Result.success(dashboardService.getDashboard());
     }
 }

@@ -1,6 +1,6 @@
 package org.smart.erp.system.cache;
 
-import org.smart.erp.common.utils.RedisUtil;
+import org.smart.erp.common.utils.BaseRedis;
 import org.smart.erp.system.vo.MenuTreeVo;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -9,7 +9,7 @@ import java.time.Duration;
 import java.util.List;
 
 @Component
-public class MenuRedis extends RedisUtil {
+public class MenuRedis extends BaseRedis {
 
     private final String MENU_KEY_PREFIX = "erp:auth:menu:";
 

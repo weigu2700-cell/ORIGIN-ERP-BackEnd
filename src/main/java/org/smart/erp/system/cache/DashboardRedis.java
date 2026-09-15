@@ -1,14 +1,14 @@
 package org.smart.erp.system.cache;
 
-import org.smart.erp.common.utils.RedisUtil;
-import org.smart.erp.system.entity.Dashboard;
+import org.smart.erp.common.utils.BaseRedis;
+import org.smart.erp.system.vo.DashboardVo;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
 @Component
-public class DashboardRedis extends RedisUtil {
+public class DashboardRedis extends BaseRedis {
 
     private static final String DASHBOARD_KEY = "erp:dashboard";
 
@@ -21,7 +21,7 @@ public class DashboardRedis extends RedisUtil {
     /**
      * 读取全局看板缓存；未命中或解析失败时返回 null（由调用方回源重建）
      */
-    public Dashboard getDashboardCache() {
+    public DashboardVo getDashboardCache() {
         if (!hasKey(DASHBOARD_KEY)) {
             return null;
         }
@@ -31,7 +31,7 @@ public class DashboardRedis extends RedisUtil {
     /**
      * 写入全局看板缓存（固定 60 秒 TTL）
      */
-    public void activeDashboardCache(Dashboard dashboard) {
-        activeCache(DASHBOARD_KEY, dashboard, TTL);
+    public void activeDashboardCache(DashboardVo dashboardVo) {
+        activeCache(DASHBOARD_KEY, dashboardVo, TTL);
     }
 }

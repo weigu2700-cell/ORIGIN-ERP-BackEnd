@@ -1,4 +1,4 @@
-package org.smart.erp.system.entity;
+package org.smart.erp.system.vo;
 
 import lombok.Data;
 import org.smart.erp.production.vo.ProductionOrderVo;
@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 @Data
-public class Dashboard {
+public class DashboardVo {
 
     private Long pendingProductionDemandCount;
 
