@@ -231,4 +231,34 @@ public class RedisUtil {
         String key = getRedisKey(cacheKey, id);
         redisTemplate.delete(key);
     }
+
+    /**
+     * 判断缓存 key 是否存在（基于完整 key，不拼接 id）
+     * @param key 完整 Redis key
+     * @return 是否存在
+     */
+    public boolean hasKey(String key) {
+        return redisTemplate.hasKey(key);
+    }
+
+    /**
+     * 获取缓存（基于完整 key，不拼接 id）
+     * @param key 完整 Redis key
+     * @return 缓存对象
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T getCache(String key) {
+        return (T) redisTemplate.opsForValue().get(key);
+    }
+
+    /**
+     * 激活缓存（基于完整 key，不拼接 id）
+     * @param key 完整 Redis key
+     * @param value 缓存对象
+     * @param ttl 过期时间
+     */
+    public <T> void activeCache(String key, T value, Duration ttl) {
+        if (value == null) return;
+        redisTemplate.opsForValue().set(key, value, ttl);
+    }
 }

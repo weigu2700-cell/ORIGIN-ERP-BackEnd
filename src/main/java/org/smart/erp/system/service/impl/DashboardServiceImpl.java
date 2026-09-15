@@ -3,7 +3,6 @@ package org.smart.erp.system.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.production.entity.ProductionDemand;
 import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.enums.ProductionOrderStatus;
@@ -24,7 +23,6 @@ import org.smart.erp.system.service.DashboardService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -36,33 +34,28 @@ public class DashboardServiceImpl implements DashboardService
     private final SalesOrderService salesOrderService;
     private final ProductionDemandService productionDemandService;
     private final DashboardRedis dashboardRedis;
-    private final CurrentUser currentUser;
 
     public DashboardServiceImpl(
             ProductionOrderService productionOrderService,
             PurchaseOrderService purchaseOrderService,
             SalesOrderService salesOrderService,
             ProductionDemandService productionDemandService,
-            DashboardRedis dashboardRedis,
-            CurrentUser currentUser
+            DashboardRedis dashboardRedis
     ) {
         this.productionOrderService = productionOrderService;
         this.purchaseOrderService = purchaseOrderService;
         this.salesOrderService = salesOrderService;
         this.productionDemandService = productionDemandService;
         this.dashboardRedis = dashboardRedis;
-        this.currentUser = currentUser;
     }
 
     @Override
     public Dashboard getDashboard() {
-        Long userId = currentUser.getUserId();
-
-        Dashboard dashboard = dashboardRedis.getDashboardCache(userId);
+        Dashboard dashboard = dashboardRedis.getDashboardCache();
         if (dashboard != null) return dashboard;
 
         Dashboard newDashboard = buildDashboard();
-        dashboardRedis.activeDashboardCache(newDashboard, userId, Duration.ofMinutes(1));
+        dashboardRedis.activeDashboardCache(newDashboard);
         return newDashboard;
     }
 
