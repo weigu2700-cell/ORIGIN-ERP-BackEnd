@@ -18,16 +18,31 @@ public class BOMBRedis extends BaseRedis {
 
     private final String BOM_CACHE_KEY_PREFIX = "erp:bom:active:";
 
+    private static final String EMPTY_BOM = "EMPTY";
+
+    public static final BOMCacheDto EMPTY_BOM_MARKER = new BOMCacheDto();
+
     public BOMBRedis(RedisTemplate<String, Object> redisTemplate) {
         super(redisTemplate);
     }
 
     public BOMCacheDto getBomCache(Long materialId) {
-        return getCache(BOM_CACHE_KEY_PREFIX, materialId);
+        Object cached = getCache(BOM_CACHE_KEY_PREFIX, materialId);
+        if (cached == null) {
+            return null;
+        }
+        if (EMPTY_BOM.equals(cached)) {
+            return EMPTY_BOM_MARKER;
+        }
+        return (BOMCacheDto) cached;
     }
 
     public void cacheActiveBom(BOMCacheDto bomCacheDto) {
         activeCache(BOM_CACHE_KEY_PREFIX, bomCacheDto.getMaterialId(), bomCacheDto, Duration.ofHours(2));
+    }
+
+    public void cacheEmptyBom(Long materialId) {
+        activeCache(BOM_CACHE_KEY_PREFIX, materialId, EMPTY_BOM, Duration.ofMinutes(5));
     }
 
     public void evictBomCache(Long materialId) {

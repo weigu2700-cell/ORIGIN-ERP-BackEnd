@@ -76,7 +76,9 @@ public class BOMServiceImpl
     private BOMCacheDto getActiveBomWithCache ( Long materialId ) {
 
         BOMCacheDto cache = bomRedis.getBomCache(materialId);
-        if (cache != null) return cache;
+        if (cache != null) {
+            return cache == BOMBRedis.EMPTY_BOM_MARKER ? null : cache;
+        }
 
         BOM bom = bomMapper.selectOne(
                 new LambdaQueryWrapper<BOM>()
@@ -85,7 +87,10 @@ public class BOMServiceImpl
                         .orderByDesc(BOM::getVersion)
                         .last("limit 1")
         );
-        if (bom == null) return null;
+        if (bom == null) {
+            bomRedis.cacheEmptyBom(materialId);
+            return null;
+        }
 
         List<BOMItem> bomItems = bomItemMapper.selectList(
                 new LambdaQueryWrapper<BOMItem>()
