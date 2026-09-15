@@ -4,8 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.security.CurrentUser;
+import org.smart.erp.production.entity.ProductionDemand;
 import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.enums.ProductionOrderStatus;
+import org.smart.erp.production.enums.ProductionStatus;
+import org.smart.erp.production.service.ProductionDemandService;
 import org.smart.erp.production.service.ProductionOrderService;
 import org.smart.erp.production.vo.ProductionOrderVo;
 import org.smart.erp.purchase.entity.PurchaseOrder;
@@ -17,7 +20,6 @@ import org.smart.erp.sales.enums.SalesOrderStatus;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.system.cache.DashboardRedis;
 import org.smart.erp.system.entity.Dashboard;
-import org.smart.erp.system.mapper.DashboardMapper;
 import org.smart.erp.system.service.DashboardService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -27,13 +29,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Service
-public class DashboardServiceImpl
-        extends ServiceImpl<DashboardMapper, Dashboard>
-        implements DashboardService
+public class DashboardServiceImpl implements DashboardService
 {
     private final ProductionOrderService productionOrderService;
     private final PurchaseOrderService purchaseOrderService;
     private final SalesOrderService salesOrderService;
+    private final ProductionDemandService productionDemandService;
     private final DashboardRedis dashboardRedis;
     private final CurrentUser currentUser;
 
@@ -41,12 +42,14 @@ public class DashboardServiceImpl
             ProductionOrderService productionOrderService,
             PurchaseOrderService purchaseOrderService,
             SalesOrderService salesOrderService,
+            ProductionDemandService productionDemandService,
             DashboardRedis dashboardRedis,
             CurrentUser currentUser
     ) {
         this.productionOrderService = productionOrderService;
         this.purchaseOrderService = purchaseOrderService;
         this.salesOrderService = salesOrderService;
+        this.productionDemandService = productionDemandService;
         this.dashboardRedis = dashboardRedis;
         this.currentUser = currentUser;
     }
@@ -78,6 +81,11 @@ public class DashboardServiceImpl
     private Dashboard buildDashboard() {
         Dashboard dashboard = new Dashboard();
 
+        dashboard.setPendingProductionDemandCount(productionDemandService.count(
+                new LambdaQueryWrapper<ProductionDemand>()
+                        .eq(ProductionDemand::getStatus, ProductionStatus.PENDING))
+        );
+
         dashboard.setConfirmedSalesOrderCount( salesOrderService.count(
                 new LambdaQueryWrapper<SalesOrder>()
                         .eq(SalesOrder::getStatus, SalesOrderStatus.CONFIRMED))
@@ -91,11 +99,6 @@ public class DashboardServiceImpl
         dashboard.setShippedPurchaseOrderCount(purchaseOrderService.count(
                 new LambdaQueryWrapper<PurchaseOrder>()
                         .eq(PurchaseOrder::getStatus, PurchaseOrderStatus.SHIPPED))
-        );
-
-        dashboard.setInProgressProductionOrderCount( productionOrderService.count(
-                new LambdaQueryWrapper<ProductionOrder>()
-                        .eq(ProductionOrder::getStatus, ProductionOrderStatus.IN_PROGRESS))
         );
 
         dashboard.setProductionOrderStatusCount(buildProductionOrderStatusCount());

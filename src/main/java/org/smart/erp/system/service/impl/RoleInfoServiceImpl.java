@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
-import org.smart.erp.common.util.PageConvertUtils;
+import org.smart.erp.common.utils.PageConvertUtils;
 import org.smart.erp.system.cache.MenuRedis;
 import org.smart.erp.system.cache.PermissionsRedis;
 import org.smart.erp.system.dto.RoleDetailDto;

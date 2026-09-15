@@ -10,8 +10,7 @@ import java.util.Map;
 @Data
 public class Dashboard {
 
-    // 进行中的生产订单数（原字段名 pendingProductionDemandCount 与实际口径不符，已更名）
-    private Long inProgressProductionOrderCount;
+    private Long pendingProductionDemandCount;
 
     private Map<String, Long> productionOrderStatusCount;
 

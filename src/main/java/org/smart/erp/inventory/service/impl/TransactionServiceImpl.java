@@ -8,7 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.excel.ExcelRowCollectListener;
-import org.smart.erp.common.util.PageConvertUtils;
+import org.smart.erp.common.utils.PageConvertUtils;
 import org.smart.erp.inventory.dto.TransactionImportDto;
 import org.smart.erp.inventory.dto.TransactionPageDto;
 import org.smart.erp.inventory.entity.MaterialStock;

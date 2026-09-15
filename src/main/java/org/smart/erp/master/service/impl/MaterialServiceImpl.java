@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.exception.BusinessException;
-import org.smart.erp.common.util.PageConvertUtils;
+import org.smart.erp.common.utils.PageConvertUtils;
 import org.smart.erp.common.utils.SnowflakeIdGenerator;
 import org.smart.erp.master.dto.MaterialDto.MaterialAddDto;
 import org.smart.erp.master.dto.MaterialDto.MaterialPageDto;

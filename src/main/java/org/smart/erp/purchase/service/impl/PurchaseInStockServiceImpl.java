@@ -7,7 +7,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
-import org.smart.erp.common.util.PageConvertUtils;
+import org.smart.erp.common.utils.PageConvertUtils;
 import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Supplier;
