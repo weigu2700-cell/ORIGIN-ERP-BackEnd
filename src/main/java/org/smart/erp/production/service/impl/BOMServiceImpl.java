@@ -32,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -44,7 +43,6 @@ public class BOMServiceImpl
         implements BOMService
 {
 
-    private static final String EMPTY_BOM = "EMPTY";
     private static final String BOM_CACHE_PREFIX = "erp:bom:hot:";
     private static final String BOM_LOCK_PREFIX = "erp:lock:bom:build:";
     public static final BOMCacheDto EMPTY_BOM_MARKER = new BOMCacheDto();
@@ -166,10 +164,10 @@ public class BOMServiceImpl
             bomCacheDto = bomRedis.buildBomCache(bom, bomItems);
 
             if (bomCacheDto == null) {
-                operationString.set(BOM_CACHE_PREFIX, materialId, EMPTY_BOM, Duration.ofMinutes(5));
+                bomRedis.cacheEmptyBom(materialId);
                 return EMPTY_BOM_MARKER;
             }
-            operationString.set(BOM_CACHE_PREFIX, materialId, bomCacheDto, Duration.ofHours(2));
+            bomRedis.cacheActiveBom(bomCacheDto);
             return bomCacheDto;
         } finally {
             if (rLock.isHeldByCurrentThread()) {

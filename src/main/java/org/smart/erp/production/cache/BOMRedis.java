@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.utils.RandomTtl;
 import org.smart.erp.common.utils.redis.OperationString;
 import org.smart.erp.production.dto.BOMCacheDto;
 import org.smart.erp.production.dto.BOMItemCacheDto;
@@ -12,14 +13,13 @@ import org.smart.erp.production.entity.BOMItem;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
 @Component
 public class BOMRedis{
 
-    private final String BOM_CACHE_KEY_PREFIX = "erp:bom:active:";
+    private final String BOM_CACHE_KEY_PREFIX = "erp:bom:hot:";
 
     private static final String EMPTY_BOM = "EMPTY";
 
@@ -53,11 +53,11 @@ public class BOMRedis{
 
 
     public void cacheActiveBom(BOMCacheDto bomCacheDto) {
-        operationString.set(BOM_CACHE_KEY_PREFIX, bomCacheDto.getMaterialId(), bomCacheDto, Duration.ofHours(2));
+        operationString.set(BOM_CACHE_KEY_PREFIX, bomCacheDto.getMaterialId(), bomCacheDto, RandomTtl.ofMinutes(120, 150));
     }
 
     public void cacheEmptyBom(Long materialId) {
-        operationString.set(BOM_CACHE_KEY_PREFIX, materialId, EMPTY_BOM, Duration.ofMinutes(5));
+        operationString.set(BOM_CACHE_KEY_PREFIX, materialId, EMPTY_BOM, RandomTtl.ofMinutes(5, 10));
     }
 
     public void evictBomCache(Long materialId) {

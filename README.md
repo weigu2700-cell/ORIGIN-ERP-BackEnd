@@ -87,14 +87,14 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 
 BOM 展开是典型的高读压力场景：一次展开可能递归数十个节点，每个节点都要查询 BOM 头与 BOM 明细。为此引入物料级 active BOM 缓存。
 
-- **缓存键**：`erp:bom:active:{materialId}`
+- **缓存键**：`erp:bom:hot:{materialId}`
 - **缓存值**：`BOMCacheDto`，包含 BOM 头字段与 `BOMItemCacheDto` 明细列表，代表某物料当前 `ACTIVE` 版本（version 最大）的 BOM。
-- **TTL**：2 小时（兜底最终一致，避免脏数据长期驻留）。
+- **TTL**：正常 BOM 120~150 分钟（随机抖动，避免缓存雪崩），空哨兵 5~10 分钟。
 
 读取流程（`getActiveBomWithCache`）：
 
 ```text
-1. 查 Redis（key = erp:bom:active:{materialId}）
+1. 查 Redis（key = erp:bom:hot:{materialId}）
    ├── 命中 → 直接返回 BOMCacheDto
    └── 未命中
         2. 查 DB：取该物料 status=ACTIVE 且 version 最大的 BOM，及其 BOM 明细
