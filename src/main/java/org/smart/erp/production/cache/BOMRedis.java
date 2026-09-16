@@ -1,5 +1,9 @@
 package org.smart.erp.production.cache;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.utils.redis.OperationString;
 import org.smart.erp.production.dto.BOMCacheDto;
 import org.smart.erp.production.dto.BOMItemCacheDto;
@@ -13,7 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
-public class BOMRedis {
+public class BOMRedis{
 
     private final String BOM_CACHE_KEY_PREFIX = "erp:bom:active:";
 
@@ -22,11 +26,15 @@ public class BOMRedis {
     public static final BOMCacheDto EMPTY_BOM_MARKER = new BOMCacheDto();
 
     private final OperationString operationString;
+    private final RedissonClient redissonClient;
 
-    public BOMRedis(OperationString operationString) {
+    public BOMRedis(
+            OperationString operationString,
+            RedissonClient redissonClient
+    ) {
         this.operationString = operationString;
+        this.redissonClient = redissonClient;
     }
-
     public BOMCacheDto getBomCache(Long materialId) {
         Object cached = operationString.get(BOM_CACHE_KEY_PREFIX, materialId);
         if (cached == null) {
@@ -42,6 +50,7 @@ public class BOMRedis {
         }
         return null;
     }
+
 
     public void cacheActiveBom(BOMCacheDto bomCacheDto) {
         operationString.set(BOM_CACHE_KEY_PREFIX, bomCacheDto.getMaterialId(), bomCacheDto, Duration.ofHours(2));

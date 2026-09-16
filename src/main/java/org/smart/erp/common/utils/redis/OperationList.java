@@ -17,10 +17,8 @@ import java.util.List;
 @Component
 public class OperationList extends OperationRedis {
 
-    private final RedisTemplate<String, Object> redisTemplate;
-
     public OperationList(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
+        super(redisTemplate);
     }
 
     private ListOperations<String, Object> ops() {

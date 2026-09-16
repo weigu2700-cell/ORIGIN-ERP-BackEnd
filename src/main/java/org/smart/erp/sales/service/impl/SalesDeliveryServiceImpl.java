@@ -66,7 +66,6 @@ public class SalesDeliveryServiceImpl
     @Lazy
     private final SalesOrderService salesOrderService;
     private final SalesDeliveryRedis salesDeliveryRedis;
-    private final CurrentUser currentUser;
 
     public SalesDeliveryServiceImpl(
             SalesDeliveryMapper salesDeliveryMapper,
@@ -78,8 +77,7 @@ public class SalesDeliveryServiceImpl
             SalesOrderMapper salesOrderMapper,
             SalesOrderItemMapper salesOrderItemMapper,
             @Lazy SalesOrderService salesOrderService,
-            SalesDeliveryRedis salesDeliveryRedis,
-            CurrentUser currentUser
+            SalesDeliveryRedis salesDeliveryRedis
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
@@ -92,7 +90,6 @@ public class SalesDeliveryServiceImpl
         this.salesOrderItemMapper = salesOrderItemMapper;
         this.salesOrderService = salesOrderService;
         this.salesDeliveryRedis = salesDeliveryRedis;
-        this.currentUser = currentUser;
     }
 
     //缓存方法:--------------------------------------------------
@@ -548,7 +545,7 @@ public class SalesDeliveryServiceImpl
             }
             return detailSalesDeliveryVo(id);
         } finally {
-            salesDeliveryRedis.releaseDeliveryLock(id, lockToken);
+             salesDeliveryRedis.releaseDeliveryLock(id, lockToken);
         }
     }
 

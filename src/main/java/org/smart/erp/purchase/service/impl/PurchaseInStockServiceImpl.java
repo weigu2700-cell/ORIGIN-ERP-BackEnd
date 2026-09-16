@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.common.utils.PageConvertUtils;
@@ -28,11 +30,14 @@ import org.smart.erp.purchase.service.PurchaseInStockService;
 import org.smart.erp.production.service.ProductionPickingService;
 import org.smart.erp.purchase.vo.PurchaseInStockVo;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -50,6 +55,11 @@ public class PurchaseInStockServiceImpl
     private final PurchaseOrderMapper purchaseOrderMapper;
     private final MaterialStockService materialStockService;
     private final ProductionPickingService productionPickingService;
+    private final RedissonClient redissonClient;
+
+    @Lazy
+    @Autowired
+    private PurchaseInStockServiceImpl self;
 
     public PurchaseInStockServiceImpl(
                     Validator validator,
@@ -59,7 +69,8 @@ public class PurchaseInStockServiceImpl
                     WarehouseMapper warehouseMapper,
                     PurchaseOrderMapper purchaseOrderMapper,
                     MaterialStockService materialStockService,
-                    ProductionPickingService productionPickingService
+                    ProductionPickingService productionPickingService,
+                    RedissonClient redissonClient
             ) {
         this.validator = validator;
         this.businessNoGenerator = businessNoGenerator;
@@ -69,6 +80,7 @@ public class PurchaseInStockServiceImpl
         this.purchaseOrderMapper = purchaseOrderMapper;
         this.materialStockService = materialStockService;
         this.productionPickingService = productionPickingService;
+        this.redissonClient = redissonClient;
     }
 
     /**
@@ -195,10 +207,35 @@ public class PurchaseInStockServiceImpl
         });
     }
 
+    private static final String LOCK_PREFIX = "erp:purchase:inStock:lock:";
+
     @Override
     public void approvePurchaseInStock(Long id) {
+        RLock rLock = redissonClient.getLock(LOCK_PREFIX + id);
+        boolean locked;
+        try {
+            locked = rLock.tryLock(5,  TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(500, "获取入库锁被中断");
+        }
+        if (!locked) {
+            throw new BusinessException(409, "入库单正在处理中，请稍后重试");
+        }
+        try {
+            // 经由 self 代理调用，确保 @Transactional 真正生效、DB 事务在解锁前已提交
+            self.doApprovePurchaseInStock(id);
+        } finally {
+            if (rLock.isHeldByCurrentThread()) {
+                rLock.unlock();
+            }
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void doApprovePurchaseInStock(Long id) {
         PurchaseInStock purchaseInStock = this.getById(id);
-        checkNull(purchaseInStock,"入库信息不存在");
+        checkNull(purchaseInStock, "入库信息不存在");
         if (purchaseInStock.getStatus() != PurchaseInStockStatus.DRAFT) {
             throw new BusinessException(400, "入库信息状态不为草稿，无法审核");
         }

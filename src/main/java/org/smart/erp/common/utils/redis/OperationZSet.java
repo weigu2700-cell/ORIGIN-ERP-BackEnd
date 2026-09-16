@@ -16,10 +16,8 @@ import java.util.Set;
 @Component
 public class OperationZSet extends OperationRedis {
 
-    private final RedisTemplate<String, Object> redisTemplate;
-
     public OperationZSet(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
+        super(redisTemplate);
     }
 
     // ===================== 按 cacheKey + id 的实体维度缓存 =====================

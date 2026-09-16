@@ -1,7 +1,6 @@
 package org.smart.erp.sales.cache;
 
 import org.smart.erp.common.utils.redis.OperationString;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
@@ -29,11 +28,9 @@ public class SalesDeliveryRedis {
     private static final RedisScript<Long> RELEASE_LOCK_SCRIPT = RedisScript.of(RELEASE_LOCK_LUA, Long.class);
 
     private final OperationString operationString;
-    private final RedisTemplate<String, Object> redisTemplate;
 
-    public SalesDeliveryRedis(OperationString operationString, RedisTemplate<String, Object> redisTemplate) {
+    public SalesDeliveryRedis(OperationString operationString) {
         this.operationString = operationString;
-        this.redisTemplate = redisTemplate;
     }
 
     public Boolean setDeliveryCacheIfAbsent(Long id, Object value) {
@@ -55,7 +52,7 @@ public class SalesDeliveryRedis {
             return false;
         }
         String key = DELIVERY_KEY_PREFIX + id;
-        Long result = redisTemplate.execute(RELEASE_LOCK_SCRIPT, Collections.singletonList(key), token);
+        Long result = operationString.executeScript(RELEASE_LOCK_SCRIPT, Collections.singletonList(key), token);
         return Long.valueOf(1L).equals(result);
     }
 }

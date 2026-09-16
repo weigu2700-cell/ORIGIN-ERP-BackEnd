@@ -16,10 +16,8 @@ import java.util.Map;
 @Component
 public class OperationHash extends OperationRedis {
 
-    private final RedisTemplate<String, Object> redisTemplate;
-
     public OperationHash(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
+        super(redisTemplate);
     }
 
     // ===================== 按 cacheKey + id 的实体维度缓存 =====================
