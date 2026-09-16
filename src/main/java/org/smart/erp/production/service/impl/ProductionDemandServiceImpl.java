@@ -106,7 +106,7 @@ public class ProductionDemandServiceImpl
         productionDemand.setDemandNo(
                 businessNoGenerator.generateNo("erp:sequence:production-demand:", "PD"));
         productionDemand.setStatus(ProductionStatus.PENDING);
-        save(productionDemand);
+        productionDemandMapper.insert(productionDemand);
 
         // ProductionDemand → 生成成品生产订单（草稿态，下达时再算 BOM 净需求）
         ProductionOrderAddDto orderDto = new ProductionOrderAddDto();

@@ -46,6 +46,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class SalesDeliveryServiceImplTests {
@@ -198,6 +199,44 @@ class SalesDeliveryServiceImplTests {
                 .containsOnly(11L);
         assertThat(demandCaptor.getAllValues()).extracting(ProductionDemandAddDto::getQuantity)
                 .containsExactlyInAnyOrder(new BigDecimal("3"), new BigDecimal("4"));
+        assertThat(demandCaptor.getAllValues()).extracting(ProductionDemandAddDto::getWarehouseId)
+                .containsExactlyInAnyOrder(21L, 22L);
+    }
+
+    @Test
+    void shortagesForSameMaterialAndWarehouseAreAggregatedIntoOneDemand() {
+        SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
+        SalesDeliveryItem first = item(new BigDecimal("3"), BigDecimal.ZERO);
+        SalesDeliveryItem second = item(new BigDecimal("4"), BigDecimal.ZERO);
+        second.setId(82L);
+        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+        when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(first, second));
+        when(materialStockService.getOne(any(), eq(false)))
+                .thenReturn(stock(BigDecimal.ZERO, BigDecimal.ZERO));
+        when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
+        when(customerMapper.selectById(71L)).thenReturn(customer());
+
+        service.confirmSalesDeliveryById(1L);
+
+        ArgumentCaptor<ProductionDemandAddDto> demandCaptor =
+                ArgumentCaptor.forClass(ProductionDemandAddDto.class);
+        verify(productionDemandService).addProductionDemand(demandCaptor.capture());
+        assertThat(demandCaptor.getValue().getQuantity()).isEqualByComparingTo("7");
+        assertThat(demandCaptor.getValue().getWarehouseId()).isEqualTo(21L);
+    }
+
+    @Test
+    void duplicateProcessingLockRejectsBeforeInventorySideEffects() {
+        SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
+        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+        when(salesDeliveryRedis.setDeliveryCacheIfAbsent(1L, delivery)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.confirmSalesDeliveryById(1L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getCode()).isEqualTo(409));
+
+        verify(salesDeliveryItemService, never()).list(any(Wrapper.class));
+        verify(salesDeliveryMapper, never()).updateById(any(SalesDelivery.class));
     }
 
     @Test

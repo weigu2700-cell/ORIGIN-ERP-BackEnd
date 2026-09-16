@@ -263,13 +263,16 @@ public class BaseRedis {
     }
 
     /**
-     * 设置缓存如果不存在（基于完整 key，不拼接 id）
+     * 设置缓存如果不存在（基于完整 key，不拼接 id，NX 语义）
+     * 与 activeCache 保持一致的泛型签名，可存放任意对象或字符串 token；
+     * 返回 true 表示本次成功写入（key 此前不存在），false 表示已存在未覆盖。
      * @param key 完整 Redis key
      * @param value 缓存对象
      * @param ttl 过期时间
+     * @param <T> 值类型
      * @return 是否设置成功
      */
-    public boolean setIfAbsent(String key, Object value, Duration ttl){
+    public <T> boolean setIfAbsent(String key, T value, Duration ttl) {
         return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key, value, ttl));
     }
 

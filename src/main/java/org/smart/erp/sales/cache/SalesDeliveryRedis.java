@@ -20,6 +20,11 @@ public class SalesDeliveryRedis extends BaseRedis {
         return setIfAbsent(key, value, Duration.ofSeconds(30));
     }
 
+    public Boolean setDeliveryCacheIfAbsent(Long id, String token) {
+        String key = getRedisKey(DELIVERY_KEY_PREFIX, id);
+        return setIfAbsent(key, token, Duration.ofSeconds(30));
+    }
+
     public void evictDeliveryCache(Long id) {
         String key = getRedisKey(DELIVERY_KEY_PREFIX, id);
         deleteCache(key);

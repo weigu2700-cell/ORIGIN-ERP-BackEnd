@@ -1,5 +1,5 @@
 -- 销售到出库闭环增量迁移；在已有 smart-erp 数据库执行一次。
-START TRANSACTION;
+-- MySQL DDL 会隐式提交，因此请先备份并在维护窗口执行。
 
 ALTER TABLE `smart-erp`.sal_order
     ADD COLUMN version int NOT NULL DEFAULT 0 COMMENT '乐观锁版本号' AFTER remark;
@@ -23,5 +23,3 @@ ALTER TABLE `smart-erp`.prd_production_demand
 
 ALTER TABLE `smart-erp`.prd_production_order
     ADD COLUMN warehouse_id bigint NULL COMMENT '目标入库仓库id' AFTER material_id;
-
-COMMIT;

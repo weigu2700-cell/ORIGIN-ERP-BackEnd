@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.sales.cache.SalesDeliveryRedis;
 import org.springframework.context.annotation.Lazy;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
@@ -64,6 +65,7 @@ public class SalesDeliveryServiceImpl
     @Lazy
     private final SalesOrderService salesOrderService;
     private final SalesDeliveryRedis salesDeliveryRedis;
+    private final CurrentUser currentUser;
 
     public SalesDeliveryServiceImpl(
             SalesDeliveryMapper salesDeliveryMapper,
@@ -75,7 +77,8 @@ public class SalesDeliveryServiceImpl
             SalesOrderMapper salesOrderMapper,
             SalesOrderItemMapper salesOrderItemMapper,
             @Lazy SalesOrderService salesOrderService,
-            SalesDeliveryRedis salesDeliveryRedis
+            SalesDeliveryRedis salesDeliveryRedis,
+            CurrentUser currentUser
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
@@ -88,26 +91,25 @@ public class SalesDeliveryServiceImpl
         this.salesOrderItemMapper = salesOrderItemMapper;
         this.salesOrderService = salesOrderService;
         this.salesDeliveryRedis = salesDeliveryRedis;
+        this.currentUser = currentUser;
     }
 
     //缓存方法:--------------------------------------------------
 
     /**
-     * 设置发货单缓存
-     * 如果缓存存在，则抛出异常
-     * @param salesDelivery 发货单实体
-     * @throws BusinessException 如果缓存存在，则抛出异常
+     * @param salesDelivery 发货单实体（id 已存在）
+     * @throws BusinessException 若锁已存在（并发重复操作），抛出异常
      */
     private void setSalesDeliveryCache(SalesDelivery salesDelivery) {
+        String operatorToken = String.valueOf(currentUser.getUserId());
         Boolean isSuccess = salesDeliveryRedis.setDeliveryCacheIfAbsent(
-                salesDelivery.getId()
-                ,salesDelivery
+                salesDelivery.getId(),
+                operatorToken
         );
 
         if (!isSuccess) {
-            throw new BusinessException(409,"正在处理中，请勿重复操作");
+            throw new BusinessException(409, "正在处理中，请勿重复操作");
         }
-
     }
 
     //业务方法:--------------------------------------------------
@@ -479,17 +481,28 @@ public class SalesDeliveryServiceImpl
         if (delivery == null) {
             throw new BusinessException(404, "发货单不存在");
         }
-        // 先完成出库：逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚
-        SalesDeliveryVo vo = changeStatus(id,
-                SalesDeliveryStatus.CONFIRMED,
-                SalesDeliveryStatus.COMPLETED,
-                "仅已确认的发货单可完成出库",
-                () -> outboundStockForDelivery(id));
-        // 仅当该订单下所有出货单均已出库完成时，才联动将销售订单置为完成
-        if (allDeliveriesCompleted(delivery.getSalesOrderId())) {
-            salesOrderService.finishSalesOrderById(delivery.getSalesOrderId());
+
+        try {
+            // 完成出库：逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚；
+            // changeStatus 内部已加 NX 防重锁，并在 finally 释放
+            SalesDeliveryVo vo = changeStatus(id,
+                    SalesDeliveryStatus.CONFIRMED,
+                    SalesDeliveryStatus.COMPLETED,
+                    "仅已确认的发货单可完成出库",
+                    () -> outboundStockForDelivery(id));
+            // 仅当该订单下所有出货单均已出库完成时，才联动将销售订单置为完成
+            if (allDeliveriesCompleted(delivery.getSalesOrderId())) {
+                salesOrderService.finishSalesOrderById(delivery.getSalesOrderId());
+            }
+            return vo;
         }
-        return vo;
+        catch (Exception e) {
+            log.error("出库失败", e);
+            throw new BusinessException(500, "出库失败，请稍后重试");
+        }
+        finally {
+            salesDeliveryRedis.evictDeliveryCache(delivery.getId());
+        }
     }
 
     /** 该订单下的出货单是否非空且全部出库完成 */
@@ -520,13 +533,20 @@ public class SalesDeliveryServiceImpl
         if (delivery.getStatus() == SalesDeliveryStatus.CANCELLED) {
             throw new BusinessException(400, "发货单已取消");
         }
-        // 仅“已确认”发货单此前预占了库存，取消时释放预占；草稿态无需处理
-        if (delivery.getStatus() == SalesDeliveryStatus.CONFIRMED) {
-            releaseStockForDelivery(id);
+        setSalesDeliveryCache(delivery);
+        try {
+            // 仅“已确认”发货单此前预占了库存，取消时释放预占；草稿态无需处理
+            if (delivery.getStatus() == SalesDeliveryStatus.CONFIRMED) {
+                releaseStockForDelivery(id);
+            }
+            delivery.setStatus(SalesDeliveryStatus.CANCELLED);
+            if (salesDeliveryMapper.updateById(delivery) != 1) {
+                throw new BusinessException(409, "发货单已被其他操作修改，请刷新后重试");
+            }
+            return detailSalesDeliveryVo(id);
+        } finally {
+            salesDeliveryRedis.evictDeliveryCache(id);
         }
-        delivery.setStatus(SalesDeliveryStatus.CANCELLED);
-        salesDeliveryMapper.updateById(delivery);
-        return detailSalesDeliveryVo(id);
     }
 
     @Override
