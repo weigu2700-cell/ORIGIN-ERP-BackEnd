@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+// 退役类，请移步redis文件夹
 @Component
 public class BaseRedis {
 

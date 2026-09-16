@@ -1,32 +1,30 @@
 package org.smart.erp.sales.cache;
 
-import org.smart.erp.common.utils.BaseRedis;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.smart.erp.common.utils.redis.OperationString;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
 @Component
-public class SalesDeliveryRedis extends BaseRedis {
+public class SalesDeliveryRedis {
 
     private static final String DELIVERY_KEY_PREFIX = "erp:sales:delivery:processing:";
 
-    public SalesDeliveryRedis(RedisTemplate<String, Object> redisTemplate) {
-        super(redisTemplate);
+    private final OperationString operationString;
+
+    public SalesDeliveryRedis(OperationString operationString) {
+        this.operationString = operationString;
     }
 
     public Boolean setDeliveryCacheIfAbsent(Long id, Object value) {
-        String key = getRedisKey(DELIVERY_KEY_PREFIX, id);
-        return setIfAbsent(key, value, Duration.ofSeconds(30));
+        return operationString.setIfAbsent(DELIVERY_KEY_PREFIX, id, value, Duration.ofSeconds(30));
     }
 
     public Boolean setDeliveryCacheIfAbsent(Long id, String token) {
-        String key = getRedisKey(DELIVERY_KEY_PREFIX, id);
-        return setIfAbsent(key, token, Duration.ofSeconds(30));
+        return operationString.setIfAbsent(DELIVERY_KEY_PREFIX, id, token, Duration.ofSeconds(30));
     }
 
     public void evictDeliveryCache(Long id) {
-        String key = getRedisKey(DELIVERY_KEY_PREFIX, id);
-        deleteCache(key);
+        operationString.delete(DELIVERY_KEY_PREFIX, id);
     }
 }

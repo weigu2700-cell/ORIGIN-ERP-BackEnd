@@ -1,10 +1,10 @@
 package org.smart.erp.system.cache;
 
-import org.smart.erp.common.utils.BaseRedis;
+import org.smart.erp.common.utils.redis.OperationSet;
+import org.smart.erp.common.utils.redis.OperationString;
 import org.smart.erp.system.entity.Permission;
 import org.smart.erp.system.vo.PermissionCacheVo;
 import org.springframework.beans.BeanUtils;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -13,45 +13,44 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
-public class PermissionsRedis extends BaseRedis {
+public class PermissionsRedis {
 
     private final String PERMISSIONS_KEY_PREFIX = "erp:auth:permissions:";
     private final String PERMISSIONS_USERS_INDEX = "erp:auth:permissions:users";
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final OperationString operationString;
+    private final OperationSet operationSet;
 
-    public PermissionsRedis(
-            RedisTemplate<String, Object> redisTemplate) {
-        super(redisTemplate);
-        this.redisTemplate = redisTemplate;
+    public PermissionsRedis(OperationString operationString, OperationSet operationSet) {
+        this.operationString = operationString;
+        this.operationSet = operationSet;
     }
 
     public Set<PermissionCacheVo> getPermissionsCache(Long userId) {
-        if (!hasCache(PERMISSIONS_KEY_PREFIX, userId)) {
+        if (!operationString.hasKey(PERMISSIONS_KEY_PREFIX, userId)) {
             return null;
         }
-        return getSetCache(PERMISSIONS_KEY_PREFIX, userId);
+        return operationSet.members(PERMISSIONS_KEY_PREFIX, userId);
     }
 
     public void activePermissionsCache(Long userId, Set<PermissionCacheVo> permissions) {
-        activeSetCache(PERMISSIONS_KEY_PREFIX, userId, permissions, Duration.ofHours(2));
-        redisTemplate.opsForSet().add(PERMISSIONS_USERS_INDEX, userId);
-        redisTemplate.expire(PERMISSIONS_USERS_INDEX, Duration.ofHours(2));
+        operationSet.addAll(PERMISSIONS_KEY_PREFIX, userId, permissions, Duration.ofHours(2));
+        operationSet.add(PERMISSIONS_USERS_INDEX, userId, Duration.ofHours(2));
     }
 
     public void evictPermissionsCache(Long userId) {
-        evictCache(PERMISSIONS_KEY_PREFIX, userId);
-        redisTemplate.opsForSet().remove(PERMISSIONS_USERS_INDEX, userId);
+        operationString.delete(PERMISSIONS_KEY_PREFIX, userId);
+        operationSet.remove(PERMISSIONS_USERS_INDEX, userId);
     }
 
     public void evictAllPermissionsCache() {
-        Set<Object> userIds = redisTemplate.opsForSet().members(PERMISSIONS_USERS_INDEX);
+        Set<Long> userIds = operationSet.members(PERMISSIONS_USERS_INDEX);
         if (userIds != null) {
-            for (Object id : userIds) {
-                evictCache(PERMISSIONS_KEY_PREFIX, ((Number) id).longValue());
+            for (Long id : userIds) {
+                operationString.delete(PERMISSIONS_KEY_PREFIX, id);
             }
         }
-        redisTemplate.delete(PERMISSIONS_USERS_INDEX);
+        operationSet.delete(PERMISSIONS_USERS_INDEX);
     }
 
     public Set<PermissionCacheVo> buildPermissionCache(List<Permission> permissions) {

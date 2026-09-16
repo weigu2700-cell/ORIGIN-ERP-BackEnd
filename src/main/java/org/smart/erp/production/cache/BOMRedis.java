@@ -1,12 +1,11 @@
 package org.smart.erp.production.cache;
 
-import org.smart.erp.common.utils.BaseRedis;
+import org.smart.erp.common.utils.redis.OperationString;
 import org.smart.erp.production.dto.BOMCacheDto;
 import org.smart.erp.production.dto.BOMItemCacheDto;
 import org.smart.erp.production.entity.BOM;
 import org.smart.erp.production.entity.BOMItem;
 import org.springframework.beans.BeanUtils;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -14,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
-public class BOMRedis extends BaseRedis {
+public class BOMRedis {
 
     private final String BOM_CACHE_KEY_PREFIX = "erp:bom:active:";
 
@@ -22,15 +21,19 @@ public class BOMRedis extends BaseRedis {
 
     public static final BOMCacheDto EMPTY_BOM_MARKER = new BOMCacheDto();
 
-    public BOMRedis(RedisTemplate<String, Object> redisTemplate) {
-        super(redisTemplate);
+    private final OperationString operationString;
+
+    public BOMRedis(OperationString operationString) {
+        this.operationString = operationString;
     }
 
     public BOMCacheDto getBomCache(Long materialId) {
-        Object cached = getCache(BOM_CACHE_KEY_PREFIX, materialId);
+        Object cached = operationString.get(BOM_CACHE_KEY_PREFIX, materialId);
         if (cached == null) {
             return null; // 未命中，调用方需回源查库
         }
+        // 注意必须用 .equals()：cached 是从 Redis 反序列化出来的新 String 对象，
+        // 与常量 EMPTY_BOM 不是同一引用，用 == 会恒为 false，导致空哨兵被误判后强转抛 ClassCastException
         if (EMPTY_BOM.equals(cached)) {
             return EMPTY_BOM_MARKER;
         }
@@ -41,15 +44,15 @@ public class BOMRedis extends BaseRedis {
     }
 
     public void cacheActiveBom(BOMCacheDto bomCacheDto) {
-        activeCache(BOM_CACHE_KEY_PREFIX, bomCacheDto.getMaterialId(), bomCacheDto, Duration.ofHours(2));
+        operationString.set(BOM_CACHE_KEY_PREFIX, bomCacheDto.getMaterialId(), bomCacheDto, Duration.ofHours(2));
     }
 
     public void cacheEmptyBom(Long materialId) {
-        activeCache(BOM_CACHE_KEY_PREFIX, materialId, EMPTY_BOM, Duration.ofMinutes(5));
+        operationString.set(BOM_CACHE_KEY_PREFIX, materialId, EMPTY_BOM, Duration.ofMinutes(5));
     }
 
     public void evictBomCache(Long materialId) {
-        evictCache(BOM_CACHE_KEY_PREFIX, materialId);
+        operationString.delete(BOM_CACHE_KEY_PREFIX, materialId);
     }
 
     /**
