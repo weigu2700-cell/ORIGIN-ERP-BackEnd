@@ -8,6 +8,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.service.MaterialStockService;
@@ -71,6 +72,8 @@ class SalesDeliveryServiceImplTests {
     private SalesOrderService salesOrderService;
     @Mock
     private SalesDeliveryRedis salesDeliveryRedis;
+    @Mock
+    private CurrentUser currentUser;
 
     private SalesDeliveryServiceImpl service;
 
@@ -88,7 +91,8 @@ class SalesDeliveryServiceImplTests {
                 salesOrderMapper,
                 salesOrderItemMapper,
                 salesOrderService,
-                salesDeliveryRedis);
+                salesDeliveryRedis,
+                currentUser);
     }
 
     @Test
@@ -229,7 +233,7 @@ class SalesDeliveryServiceImplTests {
     void duplicateProcessingLockRejectsBeforeInventorySideEffects() {
         SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
         when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-        when(salesDeliveryRedis.setDeliveryCacheIfAbsent(1L, delivery)).thenReturn(false);
+        when(salesDeliveryRedis.setDeliveryCacheIfAbsent(anyLong(), any(String.class))).thenReturn(false);
 
         assertThatThrownBy(() -> service.confirmSalesDeliveryById(1L))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->

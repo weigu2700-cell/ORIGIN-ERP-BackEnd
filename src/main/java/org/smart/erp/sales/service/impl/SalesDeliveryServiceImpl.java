@@ -39,6 +39,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.UUID;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,10 +102,10 @@ public class SalesDeliveryServiceImpl
      * @throws BusinessException 若锁已存在（并发重复操作），抛出异常
      */
     private void setSalesDeliveryCache(SalesDelivery salesDelivery) {
-        String operatorToken = String.valueOf(currentUser.getUserId());
+        String token = UUID.randomUUID().toString();
         Boolean isSuccess = salesDeliveryRedis.setDeliveryCacheIfAbsent(
                 salesDelivery.getId(),
-                operatorToken
+                token
         );
 
         if (!isSuccess) {
@@ -496,11 +497,13 @@ public class SalesDeliveryServiceImpl
             }
             return vo;
         }
-        catch (Exception e) {
+        catch (BusinessException e) {
+            // 业务校验异常（如“仅已确认的发货单可完成出库”的 400）原样抛出，不要被兜底逻辑改码为 500
+            throw e;
+        } catch (Exception e) {
             log.error("出库失败", e);
             throw new BusinessException(500, "出库失败，请稍后重试");
-        }
-        finally {
+        } finally {
             salesDeliveryRedis.evictDeliveryCache(delivery.getId());
         }
     }
