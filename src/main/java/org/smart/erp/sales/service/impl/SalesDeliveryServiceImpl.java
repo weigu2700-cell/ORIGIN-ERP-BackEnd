@@ -101,7 +101,8 @@ public class SalesDeliveryServiceImpl
      * @param salesDelivery 发货单实体（id 已存在）
      * @throws BusinessException 若锁已存在（并发重复操作），抛出异常
      */
-    private void setSalesDeliveryCache(SalesDelivery salesDelivery) {
+    private String setSalesDeliveryCache(SalesDelivery salesDelivery) {
+        // 分布式锁 token：一次性随机 UUID，仅用于在解锁时校验“锁仍由本请求持有”
         String token = UUID.randomUUID().toString();
         Boolean isSuccess = salesDeliveryRedis.setDeliveryCacheIfAbsent(
                 salesDelivery.getId(),
@@ -111,6 +112,7 @@ public class SalesDeliveryServiceImpl
         if (!isSuccess) {
             throw new BusinessException(409, "正在处理中，请勿重复操作");
         }
+        return token;
     }
 
     //业务方法:--------------------------------------------------
@@ -150,7 +152,7 @@ public class SalesDeliveryServiceImpl
         if (delivery.getStatus() != expected) {
             throw new BusinessException(400, rejectMsg);
         }
-        setSalesDeliveryCache(delivery);
+        String lockToken = setSalesDeliveryCache(delivery);
         try {
             beforeUpdate.run();
             delivery.setStatus(target);
@@ -159,7 +161,7 @@ public class SalesDeliveryServiceImpl
             }
             return detailSalesDeliveryVo(id);
         } finally {
-            salesDeliveryRedis.evictDeliveryCache(id);
+            salesDeliveryRedis.releaseDeliveryLock(id, lockToken);
         }
     }
 
@@ -503,8 +505,6 @@ public class SalesDeliveryServiceImpl
         } catch (Exception e) {
             log.error("出库失败", e);
             throw new BusinessException(500, "出库失败，请稍后重试");
-        } finally {
-            salesDeliveryRedis.evictDeliveryCache(delivery.getId());
         }
     }
 
@@ -536,7 +536,7 @@ public class SalesDeliveryServiceImpl
         if (delivery.getStatus() == SalesDeliveryStatus.CANCELLED) {
             throw new BusinessException(400, "发货单已取消");
         }
-        setSalesDeliveryCache(delivery);
+        String lockToken = setSalesDeliveryCache(delivery);
         try {
             // 仅“已确认”发货单此前预占了库存，取消时释放预占；草稿态无需处理
             if (delivery.getStatus() == SalesDeliveryStatus.CONFIRMED) {
@@ -548,7 +548,7 @@ public class SalesDeliveryServiceImpl
             }
             return detailSalesDeliveryVo(id);
         } finally {
-            salesDeliveryRedis.evictDeliveryCache(id);
+            salesDeliveryRedis.releaseDeliveryLock(id, lockToken);
         }
     }
 
