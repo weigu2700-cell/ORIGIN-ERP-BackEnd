@@ -2,6 +2,9 @@ package org.smart.erp.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.production.entity.ProductionDemand;
 import org.smart.erp.production.entity.ProductionOrder;
 import org.smart.erp.production.enums.ProductionOrderStatus;
@@ -24,6 +27,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class DashboardServiceImpl implements DashboardService
@@ -33,29 +37,59 @@ public class DashboardServiceImpl implements DashboardService
     private final SalesOrderService salesOrderService;
     private final ProductionDemandService productionDemandService;
     private final DashboardRedis dashboardRedis;
+    private final RedissonClient redissonClient;
 
     public DashboardServiceImpl(
             ProductionOrderService productionOrderService,
             PurchaseOrderService purchaseOrderService,
             SalesOrderService salesOrderService,
             ProductionDemandService productionDemandService,
-            DashboardRedis dashboardRedis
+            DashboardRedis dashboardRedis,
+            RedissonClient redissonClient
     ) {
         this.productionOrderService = productionOrderService;
         this.purchaseOrderService = purchaseOrderService;
         this.salesOrderService = salesOrderService;
         this.productionDemandService = productionDemandService;
         this.dashboardRedis = dashboardRedis;
+        this.redissonClient = redissonClient;
     }
+
 
     @Override
     public DashboardVo getDashboard() {
+        return getOrBuildDashboard();
+    }
+
+    private DashboardVo getOrBuildDashboard() {
         DashboardVo dashboardVo = dashboardRedis.getDashboardCache();
         if (dashboardVo != null) return dashboardVo;
 
-        DashboardVo newDashboardVo = buildDashboard();
-        dashboardRedis.activeDashboardCache(newDashboardVo);
-        return newDashboardVo;
+        RLock rLock = redissonClient.getLock(dashboardRedis.getDashboardLockKey());
+
+        boolean locked;
+        try {
+            locked =rLock.tryLock(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+
+        if (!locked)
+            throw new BusinessException(400, "资源被锁定，请稍后重试");
+
+        try {
+            DashboardVo dashboardCache = dashboardRedis.getDashboardCache();
+            if (dashboardCache != null) return dashboardCache;
+
+            dashboardCache = buildDashboard();
+            dashboardRedis.activeDashboardCache(dashboardCache);
+            return dashboardCache;
+        } finally {
+            if (rLock.isHeldByCurrentThread()) {
+                rLock.unlock();
+            }
+        }
     }
 
 
