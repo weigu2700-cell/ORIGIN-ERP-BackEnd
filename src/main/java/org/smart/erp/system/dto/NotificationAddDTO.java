@@ -3,8 +3,12 @@ package org.smart.erp.system.dto;
 import lombok.Data;
 import org.smart.erp.system.Enum.NotificationType;
 
+import java.util.List;
+
 @Data
 public class NotificationAddDTO {
+
+    private Long userId;
 
     private NotificationType type;
 

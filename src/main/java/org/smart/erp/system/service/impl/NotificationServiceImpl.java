@@ -38,7 +38,6 @@ public class NotificationServiceImpl
     public void addNotification(NotificationAddDTO dto) {
         Notification notification = new Notification();
         BeanUtils.copyProperties(dto, notification);
-        notification.setUserId(currentUser.getUserId());
         notification.setIsRead(false);
         save(notification);
     }
