@@ -1,17 +1,22 @@
 package org.smart.erp.inventory.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.inventory.dto.MaterialStockPageDto;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.mapper.MaterialStockMapper;
 import org.smart.erp.inventory.service.TransactionService;
+import org.smart.erp.inventory.enums.TransactionType;
 import org.smart.erp.inventory.vo.MaterialStockVo;
 import org.smart.erp.master.entity.Material;
 import org.smart.erp.master.entity.Warehouse;
@@ -22,9 +27,14 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,6 +54,9 @@ class MaterialStockServiceImplTests {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), "material-test"),
+                Material.class);
         service = new MaterialStockServiceImpl(
                 materialStockMapper, materialMapper, warehouseMapper, transactionService);
     }
@@ -101,6 +114,49 @@ class MaterialStockServiceImplTests {
         assertThat(queryCaptor.getValue().getSqlSegment()).contains("code =").doesNotContain("LIKE");
         assertThat(queryCaptor.getValue().getParamNameValuePairs().values()).contains("MAT-001");
         verify(materialStockMapper, never()).selectPage(any(Page.class), any());
+    }
+
+    @Test
+    void inboundUsesAtomicUpsertAndComputesLedgerBeforeFromAfterQuantity() {
+        MaterialStock after = stock(31L, 11L, 21L);
+        after.setOnHand(new BigDecimal("8"));
+        after.setReserved(new BigDecimal("2"));
+        when(materialStockMapper.selectOne(any())).thenReturn(after);
+
+        service.inboundStock(11L, 21L, new BigDecimal("3"),
+                "PURCHASE_INBOUND", "PI-1", "采购入库");
+
+        ArgumentCaptor<MaterialStock> deltaCaptor = ArgumentCaptor.forClass(MaterialStock.class);
+        verify(materialStockMapper).inboundAtomic(deltaCaptor.capture());
+        assertThat(deltaCaptor.getValue().getOnHand()).isEqualByComparingTo("3");
+        ArgumentCaptor<BigDecimal> beforeCaptor = ArgumentCaptor.forClass(BigDecimal.class);
+        verify(transactionService).recordTransaction(
+                eq(after), eq(TransactionType.INBOUND), eq(new BigDecimal("3")),
+                beforeCaptor.capture(), eq(new BigDecimal("2")),
+                eq("PURCHASE_INBOUND"), eq("PI-1"), eq("采购入库"));
+        assertThat(beforeCaptor.getValue()).isEqualByComparingTo("5");
+    }
+
+    @Test
+    void reserveReturnsConflictAfterThreeOptimisticLockCollisions() {
+        MaterialStockServiceImpl retryingService = spy(service);
+        when(materialStockMapper.selectOne(any())).thenAnswer(invocation -> {
+            MaterialStock current = stock(31L, 11L, 21L);
+            current.setVersion(7);
+            return current;
+        });
+        doReturn(false).when(retryingService).updateById(any(MaterialStock.class));
+
+        assertThatThrownBy(() -> retryingService.reserveStock(
+                11L, 21L, BigDecimal.ONE,
+                "SALES_RESERVE", "SO-1", "锁冲突"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(409));
+
+        verify(materialStockMapper, times(3)).selectOne(any());
+        verify(retryingService, times(3)).updateById(any(MaterialStock.class));
+        verify(transactionService, never()).recordTransaction(
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     private Material material(Long id, String code, String name) {

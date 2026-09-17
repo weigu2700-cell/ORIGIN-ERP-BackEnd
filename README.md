@@ -74,7 +74,7 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 | 认证授权   | Spring Security、JJWT 0.12     |
 | 数据访问   | MyBatis-Plus 3.5               |
 | 数据库     | MySQL 8.x                      |
-| 缓存与单号 | Spring Data Redis              |
+| 缓存与单号 | Spring Data Redis、Redisson   |
 | 接口文档   | Springdoc OpenAPI 2.7          |
 | Excel      | FastExcel                      |
 | 构建工具   | Maven Wrapper                  |
@@ -91,15 +91,17 @@ BOM 展开是典型的高读压力场景：一次展开可能递归数十个节�
 - **缓存值**：`BOMCacheDto`，包含 BOM 头字段与 `BOMItemCacheDto` 明细列表，代表某物料当前 `ACTIVE` 版本（version 最大）的 BOM。
 - **TTL**：正常 BOM 120~150 分钟（随机抖动，避免缓存雪崩），空哨兵 5~10 分钟。
 
-读取流程（`getActiveBomWithCache`）：
+读取流程（由 `BOMRedis#getOrLoad` 统一负责，Service 只提供 DB loader）：
 
 ```text
-1. 查 Redis（key = erp:bom:hot:{materialId}）
-   ├── 命中 → 直接返回 BOMCacheDto
-   └── 未命中
-        2. 查 DB：取该物料 status=ACTIVE 且 version 最大的 BOM，及其 BOM 明细
-        3. 写入 Redis（TTL 2h）
-        4. 返回
+1. 查 Redis（key = `erp:bom:hot:{materialId}`）
+   ├── 命中 BOMCacheDto → 直接返回
+   ├── 命中 EMPTY → 返回 null（空值缓存 TTL 5~10 分钟）
+   └── 未命中/历史脏类型
+        2. 用 Redisson 锁 `erp:lock:bom:build:{materialId}` 双检
+        3. 查 DB：取该物料 status=ACTIVE 且 version 最大的 BOM 及明细
+        4. 正常值缓存 120~150 分钟；无 BOM 写入 EMPTY 空值缓存
+        5. 返回 BOMCacheDto 或 null
 ```
 
 `BOMController` 的 BOM 展开（`getBOMExplosion`）及递归 `buildExplosionChildren` 均通过该入口取数，树中公共子件（如 A→B→D 与 A→C→D 的 D）第二次起直接命中缓存。
@@ -110,14 +112,19 @@ BOM 展开是典型的高读压力场景：一次展开可能递归数十个节�
 
 | 操作       | 触发方法      | 缓存动作                           |
 | ---------- | ------------- | ---------------------------------- |
-| 激活 BOM   | `activeBOM`   | `evictBomCache(materialId)`        |
-| 停用 BOM   | `disableBOM`  | `evictBomCache(materialId)`        |
+| 激活 BOM   | `activeBOM`   | 事务提交后 `evictAfterCommit(materialId)` |
+| 停用 BOM   | `disableBOM`  | 事务提交后 `evictAfterCommit(materialId)` |
+| 新增明细   | `addBOMItem`  | 事务提交后 `evictAfterCommit(materialId)` |
 | 新增 BOM   | `addBOM`      | 不影响（新增为 DRAFT，不参与缓存） |
 
 ### 已知权衡
 
-- **缓存穿透**：对不存在 active BOM 的采购件 / 原材料，`getActiveBomWithCache` 返回 `null` 且不写空标记，叶子节点在单次展开中被多次引用时会触发多次 DB 未命中。后续可写入极短 TTL 的空标记（null placeholder）以缓解。
+- **缓存穿透**：不存在 active BOM 的采购件 / 原材料写入 `EMPTY` 空值标记，短 TTL 降低递归展开中的重复回源。
+- **提交一致性**：BOM 写路径仅在数据库事务 `afterCommit` 后失效缓存；事务回滚不会误删旧缓存，删除失败只记录日志，不反向影响已提交事务。
 - **TTL 兜底**：极端情况下（如缓存删除失败）最多 2 小时内读到旧值，依赖 TTL 自动过期保证最终一致。
+
+发货单状态锁同样使用 Redisson watchdog（`erp:lock:sales-delivery:{id}`），在事务完成后释放。库存入库使用数据库唯一键
+`uk_material_warehouse_id` 配合 MySQL `INSERT ... ON DUPLICATE KEY UPDATE` 原子累加；这条 SQL 路径同时覆盖首次并发入库和既有库存增量，流水在同事务回查后的库存上计算。
 
 ## 快速开始
 
@@ -140,7 +147,7 @@ cd ORIGIN-ERP-BackEnd
 ### 初始化数据库
 
 1. 创建数据库 `smart-erp`。
-2. 执行 `sql/ORIGIN-ERP/smart-erp` 下的业务表脚本。
+2. 执行 `sql/smart-erp/` 下的业务表脚本。
 3. 执行 `permission_init.sql` 初始化权限数据。
 4. 如需本地管理员账号，执行 `seed_dev_admin.sql`。
 
@@ -203,7 +210,7 @@ src/main/java/org/smart/erp/
 ├── production/   # BOM、生产需求、生产订单和生产领料
 └── purchase/     # 采购需求、采购订单和采购入库
 
-sql/ORIGIN-ERP/smart-erp/
+sql/smart-erp/
 ├── sys_*.sql              # 系统与权限表
 ├── md_*.sql               # 基础资料表
 ├── inv_*.sql              # 库存表

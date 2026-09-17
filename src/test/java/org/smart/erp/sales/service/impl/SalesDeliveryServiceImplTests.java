@@ -8,7 +8,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.smart.erp.common.exception.BusinessException;
-import org.smart.erp.common.security.CurrentUser;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.service.MaterialStockService;
@@ -17,7 +18,6 @@ import org.smart.erp.master.mapper.CustomerMapper;
 import org.smart.erp.production.dto.ProductionDemandAddDto;
 import org.smart.erp.production.enums.ProductionSourceType;
 import org.smart.erp.production.service.ProductionDemandService;
-import org.smart.erp.sales.cache.SalesDeliveryRedis;
 import org.smart.erp.sales.entity.SalesDelivery;
 import org.smart.erp.sales.entity.SalesDeliveryItem;
 import org.smart.erp.sales.entity.SalesOrder;
@@ -41,10 +41,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -71,15 +73,17 @@ class SalesDeliveryServiceImplTests {
     @Mock
     private SalesOrderService salesOrderService;
     @Mock
-    private SalesDeliveryRedis salesDeliveryRedis;
+    private RedissonClient redissonClient;
     @Mock
-    private CurrentUser currentUser;
+    private RLock deliveryLock;
 
     private SalesDeliveryServiceImpl service;
 
     @BeforeEach
-    void setUp() {
-        lenient().when(salesDeliveryRedis.setDeliveryCacheIfAbsent(anyLong(), any())).thenReturn(true);
+    void setUp() throws Exception {
+        lenient().when(redissonClient.getLock(anyString())).thenReturn(deliveryLock);
+        lenient().doReturn(true).when(deliveryLock).tryLock(anyLong(), any());
+        lenient().when(deliveryLock.isHeldByCurrentThread()).thenReturn(true);
         lenient().when(salesDeliveryMapper.updateById(any(SalesDelivery.class))).thenReturn(1);
         service = new SalesDeliveryServiceImpl(
                 salesDeliveryMapper,
@@ -91,8 +95,7 @@ class SalesDeliveryServiceImplTests {
                 salesOrderMapper,
                 salesOrderItemMapper,
                 salesOrderService,
-                salesDeliveryRedis,
-                currentUser);
+                redissonClient);
     }
 
     @Test
@@ -230,10 +233,8 @@ class SalesDeliveryServiceImplTests {
     }
 
     @Test
-    void duplicateProcessingLockRejectsBeforeInventorySideEffects() {
-        SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
-        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-        when(salesDeliveryRedis.setDeliveryCacheIfAbsent(anyLong(), any(String.class))).thenReturn(false);
+    void duplicateProcessingLockRejectsBeforeInventorySideEffects() throws Exception {
+        doReturn(false).when(deliveryLock).tryLock(anyLong(), any());
 
         assertThatThrownBy(() -> service.confirmSalesDeliveryById(1L))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->

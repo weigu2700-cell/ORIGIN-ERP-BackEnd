@@ -3,11 +3,8 @@ package org.smart.erp.production.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
-import org.smart.erp.common.utils.redis.OperationString;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.mapper.MaterialStockMapper;
 import org.smart.erp.master.entity.Material;
@@ -33,7 +30,6 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -43,10 +39,6 @@ public class BOMServiceImpl
         implements BOMService
 {
 
-    private static final String BOM_CACHE_PREFIX = "erp:bom:hot:";
-    private static final String BOM_LOCK_PREFIX = "erp:lock:bom:build:";
-    public static final BOMCacheDto EMPTY_BOM_MARKER = new BOMCacheDto();
-
     private final MaterialMapper materialMapper;
     private final BOMMapper bomMapper;
     private final BOMItemMapper bomItemMapper;
@@ -54,8 +46,6 @@ public class BOMServiceImpl
     private final BusinessNoGenerator businessNoGenerator;
     private final MaterialStockMapper materialStockMapper;
     private final BOMRedis bomRedis;
-    private final RedissonClient redissonClient;
-    private final OperationString operationString;
 
 
     public BOMServiceImpl(
@@ -65,9 +55,7 @@ public class BOMServiceImpl
             BusinessNoGenerator businessNoGenerator,
             BOMMapper bomMapper,
             MaterialStockMapper materialStockMapper,
-            BOMRedis bomRedis,
-            RedissonClient redissonClient,
-            OperationString operationString
+            BOMRedis bomRedis
     )
     {
         this.materialMapper = materialMapper;
@@ -77,8 +65,6 @@ public class BOMServiceImpl
         this.bomMapper = bomMapper;
         this.materialStockMapper = materialStockMapper;
         this.bomRedis = bomRedis;
-        this.redissonClient = redissonClient;
-        this.operationString = operationString;
     }
 
     /**
@@ -87,62 +73,8 @@ public class BOMServiceImpl
      * @param materialId 物料 ID
      * @return BOM 缓存
      */
-    private BOMCacheDto getActiveBomWithCache ( Long materialId ) {
-
-        BOMCacheDto cache = bomRedis.getBomCache(materialId);
-        if (cache != null) {
-            return cache == BOMRedis.EMPTY_BOM_MARKER ? null : cache;
-        }
-
-        BOM bom = bomMapper.selectOne(
-                new LambdaQueryWrapper<BOM>()
-                        .eq(BOM::getMaterialId, materialId)
-                        .eq(BOM::getStatus, BOMStatus.ACTIVE)
-                        .orderByDesc(BOM::getVersion)
-                        .last("limit 1")
-        );
-        if (bom == null) {
-            bomRedis.cacheEmptyBom(materialId);
-            return null;
-        }
-
-        List<BOMItem> bomItems = bomItemMapper.selectList(
-                new LambdaQueryWrapper<BOMItem>()
-                        .eq(BOMItem::getBomId, bom.getId())
-                        .orderByAsc(BOMItem::getLineNo)
-        );
-
-        BOMCacheDto bomCacheDto = bomRedis.buildBomCache(bom, bomItems);
-
-        bomRedis.cacheActiveBom(bomCacheDto);
-        return bomCacheDto;
-
-    }
-
-    private BOMCacheDto getOrBuildBomCache(Long materialId) {
-        BOMCacheDto cached = operationString.get(BOM_CACHE_PREFIX, materialId);
-        if (cached != null) {
-            return cached;
-        }
-
-        RLock rLock = redissonClient.getLock(BOM_LOCK_PREFIX + materialId);
-        boolean locked;
-        try {
-            locked = rLock.tryLock(3,  TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new BusinessException(500, "获取 BOM 缓存锁被中断");
-        }
-        if (!locked) {
-            throw new BusinessException(409, "BOM 缓存构建中，请稍后重试");
-        }
-        try {
-            cached = operationString.get(BOM_CACHE_PREFIX, materialId);
-            if (cached != null) {
-                return cached;
-            }
-
-            BOMCacheDto bomCacheDto;
+    private BOMCacheDto getActiveBomWithCache(Long materialId) {
+        return bomRedis.getOrLoad(materialId, () -> {
             BOM bom = bomMapper.selectOne(
                     new LambdaQueryWrapper<BOM>()
                             .eq(BOM::getMaterialId, materialId)
@@ -150,30 +82,14 @@ public class BOMServiceImpl
                             .orderByDesc(BOM::getVersion)
                             .last("limit 1")
             );
-            if (bom == null) {
-                bomRedis.cacheEmptyBom(materialId);
-                return EMPTY_BOM_MARKER;
-            }
-
+            if (bom == null) return null;
             List<BOMItem> bomItems = bomItemMapper.selectList(
                     new LambdaQueryWrapper<BOMItem>()
                             .eq(BOMItem::getBomId, bom.getId())
                             .orderByAsc(BOMItem::getLineNo)
             );
-
-            bomCacheDto = bomRedis.buildBomCache(bom, bomItems);
-
-            if (bomCacheDto == null) {
-                bomRedis.cacheEmptyBom(materialId);
-                return EMPTY_BOM_MARKER;
-            }
-            bomRedis.cacheActiveBom(bomCacheDto);
-            return bomCacheDto;
-        } finally {
-            if (rLock.isHeldByCurrentThread()) {
-                rLock.unlock();
-            }
-        }
+            return bomRedis.buildBomCache(bom, bomItems);
+        });
     }
 
 
@@ -277,6 +193,7 @@ public class BOMServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void disableBOM(Long id) {
         BOM bom = baseMapper.selectById(id);
         if (Objects.isNull(bom)) {
@@ -287,7 +204,7 @@ public class BOMServiceImpl
         }
         bom.setStatus(BOMStatus.INACTIVE);
         baseMapper.updateById(bom);
-        bomRedis.evictBomCache(bom.getMaterialId());
+        bomRedis.evictAfterCommit(bom.getMaterialId());
     }
 
     @Override
@@ -320,7 +237,7 @@ public class BOMServiceImpl
         }
         bom.setStatus(BOMStatus.ACTIVE);
         baseMapper.updateById(bom);
-        bomRedis.evictBomCache(bom.getMaterialId());
+        bomRedis.evictAfterCommit(bom.getMaterialId());
     }
 
     @Override

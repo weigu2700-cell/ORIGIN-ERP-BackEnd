@@ -84,7 +84,7 @@ public class BOMItemServiceImpl
         bomItem.setLineNo(lineNo);
         bomItem.setLossRate(lossRate);
         save(bomItem);
-        bomRedis.evictBomCache(bom.getMaterialId());
+        bomRedis.evictAfterCommit(bom.getMaterialId());
 
         BOMItemVo vo = new BOMItemVo();
         BeanUtils.copyProperties(bomItem,vo);

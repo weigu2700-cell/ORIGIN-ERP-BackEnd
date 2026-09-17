@@ -1,6 +1,6 @@
 package org.smart.erp.production.cache;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.smart.erp.common.exception.BusinessException;
@@ -12,18 +12,22 @@ import org.smart.erp.production.entity.BOM;
 import org.smart.erp.production.entity.BOMItem;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Component
 public class BOMRedis{
 
-    private final String BOM_CACHE_KEY_PREFIX = "erp:bom:hot:";
+    private static final String BOM_CACHE_KEY_PREFIX = "erp:bom:hot:";
+    private static final String BOM_LOCK_KEY_PREFIX = "erp:lock:bom:build:";
 
     private static final String EMPTY_BOM = "EMPTY";
-
-    public static final BOMCacheDto EMPTY_BOM_MARKER = new BOMCacheDto();
 
     private final OperationString operationString;
     private final RedissonClient redissonClient;
@@ -35,20 +39,47 @@ public class BOMRedis{
         this.operationString = operationString;
         this.redissonClient = redissonClient;
     }
-    public BOMCacheDto getBomCache(Long materialId) {
-        Object cached = operationString.get(BOM_CACHE_KEY_PREFIX, materialId);
-        if (cached == null) {
-            return null; // 未命中，调用方需回源查库
+    /** 读取缓存原值；调用方负责区分 miss、EMPTY 和历史脏类型。 */
+    private Object readRaw(Long materialId) {
+        return operationString.get(BOM_CACHE_KEY_PREFIX, materialId);
+    }
+
+    private void deleteUnknown(Long materialId, Object cached) {
+        log.warn("删除 BOM 缓存中的未知值类型: materialId={}, type={}", materialId, cached.getClass());
+        operationString.delete(BOM_CACHE_KEY_PREFIX, materialId);
+    }
+
+    /**
+     * 统一负责 BOM 缓存的读取、空值缓存、双检锁与 DB loader 回源。
+     * 返回 null 表示没有 active BOM，不向业务层暴露空值哨兵。
+     */
+    public BOMCacheDto getOrLoad(Long materialId, Supplier<BOMCacheDto> loader) {
+        Object first = readRaw(materialId);
+        if (first instanceof BOMCacheDto dto) return dto;
+        if (EMPTY_BOM.equals(first)) return null;
+        if (first != null) deleteUnknown(materialId, first);
+
+        RLock lock = redissonClient.getLock(BOM_LOCK_KEY_PREFIX + materialId);
+        boolean locked;
+        try {
+            locked = lock.tryLock(3, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(500, "获取 BOM 缓存锁被中断");
         }
-        // 注意必须用 .equals()：cached 是从 Redis 反序列化出来的新 String 对象，
-        // 与常量 EMPTY_BOM 不是同一引用，用 == 会恒为 false，导致空哨兵被误判后强转抛 ClassCastException
-        if (EMPTY_BOM.equals(cached)) {
-            return EMPTY_BOM_MARKER;
+        if (!locked) throw new BusinessException(409, "BOM 缓存构建中，请稍后重试");
+        try {
+            Object second = readRaw(materialId);
+            if (second instanceof BOMCacheDto dto) return dto;
+            if (EMPTY_BOM.equals(second)) return null;
+            if (second != null) deleteUnknown(materialId, second);
+            BOMCacheDto loaded = loader.get();
+            if (loaded == null) cacheEmptyBom(materialId);
+            else cacheActiveBom(loaded);
+            return loaded;
+        } finally {
+            if (lock.isHeldByCurrentThread()) lock.unlock();
         }
-        if (cached instanceof BOMCacheDto dto) {
-            return dto; // 命中生效 BOM
-        }
-        return null;
     }
 
 
@@ -62,6 +93,29 @@ public class BOMRedis{
 
     public void evictBomCache(Long materialId) {
         operationString.delete(BOM_CACHE_KEY_PREFIX, materialId);
+    }
+
+    /** DB 写入成功后失效缓存；事务回滚时不误删仍有效的缓存。 */
+    public void evictAfterCommit(Long materialId) {
+        if (materialId == null) return;
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() { evictSafely(materialId); }
+            });
+        } else {
+            evictSafely(materialId);
+        }
+    }
+
+    private void evictSafely(Long materialId) {
+        try {
+            evictBomCache(materialId);
+        } catch (RuntimeException e) {
+            // 已提交事务不能因缓存故障反向失败，仅保留错误日志供运维处理。
+            log.error("BOM 缓存失效失败: materialId={}", materialId, e);
+        }
     }
 
     /**

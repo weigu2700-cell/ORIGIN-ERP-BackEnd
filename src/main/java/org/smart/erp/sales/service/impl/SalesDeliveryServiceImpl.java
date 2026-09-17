@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
-import org.smart.erp.common.security.CurrentUser;
-import org.smart.erp.sales.cache.SalesDeliveryRedis;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.context.annotation.Lazy;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.master.entity.Customer;
@@ -35,11 +35,12 @@ import org.smart.erp.inventory.entity.MaterialStock;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.UUID;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,8 @@ import java.util.Set;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
+import java.util.function.Supplier;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class SalesDeliveryServiceImpl
@@ -65,7 +68,8 @@ public class SalesDeliveryServiceImpl
     private final CustomerMapper customerMapper;
     @Lazy
     private final SalesOrderService salesOrderService;
-    private final SalesDeliveryRedis salesDeliveryRedis;
+    private static final String DELIVERY_LOCK_PREFIX = "erp:lock:sales-delivery:";
+    private final RedissonClient redissonClient;
 
     public SalesDeliveryServiceImpl(
             SalesDeliveryMapper salesDeliveryMapper,
@@ -77,7 +81,7 @@ public class SalesDeliveryServiceImpl
             SalesOrderMapper salesOrderMapper,
             SalesOrderItemMapper salesOrderItemMapper,
             @Lazy SalesOrderService salesOrderService,
-            SalesDeliveryRedis salesDeliveryRedis
+            RedissonClient redissonClient
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
@@ -89,27 +93,54 @@ public class SalesDeliveryServiceImpl
         this.salesOrderMapper = salesOrderMapper;
         this.salesOrderItemMapper = salesOrderItemMapper;
         this.salesOrderService = salesOrderService;
-        this.salesDeliveryRedis = salesDeliveryRedis;
+        this.redissonClient = redissonClient;
     }
 
-    //缓存方法:--------------------------------------------------
+    // 分布式锁方法:--------------------------------------------------
 
     /**
-     * @param salesDelivery 发货单实体（id 已存在）
-     * @throws BusinessException 若锁已存在（并发重复操作），抛出异常
+     * 在发货单锁内执行整个状态操作。未指定 leaseTime 的 tryLock 使用 Redisson watchdog，
+     * 事务存在时延迟到 afterCompletion 解锁，避免事务尚未提交就释放锁。
      */
-    private String setSalesDeliveryCache(SalesDelivery salesDelivery) {
-        // 分布式锁 token：一次性随机 UUID，仅用于在解锁时校验“锁仍由本请求持有”
-        String token = UUID.randomUUID().toString();
-        Boolean isSuccess = salesDeliveryRedis.setDeliveryCacheIfAbsent(
-                salesDelivery.getId(),
-                token
-        );
-
-        if (!isSuccess) {
-            throw new BusinessException(409, "正在处理中，请勿重复操作");
+    private <T> T withDeliveryLock(Long id, Supplier<T> action) {
+        final RLock lock;
+        try {
+            lock = redissonClient.getLock(DELIVERY_LOCK_PREFIX + id);
+        } catch (RuntimeException e) {
+            throw new BusinessException(500, "获取发货单锁失败");
         }
-        return token;
+        final boolean locked;
+        try {
+            locked = lock.tryLock(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(500, "获取发货单锁被中断");
+        } catch (RuntimeException e) {
+            throw new BusinessException(500, "获取发货单锁失败");
+        }
+        if (!locked) throw new BusinessException(409, "发货单正在处理中，请稍后重试");
+
+        boolean releaseAfterCompletion = TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive();
+        if (releaseAfterCompletion) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) { unlockSafely(lock); }
+            });
+        }
+        try {
+            return action.get();
+        } finally {
+            if (!releaseAfterCompletion) unlockSafely(lock);
+        }
+    }
+
+    private void unlockSafely(RLock lock) {
+        try {
+            if (lock.isHeldByCurrentThread()) lock.unlock();
+        } catch (RuntimeException e) {
+            // 业务结果不能因解锁异常被改写；watchdog/过期锁会自动兜底。
+        }
     }
 
     //业务方法:--------------------------------------------------
@@ -142,24 +173,21 @@ public class SalesDeliveryServiceImpl
                                          SalesDeliveryStatus target,
                                          String rejectMsg,
                                          Runnable beforeUpdate) {
-        SalesDelivery delivery = salesDeliveryMapper.selectById(id);
-        if (delivery == null) {
-            throw new BusinessException(404, "发货单不存在");
-        }
-        if (delivery.getStatus() != expected) {
-            throw new BusinessException(400, rejectMsg);
-        }
-        String lockToken = setSalesDeliveryCache(delivery);
-        try {
+        return withDeliveryLock(id, () -> {
+            SalesDelivery delivery = salesDeliveryMapper.selectById(id);
+            if (delivery == null) {
+                throw new BusinessException(404, "发货单不存在");
+            }
+            if (delivery.getStatus() != expected) {
+                throw new BusinessException(400, rejectMsg);
+            }
             beforeUpdate.run();
             delivery.setStatus(target);
             if (salesDeliveryMapper.updateById(delivery) != 1) {
                 throw new BusinessException(409, "发货单已被其他操作修改，请刷新后重试");
             }
             return detailSalesDeliveryVo(id);
-        } finally {
-            salesDeliveryRedis.releaseDeliveryLock(id, lockToken);
-        }
+        });
     }
 
     /**
@@ -477,20 +505,16 @@ public class SalesDeliveryServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo completeSalesDeliveryById(Long id) {
-        SalesDelivery delivery = salesDeliveryMapper.selectById(id);
-        if (delivery == null) {
-            throw new BusinessException(404, "发货单不存在");
-        }
-
         try {
             // 完成出库：逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚；
-            // changeStatus 内部已加 NX 防重锁，并在 finally 释放
+            // changeStatus 内部在 Redisson 锁内执行，并在事务完成后释放
             SalesDeliveryVo vo = changeStatus(id,
                     SalesDeliveryStatus.CONFIRMED,
                     SalesDeliveryStatus.COMPLETED,
                     "仅已确认的发货单可完成出库",
                     () -> outboundStockForDelivery(id));
             // 仅当该订单下所有出货单均已出库完成时，才联动将销售订单置为完成
+            SalesDelivery delivery = salesDeliveryMapper.selectById(id);
             if (allDeliveriesCompleted(delivery.getSalesOrderId())) {
                 salesOrderService.finishSalesOrderById(delivery.getSalesOrderId());
             }
@@ -523,18 +547,17 @@ public class SalesDeliveryServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo cancelSalesDeliveryById(Long id) {
-        SalesDelivery delivery = salesDeliveryMapper.selectById(id);
-        if (delivery == null) {
-            throw new BusinessException(404, "发货单不存在");
-        }
-        if (delivery.getStatus() == SalesDeliveryStatus.COMPLETED) {
-            throw new BusinessException(400, "已出库完成的发货单不可取消");
-        }
-        if (delivery.getStatus() == SalesDeliveryStatus.CANCELLED) {
-            throw new BusinessException(400, "发货单已取消");
-        }
-        String lockToken = setSalesDeliveryCache(delivery);
-        try {
+        return withDeliveryLock(id, () -> {
+            SalesDelivery delivery = salesDeliveryMapper.selectById(id);
+            if (delivery == null) {
+                throw new BusinessException(404, "发货单不存在");
+            }
+            if (delivery.getStatus() == SalesDeliveryStatus.COMPLETED) {
+                throw new BusinessException(400, "已出库完成的发货单不可取消");
+            }
+            if (delivery.getStatus() == SalesDeliveryStatus.CANCELLED) {
+                throw new BusinessException(400, "发货单已取消");
+            }
             // 仅“已确认”发货单此前预占了库存，取消时释放预占；草稿态无需处理
             if (delivery.getStatus() == SalesDeliveryStatus.CONFIRMED) {
                 releaseStockForDelivery(id);
@@ -544,9 +567,7 @@ public class SalesDeliveryServiceImpl
                 throw new BusinessException(409, "发货单已被其他操作修改，请刷新后重试");
             }
             return detailSalesDeliveryVo(id);
-        } finally {
-             salesDeliveryRedis.releaseDeliveryLock(id, lockToken);
-        }
+        });
     }
 
     @Override

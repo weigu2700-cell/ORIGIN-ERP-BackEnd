@@ -1,6 +1,7 @@
 package org.smart.erp.inventory.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.jspecify.annotations.NonNull;
@@ -29,6 +30,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @Service
@@ -317,40 +319,39 @@ public class MaterialStockServiceImpl
     @Transactional(rollbackFor = Exception.class)
     public void inboundStock(Long materialId, Long warehouseId, BigDecimal quantity,
                              String businessType, String businessNo, String remark) {
-        LambdaQueryWrapper<MaterialStock> queryWrapper = buildStockQueryWrapper(materialId, warehouseId, quantity, "入库数量必须大于 0");
+        buildStockQueryWrapper(materialId, warehouseId, quantity, "入库数量必须大于 0");
 
-        int maxRetry = 3;
-        for (int i = 0; i < maxRetry; i++) {
-            MaterialStock materialStock = materialStockMapper.selectOne(queryWrapper);
-            if (materialStock == null) {
-                // 库存记录不存在则自动创建（成品入库等未预建库存记录的场景），初始零库存后继续走增量更新
-                MaterialStock init = new MaterialStock();
-                init.setMaterialId(materialId);
-                init.setWarehouseId(warehouseId);
-                init.setOnHand(BigDecimal.ZERO);
-                init.setReserved(BigDecimal.ZERO);
-                materialStockMapper.insert(init);
-                continue;
-            }
+        // 依靠数据库唯一键 + ON DUPLICATE KEY UPDATE 原子累加，避免首次并发入库的竞态插入和丢增量。
+        MaterialStock delta = new MaterialStock();
+        delta.setId(IdWorker.getId());
+        delta.setMaterialId(materialId);
+        delta.setWarehouseId(warehouseId);
+        delta.setOnHand(quantity);
+        delta.setReserved(BigDecimal.ZERO);
+        delta.setVersion(0);
+        LocalDateTime now = LocalDateTime.now();
+        delta.setCreateTime(now);
+        delta.setUpdateTime(now);
+        materialStockMapper.inboundAtomic(delta);
 
-            BigDecimal beforeOnHand = materialStock.getOnHand();
-            BigDecimal beforeReserved = materialStock.getReserved();
-
-            materialStock.setOnHand(materialStock.getOnHand().add(quantity));
-
-            if (this.updateById(materialStock)) {
-                transactionService.recordTransaction(
-                        materialStock,
-                        TransactionType.INBOUND,
-                        quantity, beforeOnHand,
-                        beforeReserved,
-                        businessType, businessNo, remark
-                );
-                return;
-            }
+        // 在同一事务中回查数据库结果；流水 before 值按 after - 本次增量计算。
+        MaterialStock after = materialStockMapper.selectOne(
+                new LambdaQueryWrapper<MaterialStock>()
+                        .eq(MaterialStock::getMaterialId, materialId)
+                        .eq(MaterialStock::getWarehouseId, warehouseId));
+        if (after == null) {
+            throw new BusinessException(409, "入库后库存记录不存在");
         }
-
-        throw new BusinessException(409, "入库失败，请稍后重试");
+        BigDecimal afterOnHand = after.getOnHand() == null ? BigDecimal.ZERO : after.getOnHand();
+        BigDecimal afterReserved = after.getReserved() == null ? BigDecimal.ZERO : after.getReserved();
+        transactionService.recordTransaction(
+                after,
+                TransactionType.INBOUND,
+                quantity,
+                afterOnHand.subtract(quantity),
+                afterReserved,
+                businessType, businessNo, remark
+        );
     }
 
 }

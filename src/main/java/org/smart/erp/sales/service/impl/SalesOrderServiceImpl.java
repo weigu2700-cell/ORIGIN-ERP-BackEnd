@@ -350,7 +350,9 @@ public class SalesOrderServiceImpl
                     // 级联确认所有草稿态出货单；预占库存由各出货单在确认时自行决定，订单不再直接操作库存
                     List<SalesDelivery> deliveries = salesDeliveryMapper.selectList(
                             new LambdaQueryWrapper<SalesDelivery>().eq(SalesDelivery::getSalesOrderId, id));
-                    for (SalesDelivery d : deliveries) {
+                    for (SalesDelivery d : deliveries.stream()
+                            .sorted(java.util.Comparator.comparing(SalesDelivery::getId))
+                            .toList()) {
                         if (d.getStatus() == SalesDeliveryStatus.DRAFT) {
                             salesDeliveryService.confirmSalesDeliveryById(d.getId());
                         }
@@ -371,7 +373,9 @@ public class SalesOrderServiceImpl
                     // 级联取消所有未完成的出货单；出货单为“已确认”时会自行释放预占，订单本身不操作库存
                     List<SalesDelivery> deliveries = salesDeliveryMapper.selectList(
                             new LambdaQueryWrapper<SalesDelivery>().eq(SalesDelivery::getSalesOrderId, id));
-                    for (SalesDelivery d : deliveries) {
+                    for (SalesDelivery d : deliveries.stream()
+                            .sorted(java.util.Comparator.comparing(SalesDelivery::getId))
+                            .toList()) {
                         if (d.getStatus() == SalesDeliveryStatus.COMPLETED) {
                             throw new BusinessException(400, "订单存在已完成的发货单，无法取消");
                         }
