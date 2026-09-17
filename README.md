@@ -31,6 +31,7 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 - **多级 BOM 能力**：支持 BOM 版本管理、启用/停用、递归展开和按生产数量计算物料需求。
 - **全链路缓存**：基于 Redis 的旁路缓存（Cache-Aside），BOM 展开查询优先命中缓存，显著降低多级 BOM 递归查询的数据库压力，并在 BOM 激活/停用时主动失效。
 - **移动作业复用同一后端**：Web 与移动端共享账户、权限、业务数据和统一响应协议。
+- **持久化实时通知**：通知先写入数据库，再通过带 JWT 握手认证的 WebSocket 推送；离线用户重新登录后仍可查询未读消息。
 - **开箱即用的接口文档**：通过 Springdoc OpenAPI 提供 Swagger UI，便于联调和接口验收。
 
 ## 业务能力
@@ -44,6 +45,7 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 | BOM 管理 | BOM 创建、版本、启用/停用、多级展开、物料需求计算        |
 | 生产管理 | 生产需求、生产订单、下达/开工/完工/取消、生产领料        |
 | 采购管理 | 采购需求、采购订单、采购入库审核与上架                   |
+| 消息通知 | 通知落库、实时推送、分页/详情、未读统计、单条/全部已读   |
 
 ## 业务链路
 
@@ -74,7 +76,8 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 | 认证授权   | Spring Security、JJWT 0.12     |
 | 数据访问   | MyBatis-Plus 3.5               |
 | 数据库     | MySQL 8.x                      |
-| 缓存与单号 | Spring Data Redis、Redisson   |
+| 缓存与单号 | Spring Data Redis、Redisson    |
+| 实时通信   | Spring WebSocket               |
 | 接口文档   | Springdoc OpenAPI 2.7          |
 | Excel      | FastExcel                      |
 | 构建工具   | Maven Wrapper                  |
@@ -89,7 +92,7 @@ BOM 展开是典型的高读压力场景：一次展开可能递归数十个节�
 
 - **缓存键**：`erp:bom:hot:{materialId}`
 - **缓存值**：`BOMCacheDto`，包含 BOM 头字段与 `BOMItemCacheDto` 明细列表，代表某物料当前 `ACTIVE` 版本（version 最大）的 BOM。
-- **TTL**：正常 BOM 120~150 分钟（随机抖动，避免缓存雪崩），空哨兵 5~10 分钟。
+- **TTL**：正常 BOM 120-150 分钟（随机抖动，避免缓存雪崩），空哨兵 5-10 分钟。
 
 读取流程（由 `BOMRedis#getOrLoad` 统一负责，Service 只提供 DB loader）：
 
@@ -110,12 +113,12 @@ BOM 展开是典型的高读压力场景：一次展开可能递归数十个节�
 
 旁路缓存必须保证写入后缓存不脏读，因此在 BOM 状态变更时主动删除缓存键：
 
-| 操作       | 触发方法      | 缓存动作                           |
-| ---------- | ------------- | ---------------------------------- |
-| 激活 BOM   | `activeBOM`   | 事务提交后 `evictAfterCommit(materialId)` |
-| 停用 BOM   | `disableBOM`  | 事务提交后 `evictAfterCommit(materialId)` |
-| 新增明细   | `addBOMItem`  | 事务提交后 `evictAfterCommit(materialId)` |
-| 新增 BOM   | `addBOM`      | 不影响（新增为 DRAFT，不参与缓存） |
+| 操作     | 触发方法     | 缓存动作                                  |
+| -------- | ------------ | ----------------------------------------- |
+| 激活 BOM | `activeBOM`  | 事务提交后 `evictAfterCommit(materialId)` |
+| 停用 BOM | `disableBOM` | 事务提交后 `evictAfterCommit(materialId)` |
+| 新增明细 | `addBOMItem` | 事务提交后 `evictAfterCommit(materialId)` |
+| 新增 BOM | `addBOM`     | 不影响（新增为 DRAFT，不参与缓存）        |
 
 ### 已知权衡
 
@@ -147,21 +150,37 @@ cd ORIGIN-ERP-BackEnd
 ### 初始化数据库
 
 1. 创建数据库 `smart-erp`。
-2. 执行 `sql/smart-erp/` 下的业务表脚本。
-3. 执行 `permission_init.sql` 初始化权限数据。
-4. 如需本地管理员账号，执行 `seed_dev_admin.sql`。
+2. 按模块执行 `sql/smart-erp/` 下的系统、基础资料和业务表 DDL。
+3. 根据目标版本检查并执行 `sql/migrations/` 下的增量脚本。
+4. 初始化用户、角色、菜单、权限及其关联数据。仓库不提供可用于生产的默认账号或密码。
+5. 消息通知功能依赖 `sys_notification` 表，表结构应与 `system/entity/Notification.java` 保持一致。
 
-数据库与 Redis 默认配置位于 `src/main/resources/application.yaml`。数据库密码和 JWT 密钥不提供代码内默认值，
-启动前必须通过环境变量或外部配置提供：
+数据库、Redis 和 JWT 默认配置位于 `src/main/resources/application.yaml`。本地可直接按文件中的开发配置启动；共享、测试和生产环境应使用环境变量或外部配置覆盖，禁止沿用仓库中的开发凭据。
 
 ```bash
-export DB_PASSWORD='<local-database-password>'
+export SPRING_DATASOURCE_URL='jdbc:mysql://localhost:3306/smart-erp?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true'
+export SPRING_DATASOURCE_USERNAME='root'
+export SPRING_DATASOURCE_PASSWORD='<local-database-password>'
 # 生成一次后存入密钥管理系统；不要每次启动都重新生成
 openssl rand -base64 32
 export JWT_SECRET='<base64-secret-from-previous-command>'
 ```
 
-`JWT_SECRET` 必须是 Base64 编码且解码后至少 32 字节。可选的 `JWT_EXPIRATION_MILLIS`默认为 `18000000`（5 小时）。
+Spring Boot 会通过环境变量的宽松绑定将上述 `SPRING_DATASOURCE_*` 配置映射到 `spring.datasource.*`。
+
+常用配置项：
+
+| 配置                                                       | 默认值                                     | 说明                            |
+| ---------------------------------------------------------- | ------------------------------------------ | ------------------------------- |
+| `spring.datasource.url`                                    | `jdbc:mysql://localhost:3306/smart-erp...` | MySQL 连接地址                  |
+| `spring.datasource.username`                               | `root`                                     | MySQL 用户名                    |
+| `spring.datasource.password`                               | 本地开发值                                 | 生产环境必须覆盖                |
+| `spring.data.redis.host`                                   | `127.0.0.1`                                | Redis 地址                      |
+| `spring.data.redis.port`                                   | `6379`                                     | Redis 端口                      |
+| `security.jwt.secret` / `JWT_SECRET`                       | 开发密钥                                   | Base64 编码，解码后至少 32 字节 |
+| `security.jwt.expiration-millis` / `JWT_EXPIRATION_MILLIS` | `18000000`                                 | Token 有效期，默认 5 小时       |
+
+`JWT_SECRET` 必须是 Base64 编码且解码后至少 32 字节。可选的 `JWT_EXPIRATION_MILLIS` 默认为 `18000000`（5 小时）。
 
 ### 启动服务
 
@@ -208,12 +227,127 @@ User ── UserRole ── Role ── RoleMenu ── Menu
                        └──── RolePermission ── Permission
 ```
 
+## 消息通知与 WebSocket
+
+### 全链路流程
+
+```text
+业务服务调用 NotificationService#addNotification
+                │
+                ▼
+       写入 sys_notification（isRead=false）
+                │
+                ▼
+      ObjectMapper 序列化通知实体
+                │
+                ▼
+ WebSocketSessionManager 按 userId 查找在线会话
+                │
+      ┌─────────┴─────────┐
+      ▼                   ▼
+   用户在线             用户离线
+发送 TextMessage       跳过实时发送
+      │                   │
+      └─────────┬─────────┘
+                ▼
+      通知均保留在数据库，可由 REST 查询
+```
+
+通知保存成功后才尝试推送。WebSocket 发送失败只记录警告，不回滚已经持久化的通知，保证实时链路故障不会丢失业务消息。
+
+### 建立连接与认证
+
+WebSocket 端点为：
+
+```text
+ws://localhost:8080/ws/notification?token=<JWT>
+```
+
+HTTPS 环境使用：
+
+```text
+wss://api.example.com/ws/notification?token=<JWT>
+```
+
+握手流程：
+
+1. `/ws/**` 在 Spring Security HTTP 过滤链中放行，使请求可以完成协议升级。
+2. `WebSocketAuthInterceptor` 从 `token` 查询参数读取 JWT，并调用现有 `JwtUtil` 校验。
+3. 校验成功后将 `userId` 写入 WebSocket session attributes；校验失败直接拒绝握手。
+4. `NotificationWebSocketHandler` 建立连接时注册用户会话，关闭时精确移除同一会话。
+5. `WebSocketSessionManager` 使用线程安全 Map 保存当前在线连接，并按 `userId` 定向发送文本消息。
+
+当前实现每个用户保留一个活动 WebSocket 会话，新连接会替换旧连接，适用于单端登录场景。如需同一账号多浏览器或多设备同时在线，应将会话表扩展为 `Map<Long, Set<WebSocketSession>>`。
+
+JWT 位于 WebSocket URL 查询参数中。生产环境必须使用 WSS，并避免在反向代理访问日志、APM 或错误页中记录完整查询字符串。
+
+### REST API
+
+所有 REST 接口都基于 `CurrentUser` 限定当前用户数据。详情查询和已读操作不会访问其他用户的通知。
+
+| 方法  | 地址                             | 说明                                                      |
+| ----- | -------------------------------- | --------------------------------------------------------- |
+| `GET` | `/sys/notification`              | 分页查询通知，参数为 `pageNum`、`pageSize`、可选 `isRead` |
+| `GET` | `/sys/notification/{id}`         | 查询当前用户的一条通知详情                                |
+| `GET` | `/sys/notification/unread/count` | 查询当前用户未读数量                                      |
+| `PUT` | `/sys/notification/{id}/readed`  | 将当前用户指定通知标记为已读                              |
+| `PUT` | `/sys/notification/all/readed`   | 将当前用户全部未读通知标记为已读                          |
+
+通知类型：
+
+| 编码 | 枚举       | 含义       |
+| ---- | ---------- | ---------- |
+| `0`  | `SYSTEM`   | 系统消息   |
+| `1`  | `BUSINESS` | 业务消息   |
+| `2`  | `WARNING`  | 预警消息   |
+| `3`  | `TASK`     | 任务消息   |
+| `4`  | `CUSTOM`   | 自定义消息 |
+
+WebSocket 推送内容与通知详情字段保持一致，示例：
+
+```json
+{
+  "id": "9007199254740993",
+  "userId": "10001",
+  "type": 1,
+  "title": "销售订单已确认",
+  "content": "销售订单 SO-001 已完成确认，请及时处理后续业务。",
+  "businessType": "sales_order",
+  "businessId": "20001",
+  "businessNo": "SO-001",
+  "isRead": false,
+  "readTime": null,
+  "createTime": "2026-09-17 08:00:00",
+  "updateTime": "2026-09-17 08:00:00"
+}
+```
+
+`Long` 类型 ID 返回给 JavaScript 客户端时应保持字符串形式，避免超过 `Number.MAX_SAFE_INTEGER` 后产生精度损失。
+
+### 在业务中发送通知
+
+业务 Service 注入 `NotificationService`，组装 `NotificationAddDTO` 后调用统一入口：
+
+```java
+NotificationAddDTO notification = new NotificationAddDTO();
+notification.setUserId(targetUserId);
+notification.setType(NotificationType.BUSINESS);
+notification.setTitle("销售订单已确认");
+notification.setContent("销售订单 SO-001 已完成确认，请及时处理后续业务。");
+notification.setBusinessType("sales_order");
+notification.setBusinessId(orderId);
+notification.setBusinessNo("SO-001");
+notificationService.addNotification(notification);
+```
+
+业务模块不应直接操作 `WebSocketSessionManager`。统一通过 `NotificationService` 保持“先落库、后推送”的一致行为。
+
 ## 项目结构
 
 ```text
 src/main/java/org/smart/erp/
-├── common/       # 响应、异常、安全、配置、序号、Excel 和通用工具
-├── system/       # 用户、角色、部门、菜单、权限和认证
+├── common/       # 响应、异常、安全、WebSocket、配置、序号、Excel 和通用工具
+├── system/       # 用户、角色、部门、菜单、权限、认证和消息通知
 ├── master/       # 客户、供应商、工厂、车间、产线、仓库和物料
 ├── inventory/    # 物料库存与库存流水
 ├── sales/        # 销售订单与销售出库
@@ -270,6 +404,7 @@ controller → dto → service → mapper → entity / vo
 - 使用环境变量或配置中心管理数据库、Redis 和 JWT 配置。
 - 不要在仓库中提交生产密码、私钥或访问令牌。
 - 在反向代理层启用 HTTPS、请求大小限制和访问日志。
+- 为 `/ws/notification` 配置 WebSocket 协议升级、合理的空闲超时和 WSS；不要记录带 JWT 的完整查询字符串。
 - 对数据库执行定期备份，并对库存、订单等核心表保留审计能力。
 - 部署前执行完整测试和打包，确认目标环境使用 JDK 21。
 
@@ -277,7 +412,7 @@ controller → dto → service → mapper → entity / vo
 
 以下能力处于规划阶段，尚未落地：
 
-- **WebSocket 任务推送**：服务端通过 WebSocket 主动向客户端推送任务与消息，例如生产任务下发、审批待办提醒、库存预警与单据状态变更通知，替代前端轮询，降低延迟与无效请求。
+- **通知能力扩展**：增加自动重连、心跳、多设备会话、消息模板和更多业务事件接入。
 - **AI 智能问答助手**：基于企业业务数据（库存、订单、生产进度、采购等）的自然语言问答与辅助决策，支持以对话方式查询经营指标、定位异常单据，并逐步接入流程建议与自动化工单。
 
 ## 参与贡献
