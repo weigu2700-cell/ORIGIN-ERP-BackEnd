@@ -1,4 +1,4 @@
-package org.smart.erp.common.security;
+package org.smart.erp.common.websocket;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
