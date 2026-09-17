@@ -30,6 +30,8 @@ import org.smart.erp.sales.mapper.SalesOrderMapper;
 import org.smart.erp.sales.service.SalesDeliveryItemService;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.sales.vo.SalesDeliveryVo;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -274,6 +276,60 @@ class SalesDeliveryServiceImplTests {
                     assertThat(exception.getCode()).isEqualTo(400);
                     assertThat(exception.getMessage()).isEqualTo("仅已确认的发货单可完成出库");
                 });
+    }
+
+    @Test
+    void deliveryLockIsReleasedOnlyAfterTransactionCommit() {
+        SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
+        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+        when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
+        when(customerMapper.selectById(71L)).thenReturn(customer());
+
+        beginTransactionSynchronization();
+        try {
+            service.cancelSalesDeliveryById(1L);
+
+            verify(deliveryLock, never()).unlock();
+            completeTransactionSynchronization(TransactionSynchronization.STATUS_COMMITTED);
+            verify(deliveryLock).unlock();
+        } finally {
+            clearTransactionSynchronization();
+        }
+    }
+
+    @Test
+    void deliveryLockIsReleasedOnlyAfterTransactionRollback() {
+        SalesDelivery delivery = delivery(SalesDeliveryStatus.COMPLETED);
+        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+
+        beginTransactionSynchronization();
+        try {
+            assertThatThrownBy(() -> service.cancelSalesDeliveryById(1L))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(deliveryLock, never()).unlock();
+            completeTransactionSynchronization(TransactionSynchronization.STATUS_ROLLED_BACK);
+            verify(deliveryLock).unlock();
+        } finally {
+            clearTransactionSynchronization();
+        }
+    }
+
+    private void beginTransactionSynchronization() {
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+    }
+
+    private void completeTransactionSynchronization(int status) {
+        TransactionSynchronizationManager.getSynchronizations()
+                .forEach(synchronization -> synchronization.afterCompletion(status));
+    }
+
+    private void clearTransactionSynchronization() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+        TransactionSynchronizationManager.setActualTransactionActive(false);
     }
 
     private SalesDelivery delivery(SalesDeliveryStatus status) {

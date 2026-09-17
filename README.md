@@ -151,7 +151,17 @@ cd ORIGIN-ERP-BackEnd
 3. 执行 `permission_init.sql` 初始化权限数据。
 4. 如需本地管理员账号，执行 `seed_dev_admin.sql`。
 
-数据库与 Redis 默认配置位于 `src/main/resources/application.yaml`。请根据本机环境调整连接信息；生产环境应使用环境变量或外部配置覆盖账号、密码和 JWT 密钥。
+数据库与 Redis 默认配置位于 `src/main/resources/application.yaml`。数据库密码和 JWT 密钥不提供代码内默认值，
+启动前必须通过环境变量或外部配置提供：
+
+```bash
+export DB_PASSWORD='<local-database-password>'
+# 生成一次后存入密钥管理系统；不要每次启动都重新生成
+openssl rand -base64 32
+export JWT_SECRET='<base64-secret-from-previous-command>'
+```
+
+`JWT_SECRET` 必须是 Base64 编码且解码后至少 32 字节。可选的 `JWT_EXPIRATION_MILLIS`默认为 `18000000`（5 小时）。
 
 ### 启动服务
 
@@ -239,6 +249,9 @@ controller → dto → service → mapper → entity / vo
 # 打包
 ./mvnw clean package
 ```
+
+测试集使用 Testcontainers + MySQL 8.4 验证首次并发入库。Docker 可用时会自动运行该集成测试；
+未安装或未启动 Docker 时自动跳过，不阻断其余单元测试。CI 应提供 Docker 环境，避免将该并发测试跳过。
 
 构建产物位于 `target/`。
 

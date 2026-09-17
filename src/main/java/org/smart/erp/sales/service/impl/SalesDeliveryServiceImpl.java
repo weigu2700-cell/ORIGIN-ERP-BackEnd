@@ -3,6 +3,7 @@ package org.smart.erp.sales.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.smart.erp.common.exception.BusinessException;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -52,6 +53,7 @@ import java.util.stream.Collectors;
 import java.util.function.Supplier;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 public class SalesDeliveryServiceImpl
         extends ServiceImpl<SalesDeliveryMapper, SalesDelivery>
@@ -120,15 +122,16 @@ public class SalesDeliveryServiceImpl
         }
         if (!locked) throw new BusinessException(409, "发货单正在处理中，请稍后重试");
 
-        boolean releaseAfterCompletion = TransactionSynchronizationManager.isActualTransactionActive()
-                && TransactionSynchronizationManager.isSynchronizationActive();
-        if (releaseAfterCompletion) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCompletion(int status) { unlockSafely(lock); }
-            });
-        }
+        boolean releaseAfterCompletion = false;
         try {
+            if (TransactionSynchronizationManager.isActualTransactionActive()
+                    && TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) { unlockSafely(lock); }
+                });
+                releaseAfterCompletion = true;
+            }
             return action.get();
         } finally {
             if (!releaseAfterCompletion) unlockSafely(lock);
@@ -140,6 +143,7 @@ public class SalesDeliveryServiceImpl
             if (lock.isHeldByCurrentThread()) lock.unlock();
         } catch (RuntimeException e) {
             // 业务结果不能因解锁异常被改写；watchdog/过期锁会自动兜底。
+            log.warn("释放销售发货锁失败，等待 watchdog 兜底", e);
         }
     }
 
