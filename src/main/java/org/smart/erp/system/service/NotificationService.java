@@ -13,9 +13,9 @@ public interface NotificationService extends IService<Notification> {
 
     Page<NotificationVo> pageNotification(NotificationPageDto dto);
 
-    Long getUnReadCount(Long userId);
+    Long getUnReadCount();
 
-    void markAsRead(Long userId, Long notificationId);
+    void markAsRead( Long notificationId);
 
-    void markAllAsRead(Long userId);
+    void markAllAsRead();
 }

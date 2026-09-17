@@ -6,8 +6,6 @@ import org.smart.erp.system.Enum.NotificationType;
 @Data
 public class NotificationAddDTO {
 
-    private Long userId;
-
     private NotificationType type;
 
     private String title;

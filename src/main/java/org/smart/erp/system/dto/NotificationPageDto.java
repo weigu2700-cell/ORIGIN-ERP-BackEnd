@@ -9,7 +9,5 @@ public class NotificationPageDto {
 
     private Integer pageSize;
 
-    private Long userId;
-
     private Boolean isRead;
 }

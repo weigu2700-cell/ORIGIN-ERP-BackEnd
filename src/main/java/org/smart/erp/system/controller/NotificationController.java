@@ -26,19 +26,19 @@ public class NotificationController {
     }
 
     @GetMapping("/unread/count")
-    public Result<Long> getUnReadCount(Long userId) {
-        return Result.success(notificationService.getUnReadCount(userId));
+    public Result<Long> getUnReadCount() {
+        return Result.success(notificationService.getUnReadCount());
     }
 
     @PutMapping("/readed")
-    public Result<Void> markRead(Long userId, Long notificationId) {
-        notificationService.markAsRead(userId, notificationId);
+    public Result<Void> markRead( Long notificationId) {
+        notificationService.markAsRead(notificationId);
         return Result.success();
     }
 
     @PutMapping("/all/readed")
-    public Result<Void> markAllRead(Long userId){
-        notificationService.markAllAsRead(userId);
+    public Result<Void> markAllRead(){
+        notificationService.markAllAsRead();
         return Result.success();
     }
 }

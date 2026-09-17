@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.system.dto.NotificationAddDTO;
 import org.smart.erp.system.dto.NotificationPageDto;
 import org.smart.erp.system.entity.Notification;
@@ -23,15 +24,21 @@ public class NotificationServiceImpl
 {
 
     private final NotificationMapper notificationMapper;
+    private final CurrentUser currentUser;
 
-    public NotificationServiceImpl(NotificationMapper notificationMapper) {
+    public NotificationServiceImpl(
+            NotificationMapper notificationMapper,
+            CurrentUser currentUser
+    ) {
         this.notificationMapper = notificationMapper;
+        this.currentUser = currentUser;
     }
 
     @Override
     public void addNotification(NotificationAddDTO dto) {
         Notification notification = new Notification();
         BeanUtils.copyProperties(dto, notification);
+        notification.setUserId(currentUser.getUserId());
         notification.setIsRead(false);
         save(notification);
     }
@@ -40,7 +47,7 @@ public class NotificationServiceImpl
     public Page<NotificationVo> pageNotification(NotificationPageDto dto) {
         LambdaQueryWrapper<Notification> qw =
                 new LambdaQueryWrapper<Notification>()
-                        .eq(Objects.nonNull(dto.getUserId()), Notification::getUserId,dto.getUserId())
+                        .eq( Notification::getUserId, currentUser.getUserId())
                         .eq(Objects.nonNull(dto.getIsRead()), Notification::getIsRead,dto.getIsRead())
                         .orderByDesc(Notification::getCreateTime);
 
@@ -58,20 +65,20 @@ public class NotificationServiceImpl
     }
 
     @Override
-    public Long getUnReadCount(Long userId) {
+    public Long getUnReadCount() {
         return notificationMapper.selectCount(
                 new LambdaQueryWrapper<Notification>()
-                        .eq(Notification::getUserId, userId)
+                        .eq(Notification::getUserId, currentUser.getUserId())
                         .eq(Notification::getIsRead, false)
         );
     }
 
     @Override
-    public void markAsRead(Long userId, Long notificationId) {
+    public void markAsRead( Long notificationId) {
         LambdaUpdateWrapper<Notification> wrapper = new LambdaUpdateWrapper<>();
 
         wrapper.eq(Notification::getId, notificationId)
-                .eq(Notification::getUserId, userId)
+                .eq(Notification::getUserId, currentUser.getUserId())
                 .eq(Notification::getIsRead, false)
                 .set(Notification::getIsRead, true)
                 .set(Notification::getReadTime, LocalDateTime.now());
@@ -80,10 +87,10 @@ public class NotificationServiceImpl
     }
 
     @Override
-    public void markAllAsRead(Long userId) {
+    public void markAllAsRead() {
         LambdaUpdateWrapper<Notification> wrapper = new LambdaUpdateWrapper<>();
 
-        wrapper.eq(Notification::getUserId, userId)
+        wrapper.eq(Notification::getUserId, currentUser.getUserId())
                 .eq(Notification::getIsRead, false)
                 .set(Notification::getIsRead, true)
                 .set(Notification::getReadTime, LocalDateTime.now());
