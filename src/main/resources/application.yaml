@@ -25,7 +25,7 @@ logging:
 
 security:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRET:c21hcnQtZXJwLXNlY3JldC1tdXN0LWJlLWF0LWxlYXN0LTMyLWJ5dGVz=}
     expiration-millis: ${JWT_EXPIRATION_MILLIS:18000000}
 
 springdoc:
