@@ -47,7 +47,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                     // CORS 预检请求放行
                     .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                    .requestMatchers("/auth/login", "/error").permitAll()
+                    .requestMatchers("/auth/login", "/error", "/ws/**").permitAll()
                     // Swagger / OpenAPI 相关路径放行
                     .requestMatchers(
                             "/swagger-ui.html",

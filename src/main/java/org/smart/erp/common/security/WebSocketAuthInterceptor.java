@@ -6,8 +6,8 @@ import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URI;
 import java.util.Map;
 
 @Component
@@ -25,11 +25,11 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
             @NonNull ServerHttpResponse response,
             @NonNull WebSocketHandler wsHandler,
             @NonNull Map<String, Object> attributes
-    ) throws Exception {
-
-        URI uri = request.getURI();
-        String query = uri.getQuery();
-        String token = getToken(query);
+    ) {
+        String token = UriComponentsBuilder.fromUri(request.getURI())
+                .build()
+                .getQueryParams()
+                .getFirst("token");
         if (token == null) return false;
 
         long userId;
@@ -50,23 +50,4 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
             WebSocketHandler wsHandler,
             Exception exception
     ) {}
-
-    /**
-     * 从请求参数中获取 token
-     * @param query 请求参数
-     * @return token
-     */
-    private String getToken(String query) {
-        if (query == null) {
-            return null;
-        }
-        for (String param : query.split("&")) {
-            String[] pair = param.split("=", 2);
-
-            if (pair.length == 2 && "token".equals(pair[0])) {
-                return pair[1];
-            }
-        }
-        return null;
-    }
 }

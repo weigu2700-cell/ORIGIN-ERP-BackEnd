@@ -4,7 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
+import org.smart.erp.common.websocket.WebSocketSessionManager;
 import org.smart.erp.system.dto.NotificationAddDTO;
 import org.smart.erp.system.dto.NotificationPageDto;
 import org.smart.erp.system.entity.Notification;
@@ -14,10 +18,12 @@ import org.smart.erp.system.vo.NotificationVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Service
+@Slf4j
 public class NotificationServiceImpl
     extends ServiceImpl<NotificationMapper, Notification>
     implements NotificationService
@@ -25,13 +31,19 @@ public class NotificationServiceImpl
 
     private final NotificationMapper notificationMapper;
     private final CurrentUser currentUser;
+    private final WebSocketSessionManager webSocketSessionManager;
+    private final ObjectMapper objectMapper;
 
     public NotificationServiceImpl(
             NotificationMapper notificationMapper,
-            CurrentUser currentUser
+            CurrentUser currentUser,
+            WebSocketSessionManager webSocketSessionManager,
+            ObjectMapper objectMapper
     ) {
         this.notificationMapper = notificationMapper;
         this.currentUser = currentUser;
+        this.webSocketSessionManager = webSocketSessionManager;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -40,6 +52,11 @@ public class NotificationServiceImpl
         BeanUtils.copyProperties(dto, notification);
         notification.setIsRead(false);
         save(notification);
+        try {
+            webSocketSessionManager.sendMessage(dto.getUserId(), objectMapper.writeValueAsString(notification));
+        } catch (IOException e) {
+            log.warn("通知已保存，WebSocket 推送失败，notificationId={}", notification.getId(), e);
+        }
     }
 
     @Override
@@ -54,13 +71,22 @@ public class NotificationServiceImpl
         Page<NotificationVo> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
 
         voPage.setRecords(
-                page.getRecords().stream().map(notification -> {
-                    NotificationVo notificationVo = new NotificationVo();
-                    BeanUtils.copyProperties(notification,notificationVo);
-                    return notificationVo;
-                }).toList());
+                page.getRecords().stream().map(this::toVo).toList());
 
         return voPage;
+    }
+
+    @Override
+    public NotificationVo getNotification(Long notificationId) {
+        Notification notification = notificationMapper.selectOne(
+                new LambdaQueryWrapper<Notification>()
+                        .eq(Notification::getId, notificationId)
+                        .eq(Notification::getUserId, currentUser.getUserId())
+        );
+        if (notification == null) {
+            throw new BusinessException(404, "通知不存在");
+        }
+        return toVo(notification);
     }
 
     @Override
@@ -95,5 +121,11 @@ public class NotificationServiceImpl
                 .set(Notification::getReadTime, LocalDateTime.now());
 
         notificationMapper.update(null, wrapper);
+    }
+
+    private NotificationVo toVo(Notification notification) {
+        NotificationVo notificationVo = new NotificationVo();
+        BeanUtils.copyProperties(notification, notificationVo);
+        return notificationVo;
     }
 }

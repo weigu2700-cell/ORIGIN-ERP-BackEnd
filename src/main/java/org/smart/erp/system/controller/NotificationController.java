@@ -28,6 +28,13 @@ public class NotificationController {
         return Result.success(notificationService.pageNotification(dto));
     }
 
+    @GetMapping("/{id}")
+    @Operation(description = "查询通知详情")
+    public Result<NotificationVo> getDetail(
+            @PathVariable("id") @Parameter(name = "id", description = "通知id") Long notificationId) {
+        return Result.success(notificationService.getNotification(notificationId));
+    }
+
     @GetMapping("/unread/count")
     @Operation(description = "获取未读通知数量")
     public Result<Long> getUnReadCount() {
@@ -49,4 +56,3 @@ public class NotificationController {
         return Result.success();
     }
 }
-
