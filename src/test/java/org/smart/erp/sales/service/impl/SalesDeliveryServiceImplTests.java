@@ -30,12 +30,16 @@ import org.smart.erp.sales.mapper.SalesOrderMapper;
 import org.smart.erp.sales.service.SalesDeliveryItemService;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.sales.vo.SalesDeliveryVo;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,6 +82,8 @@ class SalesDeliveryServiceImplTests {
     private RedissonClient redissonClient;
     @Mock
     private RLock deliveryLock;
+    @Mock
+    private NotificationPublisher notificationPublisher;
 
     private SalesDeliveryServiceImpl service;
 
@@ -97,7 +103,8 @@ class SalesDeliveryServiceImplTests {
                 salesOrderMapper,
                 salesOrderItemMapper,
                 salesOrderService,
-                redissonClient);
+                redissonClient,
+                notificationPublisher);
     }
 
     @Test
@@ -128,6 +135,16 @@ class SalesDeliveryServiceImplTests {
         assertThat(demandCaptor.getValue().getSourceType()).isEqualTo(ProductionSourceType.SALES_ORDER);
         assertThat(demandCaptor.getValue().getSourceNo()).isEqualTo("SO-001");
         verify(salesDeliveryMapper).updateById(delivery);
+        ArgumentCaptor<NotificationPublishDTO> notificationCaptor =
+                ArgumentCaptor.forClass(NotificationPublishDTO.class);
+        verify(notificationPublisher).publish(notificationCaptor.capture());
+        assertThat(notificationCaptor.getValue().getType()).isEqualTo(NotificationType.TASK);
+        assertThat(notificationCaptor.getValue().getBusiness().getBusinessType())
+                .isEqualTo("SALES_DELIVERY_PENDING_OUTBOUND");
+        assertThat(notificationCaptor.getValue().getBusiness().getBusinessId()).isEqualTo(1L);
+        assertThat(notificationCaptor.getValue().getRecipients().getPermissionCodes())
+                .containsExactly("sales:delivery:complete");
+        assertThat(notificationCaptor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
     }
 
     @Test

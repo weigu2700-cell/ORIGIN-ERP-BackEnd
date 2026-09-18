@@ -26,6 +26,12 @@ import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionPickingVo;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.mapper.PurchaseDemandMapper;
+import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.dto.RecipientSelectorDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.enums.NotificationSourceType;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +63,7 @@ public class ProductionPickingServiceImpl
     private final PurchaseDemandMapper purchaseDemandMapper;
     private final BOMService bomService;
     private final MaterialStockService materialStockService;
+    private final NotificationPublisher notificationPublisher;
 
     public ProductionPickingServiceImpl(
             BusinessNoGenerator businessNoGenerator,
@@ -66,7 +73,8 @@ public class ProductionPickingServiceImpl
             WarehouseMapper warehouseMapper,
             PurchaseDemandMapper purchaseDemandMapper,
             BOMService bomService,
-            MaterialStockService materialStockService)
+            MaterialStockService materialStockService,
+            NotificationPublisher notificationPublisher)
     {
         this.businessNoGenerator = businessNoGenerator;
         this.productionPickingMapper = productionPickingMapper;
@@ -76,6 +84,7 @@ public class ProductionPickingServiceImpl
         this.purchaseDemandMapper = purchaseDemandMapper;
         this.bomService = bomService;
         this.materialStockService = materialStockService;
+        this.notificationPublisher = notificationPublisher;
     }
 
     /**
@@ -242,7 +251,9 @@ public class ProductionPickingServiceImpl
                     // 无单个仓库可覆盖可用量的边界情况：仍登记，待人工指定仓库
                     stockPicking.setStatus(ProductionPickingStatus.DRAFT);
                 }
-                save(stockPicking);
+                if (save(stockPicking) && stockPicking.getStatus() == ProductionPickingStatus.APPROVED) {
+                    publishPickingReady(stockPicking);
+                }
             }
 
             // 2) 缺料部分：与采购需求一一对应（数量 = 缺口量），待采购入库后通知领料
@@ -448,9 +459,14 @@ public class ProductionPickingServiceImpl
                         "PRODUCTION_PICKING", p.getPickingNo(), "采购入库后生产备料预留");
             }
             // 入库量足以覆盖缺口才可领料，否则继续等待后续入库
+            ProductionPickingStatus previousStatus = p.getStatus();
             p.setStatus(reserveQty.compareTo(qty) >= 0
                     ? ProductionPickingStatus.APPROVED : ProductionPickingStatus.DRAFT);
-            updateById(p);
+            boolean updated = updateById(p);
+            if (updated && previousStatus != ProductionPickingStatus.APPROVED
+                    && p.getStatus() == ProductionPickingStatus.APPROVED) {
+                publishPickingReady(p);
+            }
         }
     }
 
@@ -460,7 +476,7 @@ public class ProductionPickingServiceImpl
         if (id == null) {
             throw new BusinessException(400, "领料单ID不能为空");
         }
-        ProductionPicking productionPicking = this.getById(id);
+        ProductionPicking productionPicking = productionPickingMapper.selectById(id);
         if (productionPicking == null) {
             throw new BusinessException(400, "领料单不存在");
         }
@@ -469,6 +485,26 @@ public class ProductionPickingServiceImpl
         }
 
         productionPicking.setStatus(ProductionPickingStatus.APPROVED);
-        this.updateById(productionPicking);
+        if (productionPickingMapper.updateById(productionPicking) > 0) {
+            publishPickingReady(productionPicking);
+        }
+    }
+
+    private void publishPickingReady(ProductionPicking picking) {
+        NotificationPublishDTO notification = new NotificationPublishDTO();
+        notification.setType(NotificationType.TASK);
+        notification.setSourceType(NotificationSourceType.BUSINESS);
+        notification.setTitle("领料单待领料");
+        notification.setContent("领料单「" + picking.getPickingNo() + "」已审批，请及时确认领料");
+        notification.setBusiness(NotificationBusinessRefDTO.builder()
+                .businessType("PRODUCTION_PICKING_READY")
+                .businessId(picking.getId())
+                .businessNo(picking.getPickingNo())
+                .build());
+        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
+        recipients.setPermissionCodes(Set.of("production:picking:confirm"));
+        recipients.setIncludeAdministrators(true);
+        notification.setRecipients(recipients);
+        notificationPublisher.publish(notification);
     }
 }

@@ -33,6 +33,12 @@ import org.smart.erp.production.dto.ProductionDemandAddDto;
 import org.smart.erp.production.enums.ProductionSourceType;
 import org.smart.erp.production.service.ProductionDemandService;
 import org.smart.erp.inventory.entity.MaterialStock;
+import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.dto.RecipientSelectorDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.enums.NotificationSourceType;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,6 +78,7 @@ public class SalesDeliveryServiceImpl
     private final SalesOrderService salesOrderService;
     private static final String DELIVERY_LOCK_PREFIX = "erp:lock:sales-delivery:";
     private final RedissonClient redissonClient;
+    private final NotificationPublisher notificationPublisher;
 
     public SalesDeliveryServiceImpl(
             SalesDeliveryMapper salesDeliveryMapper,
@@ -83,7 +90,8 @@ public class SalesDeliveryServiceImpl
             SalesOrderMapper salesOrderMapper,
             SalesOrderItemMapper salesOrderItemMapper,
             @Lazy SalesOrderService salesOrderService,
-            RedissonClient redissonClient
+            RedissonClient redissonClient,
+            NotificationPublisher notificationPublisher
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
@@ -96,6 +104,7 @@ public class SalesDeliveryServiceImpl
         this.salesOrderItemMapper = salesOrderItemMapper;
         this.salesOrderService = salesOrderService;
         this.redissonClient = redissonClient;
+        this.notificationPublisher = notificationPublisher;
     }
 
     // 分布式锁方法:--------------------------------------------------
@@ -499,11 +508,25 @@ public class SalesDeliveryServiceImpl
     @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo confirmSalesDeliveryById(Long id) {
         // 确认即预占库存（由出货单决定）；实际扣减延迟至“完成出库”时执行
-        return changeStatus(id,
+        SalesDeliveryVo result = changeStatus(id,
                 SalesDeliveryStatus.DRAFT,
                 SalesDeliveryStatus.CONFIRMED,
                 "发货单状态不允许确认",
                 () -> reserveStockForDelivery(id));
+        NotificationPublishDTO notification = new NotificationPublishDTO();
+        notification.setType(NotificationType.TASK);
+        notification.setSourceType(NotificationSourceType.BUSINESS);
+        notification.setTitle("待完成销售发货单");
+        notification.setContent("销售发货单 " + result.getDeliveryNo() + " 已确认，请及时完成出库。");
+        notification.setBusiness(NotificationBusinessRefDTO.builder()
+                .businessType("SALES_DELIVERY_PENDING_OUTBOUND")
+                .businessId(result.getId()).businessNo(result.getDeliveryNo()).build());
+        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
+        recipients.setPermissionCodes(Set.of("sales:delivery:complete"));
+        recipients.setIncludeAdministrators(true);
+        notification.setRecipients(recipients);
+        notificationPublisher.publish(notification);
+        return result;
     }
 
     @Override

@@ -15,9 +15,15 @@ import org.smart.erp.master.mapper.SupplierMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.production.service.ProductionPickingService;
 import org.smart.erp.purchase.dto.PurchaseInStockUploadDto;
+import org.smart.erp.purchase.dto.PurchaseInStockAddDto;
 import org.smart.erp.purchase.entity.PurchaseInStock;
 import org.smart.erp.purchase.enums.PurchaseInStockStatus;
+import org.smart.erp.purchase.enums.PurchaseInStockType;
 import org.smart.erp.purchase.mapper.PurchaseOrderMapper;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.service.NotificationPublisher;
+import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.util.Set;
@@ -25,6 +31,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -53,6 +60,8 @@ class PurchaseInStockServiceImplTests {
     private ProductionPickingService productionPickingService;
     @Mock
     private RedissonClient redissonClient;
+    @Mock
+    private NotificationPublisher notificationPublisher;
 
     private PurchaseInStockServiceImpl service;
 
@@ -67,7 +76,51 @@ class PurchaseInStockServiceImplTests {
                 purchaseOrderMapper,
                 materialStockService,
                 productionPickingService,
-                redissonClient));
+                redissonClient,
+                notificationPublisher));
+    }
+
+    @Test
+    void addPublishesPendingApprovalNotificationAfterInsert() {
+        when(businessNoGenerator.generateNo(any(), eq("PI"))).thenReturn("PI-001");
+        doReturn(true).when(service).save(any(PurchaseInStock.class));
+        PurchaseInStockAddDto dto = new PurchaseInStockAddDto();
+        dto.setPurchaseOrderId(2L);
+        dto.setMaterialId(11L);
+        dto.setInType(PurchaseInStockType.PURCHASE_NORMAL);
+        dto.setInQuantity(new BigDecimal("3"));
+        dto.setUnitPrice(new BigDecimal("10"));
+        when(validator.validate(dto)).thenReturn(Set.of());
+
+        service.addPurchaseInStock(dto);
+
+        ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
+        verify(notificationPublisher).publish(captor.capture());
+        assertThat(captor.getValue().getType()).isEqualTo(NotificationType.TASK);
+        assertThat(captor.getValue().getBusiness().getBusinessType())
+                .isEqualTo("PURCHASE_IN_STOCK_PENDING_APPROVAL");
+        assertThat(captor.getValue().getRecipients().getPermissionCodes())
+                .containsExactly("purchase:in:stock:approve");
+        assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
+    }
+
+    @Test
+    void approvalPublishesPendingUploadNotificationAfterStatusUpdate() {
+        PurchaseInStock stock = approvedStock();
+        stock.setStatus(PurchaseInStockStatus.DRAFT);
+        doReturn(stock).when(service).getById(1L);
+        doReturn(true).when(service).updateById(any(PurchaseInStock.class));
+
+        service.doApprovePurchaseInStock(1L);
+
+        ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
+        verify(notificationPublisher).publish(captor.capture());
+        assertThat(captor.getValue().getType()).isEqualTo(NotificationType.TASK);
+        assertThat(captor.getValue().getBusiness().getBusinessType())
+                .isEqualTo("PURCHASE_IN_STOCK_PENDING_UPLOAD");
+        assertThat(captor.getValue().getRecipients().getPermissionCodes())
+                .containsExactly("purchase:in:stock:upload");
+        assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
     }
 
     @Test

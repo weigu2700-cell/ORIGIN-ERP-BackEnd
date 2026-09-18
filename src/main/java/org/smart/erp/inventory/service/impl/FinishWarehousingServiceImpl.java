@@ -24,6 +24,12 @@ import org.smart.erp.production.service.ProductionOrderService;
 import org.smart.erp.production.event.ProductionReportFinishedEvent;
 import org.smart.erp.production.service.ProductionReportService;
 import org.smart.erp.system.entity.User;
+import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.dto.RecipientSelectorDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.enums.NotificationSourceType;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.smart.erp.system.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.context.event.EventListener;
@@ -49,6 +55,7 @@ public class FinishWarehousingServiceImpl
     private final WarehouseService warehouseService;
     private final UserService userService;
     private final MaterialStockService materialStockService;
+    private final NotificationPublisher notificationPublisher;
 
     public FinishWarehousingServiceImpl(
             BusinessNoGenerator businessNoGenerator,
@@ -57,7 +64,8 @@ public class FinishWarehousingServiceImpl
             MaterialService materialService,
             WarehouseService warehouseService,
             UserService userService,
-            MaterialStockService materialStockService
+            MaterialStockService materialStockService,
+            NotificationPublisher notificationPublisher
     ) {
         this.businessNoGenerator = businessNoGenerator;
         this.productionOrderService = productionOrderService;
@@ -66,6 +74,7 @@ public class FinishWarehousingServiceImpl
         this.warehouseService = warehouseService;
         this.userService = userService;
         this.materialStockService = materialStockService;
+        this.notificationPublisher = notificationPublisher;
     }
 
     /**
@@ -139,7 +148,24 @@ public class FinishWarehousingServiceImpl
                     + report.getQualifiedQuantity() + "，已入库 " + alreadyWarehoused + "）");
         }
 
-        save(finishWarehousing);
+        if (!save(finishWarehousing)) {
+            throw new BusinessException(500, "成品入库单保存失败");
+        }
+        NotificationPublishDTO notification = new NotificationPublishDTO();
+        notification.setType(NotificationType.TASK);
+        notification.setSourceType(NotificationSourceType.BUSINESS);
+        notification.setTitle("成品入库单待审批");
+        notification.setContent("成品入库单「" + finishWarehousing.getWarehousingNo() + "」已生成，请及时审批");
+        notification.setBusiness(NotificationBusinessRefDTO.builder()
+                .businessType("FINISH_WAREHOUSING_PENDING_APPROVAL")
+                .businessId(finishWarehousing.getId())
+                .businessNo(finishWarehousing.getWarehousingNo())
+                .build());
+        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
+        recipients.setPermissionCodes(Set.of("inv:finish-warehousing:update"));
+        recipients.setIncludeAdministrators(true);
+        notification.setRecipients(recipients);
+        notificationPublisher.publish(notification);
     }
 
     /**
@@ -310,6 +336,7 @@ public class FinishWarehousingServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean approveFinishWarehousing(Long id) {
         changeFinishWarehousingStatus(
                 id,
@@ -374,6 +401,7 @@ public class FinishWarehousingServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean cancelFinishWarehousing(Long id) {
         changeFinishWarehousingStatus(
                 id,

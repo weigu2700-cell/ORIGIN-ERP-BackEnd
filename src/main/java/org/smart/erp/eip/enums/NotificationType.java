@@ -1,9 +1,10 @@
-package org.smart.erp.system.Enum;
+package org.smart.erp.eip.enums;
 
 import com.baomidou.mybatisplus.annotation.EnumValue;
 import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 
+/** 通知在收件箱中展示的业务类型。数值保持与原 sys_notification 约定兼容。 */
 @Getter
 public enum NotificationType {
     SYSTEM(0, "系统消息"),

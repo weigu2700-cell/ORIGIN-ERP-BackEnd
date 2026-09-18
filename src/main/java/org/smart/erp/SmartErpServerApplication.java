@@ -12,7 +12,8 @@ import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServic
         "org.smart.erp.inventory.mapper",
         "org.smart.erp.sales.mapper",
         "org.smart.erp.production.mapper",
-        "org.smart.erp.purchase.mapper"
+        "org.smart.erp.purchase.mapper",
+        "org.smart.erp.eip.mapper"
 })
 public class SmartErpServerApplication {
 

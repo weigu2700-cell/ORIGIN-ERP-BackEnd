@@ -153,7 +153,10 @@ cd ORIGIN-ERP-BackEnd
 2. 按模块执行 `sql/smart-erp/` 下的系统、基础资料和业务表 DDL。
 3. 根据目标版本检查并执行 `sql/migrations/` 下的增量脚本。
 4. 初始化用户、角色、菜单、权限及其关联数据。仓库不提供可用于生产的默认账号或密码。
-5. 消息通知功能依赖 `sys_notification` 表，表结构应与 `system/entity/Notification.java` 保持一致。
+5. 消息通知功能依赖 `sys_notification`、`sys_notification_publish`、`sys_notification_template` 和
+   `sys_notification_template_recipient` 表，实体与转换逻辑位于 `eip/entity` 和 `eip/converter`。
+   首次部署请执行 `sql/migrations/V20260918__eip_notification_expand.sql`；已有库再执行
+   `V20260918__notification_business_dedup.sql`（脚本可重复执行）。
 
 数据库、Redis 和 JWT 默认配置位于 `src/main/resources/application.yaml`。本地可直接按文件中的开发配置启动；共享、测试和生产环境应使用环境变量或外部配置覆盖，禁止沿用仓库中的开发凭据。
 
@@ -232,28 +235,50 @@ User ── UserRole ── Role ── RoleMenu ── Menu
 ### 全链路流程
 
 ```text
-业务服务调用 NotificationService#addNotification
-                │
-                ▼
-       写入 sys_notification（isRead=false）
-                │
-                ▼
-      ObjectMapper 序列化通知实体
-                │
-                ▼
- WebSocketSessionManager 按 userId 查找在线会话
-                │
-      ┌─────────┴─────────┐
-      ▼                   ▼
-   用户在线             用户离线
-发送 TextMessage       跳过实时发送
-      │                   │
-      └─────────┬─────────┘
-                ▼
-      通知均保留在数据库，可由 REST 查询
+业务状态流转成功
+      │
+      ▼
+eip.service.NotificationPublisher.publish(NotificationPublishDTO) 发布业务事件
+      │
+      ▼
+原业务事务提交成功（回滚则不发送）
+      │
+      ▼
+eip.listener.NotificationPublishEventListener
+      │
+      ├── 指定用户：仅通知该用户
+      └── 权限编码：解析启用角色、启用用户，并由管理员兜底
+      │
+      ▼
+写入 sys_notification（独立事务，isRead=false）
+      │
+      ▼
+通知事务提交后，由现有 WebSocketSessionManager 定向推送
+      │
+      ├── 在线：发送 TextMessage
+      └── 离线：保留数据库记录，登录后通过 REST 拉取
 ```
 
-通知保存成功后才尝试推送。WebSocket 发送失败只记录警告，不回滚已经持久化的通知，保证实时链路故障不会丢失业务消息。
+业务模块只依赖 `eip.service.NotificationPublisher` 和 DTO，不直接依赖通知表、权限表或 WebSocket。
+发布事件在原业务事务中产生，监听器在 `AFTER_COMMIT` 阶段解析收件人，再以独立事务写入发布批次和收件箱；
+收件箱事务提交后才尝试 WebSocket 推送。推送失败只记录警告，不回滚业务数据或已经持久化的通知。
+
+`V20260918__notification_business_dedup.sql` 为 `(user_id, business_type, business_id)` 增加唯一索引。同一用户、同一业务阶段的并发重复事件只会形成一条通知；不同业务阶段使用不同 `businessType`，例如“报工待审批”“报工审批通过”和“报工驳回”互不覆盖。
+
+### 已接入的业务节点
+
+| 业务节点 | 收件人规则 | 通知后的动作 |
+| -------- | ---------- | ------------ |
+| 生产需求已自动排产 | 拥有生产订单下达权限的用户 | 审核并下达生产订单 |
+| 采购需求创建 | 拥有采购需求审批权限的用户 | 审批采购需求 |
+| 采购需求审批通过 | 拥有采购订单新增或编辑权限的用户 | 创建或更新采购订单 |
+| 采购入库单创建 | 拥有采购入库审批权限的用户 | 审批入库单 |
+| 采购入库审批通过 | 拥有采购入库上架权限的用户 | 完成上架 |
+| 生产领料单备料完成或审批通过 | 拥有领料确认权限的用户 | 确认领料 |
+| 生产报工提交 | 拥有报工审批权限的用户 | 审批报工单 |
+| 生产报工审批通过或驳回 | 报工人本人 | 查看审批结果 |
+| 报工完成并生成成品入库单 | 拥有成品入库操作权限的用户 | 审批成品入库单 |
+| 销售发货单确认 | 拥有销售出库完成权限的用户 | 完成销售出库 |
 
 ### 建立连接与认证
 
@@ -326,28 +351,45 @@ WebSocket 推送内容与通知详情字段保持一致，示例：
 
 ### 在业务中发送通知
 
-业务 Service 注入 `NotificationService`，组装 `NotificationAddDTO` 后调用统一入口：
+业务 Service 注入 `NotificationPublisher`，用 `NotificationBusinessRefDTO` 表达业务引用，
+用 `RecipientSelectorDTO` 表达收件人选择：
 
 ```java
-NotificationAddDTO notification = new NotificationAddDTO();
-notification.setUserId(targetUserId);
-notification.setType(NotificationType.BUSINESS);
-notification.setTitle("销售订单已确认");
-notification.setContent("销售订单 SO-001 已完成确认，请及时处理后续业务。");
-notification.setBusinessType("sales_order");
-notification.setBusinessId(orderId);
-notification.setBusinessNo("SO-001");
-notificationService.addNotification(notification);
+RecipientSelectorDTO recipients = new RecipientSelectorDTO();
+recipients.setPermissionCodes(Set.of("purchase:demand:approve"));
+recipients.setIncludeAdministrators(true);
+NotificationPublishDTO publish = NotificationPublishDTO.builder()
+        .sourceType(NotificationSourceType.BUSINESS)
+        .type(NotificationType.TASK)
+        .title("待审批采购需求")
+        .content("采购需求 PR-001 已创建，请及时审批。")
+        .business(NotificationBusinessRefDTO.builder()
+                .businessType("PURCHASE_DEMAND_PENDING_APPROVAL")
+                .businessId(demandId).businessNo("PR-001").build())
+        .recipients(recipients)
+        .build();
+notificationPublisher.publish(publish);
 ```
 
-业务模块不应直接操作 `WebSocketSessionManager`。统一通过 `NotificationService` 保持“先落库、后推送”的一致行为。
+发布时也可以直接选择用户（例如报工审批结果）：设置 `recipients.userIds`，并保持
+`includeAdministrators=false`，因此不会扩散给管理员。权限选择会解析启用角色和启用用户，
+`includeAdministrators=true` 时额外覆盖启用管理员。系统通知可通过 `/eip/notification-templates`
+提前配置模板和收件人；发布接口 `/eip/notifications/publish` 支持 PRESET_ONLY、MERGE、OVERRIDE
+策略，分别表示仅模板收件人、模板与手选收件人合并、手选收件人覆盖模板。
+
+业务模块不应直接操作 `NotificationPersistenceService` 或 `WebSocketSessionManager`，统一通过单参数
+`NotificationPublisher#publish` 保持“业务提交、通知落库、实时推送”的顺序和故障隔离。
 
 ## 项目结构
 
 ```text
 src/main/java/org/smart/erp/
 ├── common/       # 响应、异常、安全、WebSocket、配置、序号、Excel 和通用工具
-├── system/       # 用户、角色、部门、菜单、权限、认证和消息通知
+├── system/       # 用户、角色、部门、菜单、权限和认证
+├── eip/           # 通知实体、DTO、模板、收件人解析、持久化、事件和 WebSocket 适配
+│   ├── entity/ dto/ mapper/ service/ (service/impl/)
+│   ├── controller/ converter/ event/ listener/ adapter/ port/
+│   └── enums/ vo/
 ├── master/       # 客户、供应商、工厂、车间、产线、仓库和物料
 ├── inventory/    # 物料库存与库存流水
 ├── sales/        # 销售订单与销售出库

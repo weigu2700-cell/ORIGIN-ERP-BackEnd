@@ -28,6 +28,9 @@ import org.smart.erp.production.service.BOMService;
 import org.smart.erp.production.vo.ProductionPickingVo;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.mapper.PurchaseDemandMapper;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.service.NotificationPublisher;
 
 import java.util.List;
 
@@ -35,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,6 +61,8 @@ class ProductionPickingServiceImplTests {
     private BOMService bomService;
     @Mock
     private MaterialStockService materialStockService;
+    @Mock
+    private NotificationPublisher notificationPublisher;
 
     private ProductionPickingServiceImpl service;
 
@@ -73,7 +79,8 @@ class ProductionPickingServiceImplTests {
                 warehouseMapper,
                 purchaseDemandMapper,
                 bomService,
-                materialStockService);
+                materialStockService,
+                notificationPublisher);
     }
 
     @Test
@@ -135,6 +142,25 @@ class ProductionPickingServiceImplTests {
         assertThatThrownBy(() -> service.pageProductionPicking(dto))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getCode()).isEqualTo(400));
+    }
+
+    @Test
+    void approvingDraftPublishesPickingReadyNotification() {
+        ProductionPicking picking = picking();
+        picking.setStatus(ProductionPickingStatus.DRAFT);
+        when(productionPickingMapper.selectById(1L)).thenReturn(picking);
+        when(productionPickingMapper.updateById(any(ProductionPicking.class))).thenReturn(1);
+
+        service.approvePicking(1L);
+
+        ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
+        verify(notificationPublisher).publish(captor.capture());
+        assertThat(captor.getValue().getType()).isEqualTo(NotificationType.TASK);
+        assertThat(captor.getValue().getBusiness().getBusinessType()).isEqualTo("PRODUCTION_PICKING_READY");
+        assertThat(captor.getValue().getBusiness().getBusinessId()).isEqualTo(1L);
+        assertThat(captor.getValue().getRecipients().getPermissionCodes())
+                .containsExactly("production:picking:confirm");
+        assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
     }
 
     private ProductionPicking picking() {

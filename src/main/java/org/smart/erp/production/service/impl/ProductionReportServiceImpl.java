@@ -25,6 +25,12 @@ import org.smart.erp.production.mapper.ProductionOrderMapper;
 import org.smart.erp.production.mapper.ProductionReportMapper;
 import org.smart.erp.production.service.ProductionReportService;
 import org.smart.erp.production.vo.ProductionReportVo;
+import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.dto.RecipientSelectorDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.enums.NotificationSourceType;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +54,7 @@ public class ProductionReportServiceImpl
     private final UserMapper userMapper;
     private final WarehouseMapper warehouseMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationPublisher notificationPublisher;
 
 
     public ProductionReportServiceImpl(
@@ -57,7 +64,8 @@ public class ProductionReportServiceImpl
             MaterialMapper materialMapper,
             UserMapper userMapper,
             WarehouseMapper warehouseMapper,
-            ApplicationEventPublisher eventPublisher
+            ApplicationEventPublisher eventPublisher,
+            NotificationPublisher notificationPublisher
     )
     {
         this.productionOrderMapper = productionOrderMapper;
@@ -67,6 +75,7 @@ public class ProductionReportServiceImpl
         this.userMapper = userMapper;
         this.warehouseMapper = warehouseMapper;
         this.eventPublisher = eventPublisher;
+        this.notificationPublisher = notificationPublisher;
     }
 
     /**
@@ -141,7 +150,15 @@ public class ProductionReportServiceImpl
                 Optional.ofNullable(dto.getReportTime())
                         .orElse(LocalDateTime.now())
         );
-        save(productionReport);
+        if (!save(productionReport)) {
+            throw new BusinessException(500, "生产报工保存失败");
+        }
+
+        notificationPublisher.publish(permissionNotification(
+                NotificationType.TASK, "报工单待审批",
+                "生产报工单「" + productionReport.getProductionReportNo() + "」已提交，请及时审批",
+                "PRODUCTION_REPORT_PENDING_APPROVAL", productionReport.getId(),
+                productionReport.getProductionReportNo(), Set.of("prd:report:approve")));
     }
 
     private static @NonNull BigDecimal getReportQty(ProductionReportAddDto dto) {
@@ -319,15 +336,23 @@ public class ProductionReportServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void approveProductionReport(Long id) {
         changeReportStatus(
                 id,
                 ProductionReportStatus.DRAFT,
                 ProductionReportStatus.APPROVED
         );
+        ProductionReport report = getById(id);
+        publishReportResult(
+                report,
+                NotificationType.BUSINESS,
+                "生产报工单审批通过",
+                "PRODUCTION_REPORT_APPROVED");
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void cancelProductionReport(Long id) {
         changeReportStatus(
                 id,
@@ -337,12 +362,60 @@ public class ProductionReportServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void rejectProductionReport(Long id) {
         changeReportStatus(
                 id,
                 ProductionReportStatus.APPROVED,
                 ProductionReportStatus.REJECT
         );
+        ProductionReport report = getById(id);
+        publishReportResult(
+                report,
+                NotificationType.WARNING,
+                "生产报工单已驳回",
+                "PRODUCTION_REPORT_REJECTED");
+    }
+
+    private void publishReportResult(
+            ProductionReport report,
+            NotificationType type,
+            String title,
+            String businessType) {
+        if (report == null || report.getReportUserId() == null) {
+            return;
+        }
+        NotificationPublishDTO notification = new NotificationPublishDTO();
+        notification.setType(type);
+        notification.setSourceType(NotificationSourceType.BUSINESS);
+        notification.setTitle(title);
+        notification.setContent(title + "：「" + report.getProductionReportNo() + "」");
+        notification.setBusiness(NotificationBusinessRefDTO.builder()
+                .businessType(businessType).businessId(report.getId())
+                .businessNo(report.getProductionReportNo()).build());
+        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
+        recipients.setUserIds(Set.of(report.getReportUserId()));
+        // 报工结果明确归属报工人，不向管理员扩散。
+        recipients.setIncludeAdministrators(false);
+        notification.setRecipients(recipients);
+        notificationPublisher.publish(notification);
+    }
+
+    private static NotificationPublishDTO permissionNotification(
+            NotificationType type, String title, String content, String businessType,
+            Long businessId, String businessNo, Set<String> permissionCodes) {
+        NotificationPublishDTO notification = new NotificationPublishDTO();
+        notification.setType(type);
+        notification.setSourceType(NotificationSourceType.BUSINESS);
+        notification.setTitle(title);
+        notification.setContent(content);
+        notification.setBusiness(NotificationBusinessRefDTO.builder()
+                .businessType(businessType).businessId(businessId).businessNo(businessNo).build());
+        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
+        recipients.setPermissionCodes(permissionCodes);
+        recipients.setIncludeAdministrators(true);
+        notification.setRecipients(recipients);
+        return notification;
     }
 
     @Override

@@ -22,6 +22,9 @@ import org.smart.erp.production.mapper.ProductionDemandMapper;
 import org.smart.erp.production.service.ProductionOrderService;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.mapper.SalesOrderMapper;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.service.NotificationPublisher;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -29,6 +32,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -42,6 +47,7 @@ class ProductionDemandServiceImplTests {
     @Mock private BusinessNoGenerator businessNoGenerator;
     @Mock private ProductionOrderService productionOrderService;
     @Mock private ProductionDemandMapper productionDemandMapper;
+    @Mock private NotificationPublisher notificationPublisher;
 
     private ProductionDemandServiceImpl service;
 
@@ -52,7 +58,8 @@ class ProductionDemandServiceImplTests {
                 materialMapper,
                 businessNoGenerator,
                 productionOrderService,
-                productionDemandMapper);
+                productionDemandMapper,
+                notificationPublisher);
     }
 
     @Test
@@ -68,6 +75,7 @@ class ProductionDemandServiceImplTests {
             demand.setId(31L);
             return 1;
         }).when(productionDemandMapper).insert(any(ProductionDemand.class));
+        when(productionDemandMapper.updateById(any(ProductionDemand.class))).thenReturn(1);
 
         service.addProductionDemand(dto);
 
@@ -82,6 +90,17 @@ class ProductionDemandServiceImplTests {
                 ArgumentCaptor.forClass(ProductionDemand.class);
         verify(productionDemandMapper).updateById(demandCaptor.capture());
         assertThat(demandCaptor.getValue().getStatus()).isEqualTo(ProductionStatus.PLANNED);
+        ArgumentCaptor<NotificationPublishDTO> notificationCaptor =
+                ArgumentCaptor.forClass(NotificationPublishDTO.class);
+        verify(notificationPublisher).publish(notificationCaptor.capture());
+        assertThat(notificationCaptor.getValue().getType()).isEqualTo(NotificationType.TASK);
+        assertThat(notificationCaptor.getValue().getContent()).contains("PD-001");
+        assertThat(notificationCaptor.getValue().getBusiness().getBusinessType())
+                .isEqualTo("PRODUCTION_DEMAND_PLANNED");
+        assertThat(notificationCaptor.getValue().getBusiness().getBusinessId()).isEqualTo(31L);
+        assertThat(notificationCaptor.getValue().getRecipients().getPermissionCodes())
+                .containsExactly("production:order:release");
+        assertThat(notificationCaptor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
     }
 
     @Test

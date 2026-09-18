@@ -5,6 +5,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
+import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.dto.RecipientSelectorDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.enums.NotificationSourceType;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.smart.erp.purchase.dto.PurchaseDemandAddDto;
 import org.smart.erp.purchase.dto.PurchaseDemandPageDto;
 import org.smart.erp.purchase.entity.PurchaseDemand;
@@ -19,6 +25,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class PurchaseDemandServiceImpl
@@ -27,14 +34,17 @@ public class PurchaseDemandServiceImpl
 
     private final PurchaseDemandMapper purchaseDemandMapper;
     private final BusinessNoGenerator businessNoGenerator;
+    private final NotificationPublisher notificationPublisher;
 
     public PurchaseDemandServiceImpl(
             PurchaseDemandMapper purchaseDemandMapper,
-            BusinessNoGenerator businessNoGenerator
+            BusinessNoGenerator businessNoGenerator,
+            NotificationPublisher notificationPublisher
     )
     {
         this.purchaseDemandMapper = purchaseDemandMapper;
         this.businessNoGenerator = businessNoGenerator;
+        this.notificationPublisher = notificationPublisher;
     }
 
     /**
@@ -92,7 +102,17 @@ public class PurchaseDemandServiceImpl
                 )
         );
         purchaseDemand.setStatus(PurchaseDemandStatus.DRAFT);
-        purchaseDemandMapper.insert(purchaseDemand);
+        if (purchaseDemandMapper.insert(purchaseDemand) != 1) {
+            throw new BusinessException(500, "采购需求创建失败");
+        }
+        notificationPublisher.publish(notification(
+                NotificationType.TASK,
+                "待审批采购需求",
+                "采购需求 " + purchaseDemand.getPurchaseDemandNo() + " 已创建，请及时审批。",
+                "PURCHASE_DEMAND_PENDING_APPROVAL",
+                purchaseDemand.getId(),
+                purchaseDemand.getPurchaseDemandNo(),
+                Set.of("purchase:demand:approve"), Set.of(), true));
         return purchaseDemand;
     }
 
@@ -129,7 +149,36 @@ public class PurchaseDemandServiceImpl
             throw new BusinessException(400, "采购需求状态不为草稿，无法审批");
         }
         demand.setStatus(PurchaseDemandStatus.APPROVED);
-        purchaseDemandMapper.updateById(demand);
+        if (purchaseDemandMapper.updateById(demand) != 1) {
+            throw new BusinessException(409, "采购需求状态更新失败，请刷新后重试");
+        }
+        notificationPublisher.publish(notification(
+                NotificationType.BUSINESS,
+                "采购需求审批通过",
+                "采购需求 " + demand.getPurchaseDemandNo() + " 已审批通过，请创建或更新采购订单。",
+                "PURCHASE_DEMAND_APPROVED",
+                demand.getId(),
+                demand.getPurchaseDemandNo(),
+                Set.of("purchase:order:create", "purchase:order:update"), Set.of(), true));
+    }
+
+    private static NotificationPublishDTO notification(
+            NotificationType type, String title, String content, String businessType,
+            Long businessId, String businessNo, Set<String> permissionCodes,
+            Set<Long> userIds, boolean includeAdministrators) {
+        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
+        recipients.setPermissionCodes(permissionCodes);
+        recipients.setUserIds(userIds);
+        recipients.setIncludeAdministrators(includeAdministrators);
+        NotificationPublishDTO dto = new NotificationPublishDTO();
+        dto.setType(type);
+        dto.setSourceType(NotificationSourceType.BUSINESS);
+        dto.setTitle(title);
+        dto.setContent(content);
+        dto.setBusiness(NotificationBusinessRefDTO.builder()
+                .businessType(businessType).businessId(businessId).businessNo(businessNo).build());
+        dto.setRecipients(recipients);
+        return dto;
     }
 
     @Override

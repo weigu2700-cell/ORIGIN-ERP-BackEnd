@@ -21,6 +21,12 @@ import org.smart.erp.production.service.ProductionOrderService;
 import org.smart.erp.production.vo.ProductionDemandVo;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.mapper.SalesOrderMapper;
+import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.dto.RecipientSelectorDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.enums.NotificationSourceType;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,13 +50,15 @@ public class ProductionDemandServiceImpl
     private final BusinessNoGenerator businessNoGenerator;
     private final ProductionOrderService productionOrderService;
     private final ProductionDemandMapper productionDemandMapper;
+    private final NotificationPublisher notificationPublisher;
 
     public ProductionDemandServiceImpl(
             SalesOrderMapper salesOrderMapper,
             MaterialMapper materialMapper,
             BusinessNoGenerator businessNoGenerator,
             ProductionOrderService productionOrderService,
-            ProductionDemandMapper productionDemandMapper
+            ProductionDemandMapper productionDemandMapper,
+            NotificationPublisher notificationPublisher
     )
     {
         this.salesOrderMapper = salesOrderMapper;
@@ -58,6 +66,7 @@ public class ProductionDemandServiceImpl
         this.businessNoGenerator = businessNoGenerator;
         this.productionOrderService = productionOrderService;
         this.productionDemandMapper = productionDemandMapper;
+        this.notificationPublisher = notificationPublisher;
     }
 
     @Override
@@ -106,7 +115,9 @@ public class ProductionDemandServiceImpl
         productionDemand.setDemandNo(
                 businessNoGenerator.generateNo("erp:sequence:production-demand:", "PD"));
         productionDemand.setStatus(ProductionStatus.PENDING);
-        productionDemandMapper.insert(productionDemand);
+        if (productionDemandMapper.insert(productionDemand) <= 0) {
+            throw new BusinessException(500, "生产需求保存失败");
+        }
 
         // ProductionDemand → 生成成品生产订单（草稿态，下达时再算 BOM 净需求）
         ProductionOrderAddDto orderDto = new ProductionOrderAddDto();
@@ -117,7 +128,26 @@ public class ProductionDemandServiceImpl
         productionOrderService.addProductionOrder(orderDto);
 
         productionDemand.setStatus(ProductionStatus.PLANNED);
-        productionDemandMapper.updateById(productionDemand);
+        if (productionDemandMapper.updateById(productionDemand) <= 0) {
+            throw new BusinessException(409, "生产需求状态更新失败");
+        }
+
+        NotificationPublishDTO notification = new NotificationPublishDTO();
+        notification.setType(NotificationType.TASK);
+        notification.setSourceType(NotificationSourceType.BUSINESS);
+        notification.setTitle("生产需求已排产");
+        notification.setContent("生产需求「" + productionDemand.getDemandNo()
+                + "」已自动生成生产订单，请及时审核下达");
+        notification.setBusiness(NotificationBusinessRefDTO.builder()
+                .businessType("PRODUCTION_DEMAND_PLANNED")
+                .businessId(productionDemand.getId())
+                .businessNo(productionDemand.getDemandNo())
+                .build());
+        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
+        recipients.setPermissionCodes(Set.of("production:order:release"));
+        recipients.setIncludeAdministrators(true);
+        notification.setRecipients(recipients);
+        notificationPublisher.publish(notification);
     }
 
     @Override
