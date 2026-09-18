@@ -8,8 +8,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.smart.erp.common.exception.BusinessException;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.inventory.entity.MaterialStock;
 import org.smart.erp.inventory.service.MaterialStockService;
@@ -33,8 +31,6 @@ import org.smart.erp.sales.vo.SalesDeliveryVo;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.enums.NotificationType;
 import org.smart.erp.eip.service.NotificationPublisher;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -46,16 +42,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class SalesDeliveryServiceImplTests {
@@ -88,25 +80,16 @@ class SalesDeliveryServiceImplTests {
 	private SalesOrderService salesOrderService;
 
 	@Mock
-	private RedissonClient redissonClient;
-
-	@Mock
-	private RLock deliveryLock;
-
-	@Mock
 	private NotificationPublisher notificationPublisher;
 
 	private SalesDeliveryServiceImpl service;
 
 	@BeforeEach
 	void setUp() throws Exception {
-		lenient().when(redissonClient.getLock(anyString())).thenReturn(deliveryLock);
-		lenient().doReturn(true).when(deliveryLock).tryLock(anyLong(), any());
-		lenient().when(deliveryLock.isHeldByCurrentThread()).thenReturn(true);
 		lenient().when(salesDeliveryMapper.updateById(any(SalesDelivery.class))).thenReturn(1);
 		service = new SalesDeliveryServiceImpl(salesDeliveryMapper, salesDeliveryItemService, materialStockService,
 				productionDemandService, businessNoGenerator, customerMapper, salesOrderMapper, salesOrderItemMapper,
-				salesOrderService, redissonClient, notificationPublisher);
+				salesOrderService, notificationPublisher);
 	}
 
 	@Test
@@ -246,17 +229,6 @@ class SalesDeliveryServiceImplTests {
 	}
 
 	@Test
-	void duplicateProcessingLockRejectsBeforeInventorySideEffects() throws Exception {
-		doReturn(false).when(deliveryLock).tryLock(anyLong(), any());
-
-		assertThatThrownBy(() -> service.confirmSalesDeliveryById(1L)).isInstanceOfSatisfying(BusinessException.class,
-				exception -> assertThat(exception.getCode()).isEqualTo(409));
-
-		verify(salesDeliveryItemService, never()).list(any(Wrapper.class));
-		verify(salesDeliveryMapper, never()).updateById(any(SalesDelivery.class));
-	}
-
-	@Test
 	void cancelConfirmedDeliveryReleasesOnlyItsReservedQuantity() {
 		SalesDelivery delivery = delivery(SalesDeliveryStatus.CONFIRMED);
 		SalesDeliveryItem item = item(new BigDecimal("5"), new BigDecimal("2"));
@@ -285,61 +257,6 @@ class SalesDeliveryServiceImplTests {
 					assertThat(exception.getCode()).isEqualTo(400);
 					assertThat(exception.getMessage()).isEqualTo("仅已确认的发货单可完成出库");
 				});
-	}
-
-	@Test
-	void deliveryLockIsReleasedOnlyAfterTransactionCommit() {
-		SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
-		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-		when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
-		when(customerMapper.selectById(71L)).thenReturn(customer());
-
-		beginTransactionSynchronization();
-		try {
-			service.cancelSalesDeliveryById(1L);
-
-			verify(deliveryLock, never()).unlock();
-			completeTransactionSynchronization(TransactionSynchronization.STATUS_COMMITTED);
-			verify(deliveryLock).unlock();
-		}
-		finally {
-			clearTransactionSynchronization();
-		}
-	}
-
-	@Test
-	void deliveryLockIsReleasedOnlyAfterTransactionRollback() {
-		SalesDelivery delivery = delivery(SalesDeliveryStatus.COMPLETED);
-		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-
-		beginTransactionSynchronization();
-		try {
-			assertThatThrownBy(() -> service.cancelSalesDeliveryById(1L)).isInstanceOf(BusinessException.class);
-
-			verify(deliveryLock, never()).unlock();
-			completeTransactionSynchronization(TransactionSynchronization.STATUS_ROLLED_BACK);
-			verify(deliveryLock).unlock();
-		}
-		finally {
-			clearTransactionSynchronization();
-		}
-	}
-
-	private void beginTransactionSynchronization() {
-		TransactionSynchronizationManager.initSynchronization();
-		TransactionSynchronizationManager.setActualTransactionActive(true);
-	}
-
-	private void completeTransactionSynchronization(int status) {
-		TransactionSynchronizationManager.getSynchronizations()
-			.forEach(synchronization -> synchronization.afterCompletion(status));
-	}
-
-	private void clearTransactionSynchronization() {
-		if (TransactionSynchronizationManager.isSynchronizationActive()) {
-			TransactionSynchronizationManager.clearSynchronization();
-		}
-		TransactionSynchronizationManager.setActualTransactionActive(false);
 	}
 
 	private SalesDelivery delivery(SalesDeliveryStatus status) {
