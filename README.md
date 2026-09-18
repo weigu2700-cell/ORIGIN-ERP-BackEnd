@@ -324,7 +324,7 @@ wss://api.example.com/ws/notification?token=<JWT>
 4. `NotificationWebSocketHandler` 建立连接时注册用户会话，关闭时精确移除同一会话。
 5. `WebSocketSessionManager` 使用线程安全 Map 保存当前在线连接，并按 `userId` 定向发送文本消息。
 
-当前实现每个用户保留一个活动 WebSocket 会话，新连接会替换旧连接，适用于单端登录场景。如需同一账号多浏览器或多设备同时在线，应将会话表扩展为 `Map<Long, Set<WebSocketSession>>`。
+当前实现支持同一账号多浏览器、多设备同时在线：会话以 `Map<Long, Set<WebSocketSession>>` 按用户聚合，新连接追加而非替换旧连接；推送时遍历该用户全部活动会话，单会话推送失败仅移除该失效会话并继续其余会话，保证其他设备正常接收。
 
 JWT 位于 WebSocket URL 查询参数中。生产环境必须使用 WSS，并避免在反向代理访问日志、APM 或错误页中记录完整查询字符串。
 
