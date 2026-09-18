@@ -14,7 +14,7 @@
 
 ## 项目简介
 
-ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boot 模块化单体架构，按照系统、基础资料、销售、库存、生产和采购划分业务边界，并通过 JWT、RBAC、事务、库存流水和状态机式业务校验保障系统安全与数据一致性。
+ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boot 模块化单体架构，按系统、基础资料、销售、库存、生产（含 BOM）和采购划分业务边界，并以消息通知打通跨模块协同；通过 JWT、RBAC、事务、库存流水和状态机式业务校验保障系统安全与数据一致性。
 
 配套项目：
 
@@ -36,16 +36,16 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 
 ## 业务能力
 
-| 业务域   | 主要能力                                                 |
-| -------- | -------------------------------------------------------- |
-| 系统管理 | 登录认证、用户、角色、部门、菜单、权限及关联分配         |
-| 基础资料 | 客户、供应商、物料、仓库、工厂、车间、生产线、物料供应商 |
-| 销售管理 | 销售订单、库存预留、销售出库及状态流转                   |
-| 库存管理 | 物料库存、预留/释放、可用量、库存流水、Excel 导入导出    |
-| BOM 管理 | BOM 创建、版本、启用/停用、多级展开、物料需求计算        |
-| 生产管理 | 生产需求、生产订单、下达/开工/完工/取消、生产领料        |
-| 采购管理 | 采购需求、采购订单、采购入库审核与上架                   |
-| 消息通知 | 通知落库、实时推送、分页/详情、未读统计、单条/全部已读   |
+| 业务域   | 主要能力                                                       |
+| -------- | -------------------------------------------------------------- |
+| 系统管理 | 登录认证、用户/角色/部门管理、菜单与权限分配                    |
+| 基础资料 | 客户、供应商、物料、仓库与工厂/车间/产线主数据                  |
+| 销售管理 | 销售订单、库存预留、销售出库与状态流转                          |
+| 库存管理 | 在库/预留/可用量、库存流水、Excel 导入导出                      |
+| BOM 管理 | BOM 版本与多级展开、基于生产数量的物料净需求计算                |
+| 生产管理 | 生产需求、生产订单、下达/开工/完工/取消与生产领料               |
+| 采购管理 | 采购需求、采购订单、采购入库审核与上架                          |
+| 消息通知 | 通知落库、实时推送、未读统计与单条/全部已读                      |
 
 ## 业务链路
 
@@ -65,6 +65,27 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 ```text
 可用量 = 在库量 - 预留量
 ```
+
+## 界面展示
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/home.png" alt="业务工作台" /></td>
+    <td width="50%" align="center"><img src="docs/screenshots/sales-order.png" alt="销售订单" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>业务工作台</b>：核心待办与生产订单状态总览</td>
+    <td align="center"><b>销售订单</b>：订单状态管理与库存预留</td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/bom.png" alt="BOM 树形查询" /></td>
+    <td width="50%" align="center"><img src="docs/screenshots/notification.png" alt="发布通知" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>BOM 树形查询</b>：多级 BOM 递归展开与净需求</td>
+    <td align="center"><b>发布通知</b>：按用户/角色/部门定向推送通知</td>
+  </tr>
+</table>
 
 ## 技术栈
 
@@ -383,7 +404,7 @@ notificationPublisher.publish(publish);
 src/main/java/org/smart/erp/
 ├── common/       # 响应、异常、安全、WebSocket、配置、序号、Excel 和通用工具
 ├── system/       # 用户、角色、部门、菜单、权限和认证
-├── eip/           # 通知实体、DTO、模板、收件人解析、持久化、事件和 WebSocket 适配
+├── eip/          # 通知实体、DTO、收件人解析、持久化与 WebSocket 适配
 │   ├── entity/ dto/ mapper/ service/ (service/impl/)
 │   ├── controller/ converter/ event/ listener/ adapter/ port/
 │   └── enums/ vo/
@@ -453,6 +474,7 @@ controller → dto → service → mapper → entity / vo
 
 - **通知能力扩展**：增加自动重连、心跳、多设备会话、消息模板和更多业务事件接入。
 - **AI 智能问答助手**：基于企业业务数据（库存、订单、生产进度、采购等）的自然语言问答与辅助决策，支持以对话方式查询经营指标、定位异常单据，并逐步接入流程建议与自动化工单。
+- **零代码表单建设**：提供可视化表单设计器，支持动态字段、校验与联动规则配置，并能基于业务单据自动生成录入页与列表页，为 DIY/低代码场景预留扩展能力。
 
 ## 参与贡献
 
