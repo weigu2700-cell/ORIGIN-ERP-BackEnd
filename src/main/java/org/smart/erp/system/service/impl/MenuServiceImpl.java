@@ -13,16 +13,16 @@ import org.smart.erp.system.dto.MenuAddDto;
 import org.smart.erp.system.dto.MenuDetailDto;
 import org.smart.erp.system.dto.MenuTreeDto;
 import org.smart.erp.system.entity.Menu;
-import org.smart.erp.system.entity.RoleInfo;
 import org.smart.erp.system.entity.RoleMenu;
 import org.smart.erp.system.Enum.Status;
 import org.smart.erp.system.mapper.MenuMapper;
-import org.smart.erp.system.mapper.RoleInfoMapper;
 import org.smart.erp.system.mapper.RoleMenuMapper;
 import org.smart.erp.system.service.MenuService;
+import org.smart.erp.system.service.PermissionService;
 import org.smart.erp.system.vo.MenuListVo;
 import org.smart.erp.system.vo.MenuSearchVo;
 import org.smart.erp.system.vo.MenuTreeVo;
+import org.smart.erp.system.vo.PermissionVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
@@ -41,24 +41,24 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     private final RoleMenuMapper roleMenuMapper;
     private final CurrentUser currentUser;
     private final RoleConverter roleConverter;
-    private final RoleInfoMapper roleInfoMapper;
     private final MenuRedis menuRedis;
+    private final PermissionService permissionService;
 
     public MenuServiceImpl(
             MenuMapper menuMapper ,
             RoleMenuMapper roleMenuMapper ,
             CurrentUser currentUser,
             RoleConverter roleConverter,
-            RoleInfoMapper roleInfoMapper,
-            MenuRedis menuRedis
+            MenuRedis menuRedis,
+            PermissionService permissionService
     )
     {
         this.menuMapper = menuMapper;
         this.roleMenuMapper = roleMenuMapper;
         this.currentUser = currentUser;
         this.roleConverter = roleConverter;
-        this.roleInfoMapper = roleInfoMapper;
         this.menuRedis = menuRedis;
+        this.permissionService = permissionService;
     }
 
     private List<MenuTreeVo> activeMenuWithCache(Long userId) {
@@ -76,16 +76,6 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
         }
     }
 
-
-    /** 判断角色列表中是否包含超级管理员（角色编码为 admin） */
-    private boolean isSuperAdmin(List<Long> roleIds) {
-        if (CollectionUtils.isEmpty(roleIds)) {
-            return false;
-        }
-        List<RoleInfo> roles = roleInfoMapper.selectList(new LambdaQueryWrapper<RoleInfo>()
-                .in(RoleInfo::getId, roleIds));
-        return roles.stream().anyMatch(role -> "admin".equals(role.getCode()));
-    }
 
     private MenuListVo toVO(Menu menu, Map<Long, String> parentNameById) {
         MenuListVo vo = new MenuListVo();
@@ -204,13 +194,25 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
     @Override
     public void addMenu(MenuAddDto dto) {
+        if (dto.getName() != null) {
+            long nameCount = this.count(new LambdaQueryWrapper<Menu>().eq(Menu::getName, dto.getName()));
+            if (nameCount > 0) {
+                throw new BusinessException(400, "菜单名称已存在: " + dto.getName());
+            }
+        }
+        if (dto.getPath() != null) {
+            long pathCount = this.count(new LambdaQueryWrapper<Menu>().eq(Menu::getPath, dto.getPath()));
+            if (pathCount > 0) {
+                throw new BusinessException(400, "菜单路径已存在: " + dto.getPath());
+            }
+        }
         Menu menu = new Menu();
         BeanUtils.copyProperties(dto, menu);
         if (menu.getStatus() == null) {
             menu.setStatus(Status.ENABLE);
         }
         this.save(menu);
-        menuRedis.evictMenuCache(currentUser.getUserId());
+        menuRedis.evictAllMenuCache();
     }
 
     @Override
@@ -224,12 +226,13 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
        if (dto.getPath() != null) menu.setPath(dto.getPath());
        if (dto.getComponent() != null) menu.setComponent(dto.getComponent());
        if (dto.getIcon() != null) menu.setIcon(dto.getIcon());
+       if (dto.getPermissionCode() != null) menu.setPermissionCode(dto.getPermissionCode());
        if (dto.getParentId() != null) menu.setParentId(dto.getParentId());
        if (dto.getVisible() != null) menu.setVisible(dto.getVisible());
        if (dto.getStatus() != null) menu.setStatus(dto.getStatus());
 
        this.updateById(menu);
-       menuRedis.evictMenuCache(menu.getId());
+       menuRedis.evictAllMenuCache();
     }
 
     @Override
@@ -244,7 +247,7 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             throw new BusinessException(400, "菜单已被角色使用，无法删除");
         }
         this.removeById(id);
-        menuRedis.evictMenuCache(currentUser.getUserId());
+        menuRedis.evictAllMenuCache();
     }
 
     @Override
@@ -255,29 +258,31 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
     /** 按用户角色构建菜单树（缓存未命中或缓存故障时的数据源） */
     private List<MenuTreeVo> buildCurrentUserMenu(Long currentUserId) {
         List<Long> roleIds = roleConverter.getCurrentRoleIds(currentUserId);
-
-        // 超级管理员默认拥有全部菜单
-        if (isSuperAdmin(roleIds)) {
-            List<Long> allMenuIds = menuMapper.selectList(new LambdaQueryWrapper<Menu>())
-                    .stream()
-                    .map(Menu::getId)
-                    .toList();
-            return getMenuTreeVoS(allMenuIds);
-        }
+        boolean superAdmin = roleConverter.isSuperAdmin(currentUserId);
 
         // 用户没有任何角色时，不应看到任何菜单
         if (CollectionUtils.isEmpty(roleIds)) {
             return new ArrayList<>();
         }
 
-        List<RoleMenu> roleMenus = roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenu>()
-                .in(RoleMenu::getRoleId, roleIds));
+        Set<Long> menuIds = superAdmin
+                ? menuMapper.selectList(new LambdaQueryWrapper<Menu>()).stream().map(Menu::getId).collect(Collectors.toSet())
+                : roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenu>().in(RoleMenu::getRoleId, roleIds)).stream()
+                        .map(RoleMenu::getMenuId).collect(Collectors.toSet());
+        if (menuIds.isEmpty()) return new ArrayList<>();
 
-        List<Long> menuIds = roleMenus.stream()
-                .map(RoleMenu::getMenuId)
+        Set<String> permissionCodes = permissionService.detailCurrentUserPermission(currentUserId).stream()
+                .map(PermissionVo::getCode).filter(Objects::nonNull).collect(Collectors.toSet());
+        List<Long> visibleMenuIds = menuMapper.selectList(new LambdaQueryWrapper<Menu>()
+                        .in(Menu::getId, menuIds)
+                        .eq(Menu::getStatus, Status.ENABLE)
+                        .eq(Menu::getVisible, 1))
+                .stream()
+                .filter(menu -> menu.getPermissionCode() == null || menu.getPermissionCode().isBlank()
+                        || permissionCodes.contains(menu.getPermissionCode()))
+                .map(Menu::getId)
                 .toList();
-
-        return getMenuTreeVoS(menuIds);
+        return getMenuTreeVoS(visibleMenuIds);
     }
 
     @Override
@@ -295,11 +300,11 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
 
         LambdaQueryWrapper<Menu> queryWrapper = new LambdaQueryWrapper<Menu>()
                 .eq(Menu::getStatus, Status.ENABLE)
-                .eq(Menu::getVisible, 0)
+                .eq(Menu::getVisible, 1)
                 .apply("deleted = 0")
                 .orderByAsc(Menu::getId);
 
-        if (!isSuperAdmin(roleIds)) {
+        if (!roleConverter.isSuperAdmin(currentUserId)) {
             List<Long> menuIds = roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenu>()
                             .in(RoleMenu::getRoleId, roleIds))
                     .stream()
@@ -312,7 +317,12 @@ public class MenuServiceImpl extends ServiceImpl<MenuMapper, Menu> implements Me
             queryWrapper.in(Menu::getId, menuIds);
         }
 
-        List<Menu> accessibleMenus = menuMapper.selectList(queryWrapper);
+        Set<String> permissionCodes = permissionService.detailCurrentUserPermission(currentUserId).stream()
+                .map(permission -> permission.getCode()).filter(Objects::nonNull).collect(Collectors.toSet());
+        List<Menu> accessibleMenus = menuMapper.selectList(queryWrapper).stream()
+                .filter(menu -> menu.getPermissionCode() == null || menu.getPermissionCode().isBlank()
+                        || permissionCodes.contains(menu.getPermissionCode()))
+                .toList();
         Set<Long> parentIds = accessibleMenus.stream()
                 .map(Menu::getParentId)
                 .filter(Objects::nonNull)

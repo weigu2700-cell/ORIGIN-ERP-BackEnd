@@ -2,6 +2,7 @@ package org.smart.erp.eip.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.smart.erp.common.exception.BusinessException;
+import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.dto.NotificationTemplateDTO;
@@ -20,7 +21,6 @@ import org.smart.erp.eip.service.NotificationTemplateService;
 import org.smart.erp.eip.service.SystemNotificationService;
 import org.smart.erp.system.Enum.Status;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -42,17 +42,19 @@ public class SystemNotificationServiceImpl implements SystemNotificationService 
 
 	private final NotificationPublisher publisher;
 
+	private final CurrentUser currentUser;
+
 	public SystemNotificationServiceImpl(NotificationTemplateMapper templateMapper,
 			NotificationTemplateService templateService, NotificationRecipientResolver resolver,
-			NotificationPublisher publisher) {
+			NotificationPublisher publisher, CurrentUser currentUser) {
 		this.templateMapper = templateMapper;
 		this.templateService = templateService;
 		this.resolver = resolver;
 		this.publisher = publisher;
+		this.currentUser = currentUser;
 	}
 
 	@Override
-	@Transactional(rollbackFor = Exception.class)
 	public String publish(SystemNotificationPublishDTO dto) {
 		NotificationTemplate template = findTemplate(dto);
 		NotificationTemplateDTO templateDto = template == null ? null : templateService.get(template.getId());
@@ -65,6 +67,11 @@ public class SystemNotificationServiceImpl implements SystemNotificationService 
 		RecipientMergeMode mergeMode = dto.getMergeMode() != null ? dto.getMergeMode()
 				: template == null ? RecipientMergeMode.OVERRIDE : RecipientMergeMode.PRESET_ONLY;
 		Set<Long> recipients = resolveRecipients(mergeMode, preset, explicit);
+		// 手工发布者保留一份收件箱副本，便于确认内容已成功发布。
+		Long publisherId = currentUser.getUserId();
+		if (publisherId != null) {
+			recipients.add(publisherId);
+		}
 		if (recipients.isEmpty())
 			throw new BusinessException(422, "通知收件人不能为空或均未启用");
 

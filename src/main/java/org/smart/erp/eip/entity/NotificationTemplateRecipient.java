@@ -9,7 +9,7 @@ import org.smart.erp.eip.enums.RecipientSelectorType;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_notification_template_recipient")
+@TableName("eip_notification_template_recipient")
 public class NotificationTemplateRecipient {
 
 	@TableId(value = "id", type = IdType.ASSIGN_ID)

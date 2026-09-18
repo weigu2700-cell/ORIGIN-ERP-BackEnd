@@ -8,7 +8,7 @@ import org.smart.erp.system.Enum.Status;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_notification_template")
+@TableName("eip_notification_template")
 public class NotificationTemplate {
 
 	@TableId(value = "id", type = IdType.ASSIGN_ID)

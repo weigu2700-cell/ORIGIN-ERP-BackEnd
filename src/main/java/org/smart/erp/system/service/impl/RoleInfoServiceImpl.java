@@ -84,6 +84,10 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
         if (exist == null) {
             throw new BusinessException(404, "角色不存在");
         }
+        if (dto.getCode() != null && !dto.getCode().equals(exist.getCode())
+                && this.count(new LambdaQueryWrapper<RoleInfo>().eq(RoleInfo::getCode, dto.getCode())) > 0) {
+            throw new BusinessException(400, "角色编码已存在");
+        }
 
         RoleInfo roleInfo = new RoleInfo();
         if (dto.getName() != null) roleInfo.setName(dto.getName());
@@ -93,6 +97,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
         LambdaQueryWrapper<RoleInfo> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoleInfo::getId, dto.getId());
         this.update(roleInfo, queryWrapper);
+        evictRoleUsers(dto.getId());
     }
 
     @Override
@@ -161,12 +166,6 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
             throw new BusinessException(404, "角色不存在");
         }
 
-        List<Long> userId = userRoleMapper.selectList(
-                new LambdaQueryWrapper<UserRole>()
-                        .eq(UserRole::getRoleId, dto.getRoleId())).stream()
-                .map(UserRole::getUserId)
-                .toList();
-
         // 2. 删除该角色原有关联（全量覆盖的前提：先清后写）
         LambdaQueryWrapper<RolePermission> deleteWrapper = new LambdaQueryWrapper<>();
         deleteWrapper.eq(RolePermission::getRoleId, dto.getRoleId());
@@ -184,9 +183,7 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
             // 逐条 insert（BaseMapper 无批量 insert，数据量小可接受）
             relations.forEach(rolePermissionMapper::insert);
         }
-        for (Long user : userId) {
-            permissionsRedis.evictPermissionsCache(user);
-        }
+        evictRoleUsers(dto.getRoleId());
     }
 
     @Override
@@ -213,12 +210,6 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
             throw new BusinessException(404, "角色不存在");
         }
 
-        List<Long> userId = userRoleMapper.selectList(
-                        new LambdaQueryWrapper<UserRole>()
-                                .eq(UserRole::getRoleId, dto.getRoleId())).stream()
-                .map(UserRole::getUserId)
-                .toList();
-
         LambdaQueryWrapper<RoleMenu> deleteWrapper = new LambdaQueryWrapper<>();
         deleteWrapper.eq(RoleMenu::getRoleId, dto.getRoleId());
         roleMenuMapper.delete(deleteWrapper);
@@ -233,10 +224,17 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
             }).toList();
             relations.forEach(roleMenuMapper::insert);
         }
-        for (Long user : userId) {
-            menuRedis.evictMenuCache(user);
-            permissionsRedis.evictPermissionsCache(user);
-        }
+        evictRoleUsers(dto.getRoleId());
+    }
+
+    private void evictRoleUsers(Long roleId) {
+        userRoleMapper.selectList(new LambdaQueryWrapper<UserRole>()
+                        .eq(UserRole::getRoleId, roleId)).stream()
+                .map(UserRole::getUserId)
+                .forEach(userId -> {
+                    permissionsRedis.evictPermissionsCache(userId);
+                    menuRedis.evictMenuCache(userId);
+                });
     }
 
 

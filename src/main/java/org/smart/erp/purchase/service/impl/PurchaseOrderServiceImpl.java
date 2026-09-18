@@ -21,6 +21,11 @@ import org.smart.erp.purchase.mapper.PurchaseDemandMapper;
 import org.smart.erp.purchase.mapper.PurchaseOrderMapper;
 import org.smart.erp.purchase.service.PurchaseInStockService;
 import org.smart.erp.purchase.service.PurchaseOrderService;
+import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.dto.RecipientSelectorDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.smart.erp.purchase.vo.PurchaseOrderVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -45,6 +50,7 @@ public class PurchaseOrderServiceImpl
     private final MaterialMapper materialMapper;
     private final SupplierMapper supplierMapper;
     private final PurchaseInStockService purchaseInStockService;
+    private final NotificationPublisher notificationPublisher;
 
     public PurchaseOrderServiceImpl(
             BusinessNoGenerator businessNoGenerator,
@@ -52,7 +58,8 @@ public class PurchaseOrderServiceImpl
             PurchaseDemandMapper purchaseDemandMapper,
             MaterialMapper materialMapper,
             SupplierMapper supplierMapper,
-            PurchaseInStockService purchaseInStockService
+            PurchaseInStockService purchaseInStockService,
+            NotificationPublisher notificationPublisher
     ) {
         this.businessNoGenerator = businessNoGenerator;
         this.purchaseOrderMapper = purchaseOrderMapper;
@@ -60,6 +67,7 @@ public class PurchaseOrderServiceImpl
         this.materialMapper = materialMapper;
         this.supplierMapper = supplierMapper;
         this.purchaseInStockService = purchaseInStockService;
+        this.notificationPublisher = notificationPublisher;
     }
 
     /**
@@ -180,6 +188,15 @@ public class PurchaseOrderServiceImpl
                         .multiply(dto.getPlannedQuantity()).setScale(2, RoundingMode.HALF_UP));
 
         purchaseOrderMapper.insert(purchaseOrder);
+
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.TASK,
+                "待审批采购订单",
+                "采购订单 " + purchaseOrder.getPurchaseOrderNo() + " 已创建，请及时审批。",
+                NotificationBusinessRefDTO.of(
+                        "PURCHASE_ORDER_PENDING_APPROVAL", purchaseOrder.getId(), purchaseOrder.getPurchaseOrderNo()),
+                RecipientSelectorDTO.permissions(Set.of("purchase:order:approve"), true)));
+
     }
 
     @Override
@@ -201,6 +218,14 @@ public class PurchaseOrderServiceImpl
         order.setOrderDate(LocalDateTime.now());
         // 供应商 / 单价 / 预计交货日期由采购员在审批前补全
         purchaseOrderMapper.insert(order);
+
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.TASK,
+                "待审批采购订单",
+                "采购订单 " + order.getPurchaseOrderNo() + " 已创建，请及时审批。",
+                NotificationBusinessRefDTO.of(
+                        "PURCHASE_ORDER_PENDING_APPROVAL", order.getId(), order.getPurchaseOrderNo()),
+                RecipientSelectorDTO.permissions(Set.of("purchase:order:approve"), true)));
     }
 
     @Override
@@ -269,6 +294,15 @@ public class PurchaseOrderServiceImpl
 
         // 审批通过后自动生成采购入库单（草稿，仓库等信息待实际收货时补充）
         createInStockForOrder(order);
+
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.BUSINESS,
+                "采购订单审批通过",
+                "采购订单 " + order.getPurchaseOrderNo() + " 已审批通过，请安排发货与收货。",
+                NotificationBusinessRefDTO.of(
+                        "PURCHASE_ORDER_APPROVED", order.getId(), order.getPurchaseOrderNo()),
+                RecipientSelectorDTO.permissions(
+                        Set.of("purchase:order:ship", "purchase:order:receive"), true)));
     }
 
     /**
@@ -299,8 +333,16 @@ public class PurchaseOrderServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void receivePurchaseOrder(Long id) {
+        PurchaseOrder order = getOrderOrThrow(id);
         transition(id, PurchaseOrderStatus.SHIPPED, PurchaseOrderStatus.RECEIVED,
                 "采购订单状态不为已发货，无法收货");
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.BUSINESS,
+                "采购订单已收货",
+                "采购订单 " + order.getPurchaseOrderNo() + " 已收货。",
+                NotificationBusinessRefDTO.of(
+                        "PURCHASE_ORDER_RECEIVED", order.getId(), order.getPurchaseOrderNo()),
+                RecipientSelectorDTO.permissions(Set.of("purchase:order:create"), true)));
     }
 
     @Override
@@ -315,5 +357,12 @@ public class PurchaseOrderServiceImpl
         }
         order.setStatus(PurchaseOrderStatus.CLOSED);
         purchaseOrderMapper.updateById(order);
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.BUSINESS,
+                "采购订单已关闭",
+                "采购订单 " + order.getPurchaseOrderNo() + " 已关闭。",
+                NotificationBusinessRefDTO.of(
+                        "PURCHASE_ORDER_CLOSED", order.getId(), order.getPurchaseOrderNo()),
+                RecipientSelectorDTO.permissions(Set.of("purchase:order:create"), true)));
     }
 }

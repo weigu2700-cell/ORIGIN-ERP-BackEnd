@@ -1,6 +1,7 @@
 package org.smart.erp.eip.listener;
 
 import lombok.extern.slf4j.Slf4j;
+import org.smart.erp.eip.enums.NotificationSourceType;
 import org.smart.erp.eip.dto.RecipientSelectorDTO;
 import org.smart.erp.eip.event.NotificationPublishEvent;
 import org.smart.erp.eip.service.NotificationPersistenceService;
@@ -36,6 +37,9 @@ public class NotificationPublishEventListener {
 		}
 		catch (RuntimeException exception) {
 			log.error("业务事务已提交，但通知处理失败，requestId={}", event.getRequestId(), exception);
+			if (event.getPublish().getSourceType() == NotificationSourceType.SYSTEM) {
+				throw exception;
+			}
 		}
 	}
 

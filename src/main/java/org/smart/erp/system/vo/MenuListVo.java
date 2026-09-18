@@ -23,6 +23,8 @@ public class MenuListVo {
 
     private String icon;
 
+    private String permissionCode;
+
     private Integer visible;
 
     private Status status;

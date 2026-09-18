@@ -16,6 +16,8 @@ public class MenuAddDto {
 
     private String icon;
 
+    private String permissionCode;
+
     private Long parentId;
 
     private Integer visible;

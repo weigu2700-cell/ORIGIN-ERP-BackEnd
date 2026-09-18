@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.annotation.EnumValue;
 import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 
-/** 通知在收件箱中展示的业务类型。数值保持与原 sys_notification 约定兼容。 */
+/** 通知在收件箱中展示的业务类型。数值保持与既有收件箱约定兼容。 */
 @Getter
 public enum NotificationType {
 

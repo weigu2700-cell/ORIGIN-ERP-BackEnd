@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.smart.erp.system.cache.PermissionsRedis;
+import org.smart.erp.system.cache.MenuRedis;
 import org.smart.erp.system.converter.RoleConverter;
 import org.smart.erp.system.dto.PermissionAddDto;
 import org.smart.erp.system.dto.PermissionDetailDto;
@@ -34,12 +35,14 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
     private final RoleConverter roleConverter;
     private final RolePermissionMapper rolePermissionMapper;
     private final PermissionsRedis permissionsRedis;
+    private final MenuRedis menuRedis;
 
     public PermissionServiceImpl(
             CurrentUser currentUser,
             RoleConverter roleConverter,
             RolePermissionMapper rolePermissionMapper,
-            PermissionsRedis permissionsRedis
+            PermissionsRedis permissionsRedis,
+            MenuRedis menuRedis
     ) {
 
 
@@ -47,6 +50,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         this.roleConverter = roleConverter;
         this.rolePermissionMapper = rolePermissionMapper;
         this.permissionsRedis = permissionsRedis;
+        this.menuRedis = menuRedis;
     }
 
 
@@ -64,6 +68,13 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             return permissionCacheVo;
         }
 
+        if (roleConverter.isSuperAdmin(userId)) {
+            Set<PermissionCacheVo> allPermissions = permissionsRedis.buildPermissionCache(
+                    this.list(new LambdaQueryWrapper<Permission>().eq(Permission::getStatus, Status.ENABLE)));
+            permissionsRedis.activePermissionsCache(userId, allPermissions);
+            return allPermissions;
+        }
+
         List<Long> roleIds = roleConverter.getCurrentRoleIds(userId);
         if (roleIds.isEmpty()) {
             return Collections.emptySet();
@@ -79,7 +90,9 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
                 .map(RolePermission::getPermissionId)
                 .distinct()
                 .toList();
-        List<Permission> permissions = this.listByIds(permissionIds);
+        List<Permission> permissions = this.list(new LambdaQueryWrapper<Permission>()
+                .in(Permission::getId, permissionIds)
+                .eq(Permission::getStatus, Status.ENABLE));
         Set<PermissionCacheVo> permissionCacheVos = permissionsRedis.buildPermissionCache(permissions);
         permissionsRedis.activePermissionsCache(userId, permissionCacheVos);
         return permissionCacheVos;
@@ -227,6 +240,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         }
         this.save(permission);
         permissionsRedis.evictAllPermissionsCache();
+        menuRedis.evictAllMenuCache();
     }
 
     @Override
@@ -258,6 +272,7 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
         this.updateById(permission);
         // 权限变更影响所有用户，全量失效，避免缓存残留旧数据（TTL 2h 兜底）
         permissionsRedis.evictAllPermissionsCache();
+        menuRedis.evictAllMenuCache();
     }
 
     @Override
