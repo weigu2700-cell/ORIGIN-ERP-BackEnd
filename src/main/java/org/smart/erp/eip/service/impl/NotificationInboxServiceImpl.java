@@ -21,60 +21,64 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class NotificationInboxServiceImpl implements NotificationInboxService {
-    private final NotificationMapper notificationMapper;
-    private final CurrentUser currentUser;
-    private final NotificationConverter converter;
 
-    @Override
-    public Page<NotificationVo> page(NotificationPageDto dto) {
-        NotificationPageDto query = dto == null ? new NotificationPageDto() : dto;
-        LambdaQueryWrapper<Notification> wrapper = new LambdaQueryWrapper<Notification>()
-                .eq(Notification::getUserId, currentUser.getUserId())
-                .eq(Objects.nonNull(query.getIsRead()), Notification::getIsRead, query.getIsRead())
-                .orderByDesc(Notification::getCreateTime);
-        Page<Notification> page = new Page<>(
-                defaultValue(query.getPageNum(), 1), defaultValue(query.getPageSize(), 10));
-        return PageConvertUtils.convert(notificationMapper.selectPage(page, wrapper), converter::toVo);
-    }
+	private final NotificationMapper notificationMapper;
 
-    @Override
-    public NotificationVo get(Long notificationId) {
-        Notification notification = notificationMapper.selectOne(new LambdaQueryWrapper<Notification>()
-                .eq(Notification::getId, notificationId)
-                .eq(Notification::getUserId, currentUser.getUserId()));
-        if (notification == null) {
-            throw new BusinessException(404, "通知不存在");
-        }
-        return converter.toVo(notification);
-    }
+	private final CurrentUser currentUser;
 
-    @Override
-    public Long unreadCount() {
-        return notificationMapper.selectCount(new LambdaQueryWrapper<Notification>()
-                .eq(Notification::getUserId, currentUser.getUserId())
-                .eq(Notification::getIsRead, false));
-    }
+	private final NotificationConverter converter;
 
-    @Override
-    public void markAsRead(Long notificationId) {
-        notificationMapper.update(null, new LambdaUpdateWrapper<Notification>()
-                .eq(Notification::getId, notificationId)
-                .eq(Notification::getUserId, currentUser.getUserId())
-                .eq(Notification::getIsRead, false)
-                .set(Notification::getIsRead, true)
-                .set(Notification::getReadTime, LocalDateTime.now()));
-    }
+	@Override
+	public Page<NotificationVo> page(NotificationPageDto dto) {
+		NotificationPageDto query = dto == null ? new NotificationPageDto() : dto;
+		LambdaQueryWrapper<Notification> wrapper = new LambdaQueryWrapper<Notification>()
+			.eq(Notification::getUserId, currentUser.getUserId())
+			.eq(Objects.nonNull(query.getIsRead()), Notification::getIsRead, query.getIsRead())
+			.orderByDesc(Notification::getCreateTime);
+		Page<Notification> page = new Page<>(defaultValue(query.getPageNum(), 1),
+				defaultValue(query.getPageSize(), 10));
+		return PageConvertUtils.convert(notificationMapper.selectPage(page, wrapper), converter::toVo);
+	}
 
-    @Override
-    public void markAllAsRead() {
-        notificationMapper.update(null, new LambdaUpdateWrapper<Notification>()
-                .eq(Notification::getUserId, currentUser.getUserId())
-                .eq(Notification::getIsRead, false)
-                .set(Notification::getIsRead, true)
-                .set(Notification::getReadTime, LocalDateTime.now()));
-    }
+	@Override
+	public NotificationVo get(Long notificationId) {
+		Notification notification = notificationMapper
+			.selectOne(new LambdaQueryWrapper<Notification>().eq(Notification::getId, notificationId)
+				.eq(Notification::getUserId, currentUser.getUserId()));
+		if (notification == null) {
+			throw new BusinessException(404, "通知不存在");
+		}
+		return converter.toVo(notification);
+	}
 
-    private static int defaultValue(Integer value, int fallback) {
-        return value == null || value < 1 ? fallback : value;
-    }
+	@Override
+	public Long unreadCount() {
+		return notificationMapper
+			.selectCount(new LambdaQueryWrapper<Notification>().eq(Notification::getUserId, currentUser.getUserId())
+				.eq(Notification::getIsRead, false));
+	}
+
+	@Override
+	public void markAsRead(Long notificationId) {
+		notificationMapper.update(null,
+				new LambdaUpdateWrapper<Notification>().eq(Notification::getId, notificationId)
+					.eq(Notification::getUserId, currentUser.getUserId())
+					.eq(Notification::getIsRead, false)
+					.set(Notification::getIsRead, true)
+					.set(Notification::getReadTime, LocalDateTime.now()));
+	}
+
+	@Override
+	public void markAllAsRead() {
+		notificationMapper.update(null,
+				new LambdaUpdateWrapper<Notification>().eq(Notification::getUserId, currentUser.getUserId())
+					.eq(Notification::getIsRead, false)
+					.set(Notification::getIsRead, true)
+					.set(Notification::getReadTime, LocalDateTime.now()));
+	}
+
+	private static int defaultValue(Integer value, int fallback) {
+		return value == null || value < 1 ? fallback : value;
+	}
+
 }

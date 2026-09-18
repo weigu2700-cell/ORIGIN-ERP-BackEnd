@@ -196,6 +196,22 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- 代码风格统一：Spring 官方格式化器（4 空格 Spring 风格），作用域限定 eip 包，
+                 通过 sourceDirectories 只扫描 src/main/java/org/smart/erp/eip，不影响其它模块。
+                 需联网首次下载插件后执行：
+                   mvn io.spring.javaformat:spring-javaformat-maven-plugin:0.0.48:apply      （格式化）
+                   mvn io.spring.javaformat:spring-javaformat-maven-plugin:0.0.48:validate   （仅校验） -->
+            <plugin>
+                <groupId>io.spring.javaformat</groupId>
+                <artifactId>spring-javaformat-maven-plugin</artifactId>
+                <version>0.0.48</version>
+                <configuration>
+                    <sourceDirectories>
+                        <sourceDirectory>src/main/java/org/smart/erp/eip</sourceDirectory>
+                    </sourceDirectories>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

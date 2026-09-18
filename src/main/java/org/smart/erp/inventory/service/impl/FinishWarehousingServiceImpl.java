@@ -28,7 +28,6 @@ import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.dto.RecipientSelectorDTO;
 import org.smart.erp.eip.enums.NotificationType;
-import org.smart.erp.eip.enums.NotificationSourceType;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.smart.erp.system.service.UserService;
 import org.springframework.beans.BeanUtils;
@@ -151,21 +150,14 @@ public class FinishWarehousingServiceImpl
         if (!save(finishWarehousing)) {
             throw new BusinessException(500, "成品入库单保存失败");
         }
-        NotificationPublishDTO notification = new NotificationPublishDTO();
-        notification.setType(NotificationType.TASK);
-        notification.setSourceType(NotificationSourceType.BUSINESS);
-        notification.setTitle("成品入库单待审批");
-        notification.setContent("成品入库单「" + finishWarehousing.getWarehousingNo() + "」已生成，请及时审批");
-        notification.setBusiness(NotificationBusinessRefDTO.builder()
-                .businessType("FINISH_WAREHOUSING_PENDING_APPROVAL")
-                .businessId(finishWarehousing.getId())
-                .businessNo(finishWarehousing.getWarehousingNo())
-                .build());
-        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
-        recipients.setPermissionCodes(Set.of("inv:finish-warehousing:update"));
-        recipients.setIncludeAdministrators(true);
-        notification.setRecipients(recipients);
-        notificationPublisher.publish(notification);
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.TASK,
+                "成品入库单待审批",
+                "成品入库单「" + finishWarehousing.getWarehousingNo() + "」已生成，请及时审批",
+                NotificationBusinessRefDTO.of(
+                        "FINISH_WAREHOUSING_PENDING_APPROVAL",
+                        finishWarehousing.getId(), finishWarehousing.getWarehousingNo()),
+                RecipientSelectorDTO.permissions(Set.of("inv:finish-warehousing:update"), true)));
     }
 
     /**

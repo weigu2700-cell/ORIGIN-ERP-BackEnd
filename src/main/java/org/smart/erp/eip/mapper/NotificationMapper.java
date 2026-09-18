@@ -6,4 +6,5 @@ import org.smart.erp.eip.entity.Notification;
 
 @Mapper
 public interface NotificationMapper extends BaseMapper<Notification> {
+
 }

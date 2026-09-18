@@ -7,8 +7,13 @@ import org.smart.erp.eip.enums.RecipientSelectorType;
 
 @Data
 public class NotificationTemplateRecipientDTO {
-    @NotNull
-    private RecipientSelectorType selectorType;
-    @NotBlank
-    private String selectorValue;
+
+	@NotNull
+	private RecipientSelectorType selectorType;
+
+	@NotBlank
+	private String selectorValue;
+
+	private boolean includeChildren;
+
 }

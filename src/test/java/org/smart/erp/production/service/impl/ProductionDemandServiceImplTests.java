@@ -42,121 +42,125 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ProductionDemandServiceImplTests {
 
-    @Mock private SalesOrderMapper salesOrderMapper;
-    @Mock private MaterialMapper materialMapper;
-    @Mock private BusinessNoGenerator businessNoGenerator;
-    @Mock private ProductionOrderService productionOrderService;
-    @Mock private ProductionDemandMapper productionDemandMapper;
-    @Mock private NotificationPublisher notificationPublisher;
+	@Mock
+	private SalesOrderMapper salesOrderMapper;
 
-    private ProductionDemandServiceImpl service;
+	@Mock
+	private MaterialMapper materialMapper;
 
-    @BeforeEach
-    void setUp() {
-        service = new ProductionDemandServiceImpl(
-                salesOrderMapper,
-                materialMapper,
-                businessNoGenerator,
-                productionOrderService,
-                productionDemandMapper,
-                notificationPublisher);
-    }
+	@Mock
+	private BusinessNoGenerator businessNoGenerator;
 
-    @Test
-    void salesShortageCarriesTargetWarehouseIntoDemandAndProductionOrder() {
-        ProductionDemandAddDto dto = demandDto();
-        SalesOrder salesOrder = new SalesOrder();
-        salesOrder.setOrderNo("SO-001");
-        when(productionDemandMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
-        when(salesOrderMapper.selectOne(any(Wrapper.class))).thenReturn(salesOrder);
-        when(businessNoGenerator.generateNo(any(), any())).thenReturn("PD-001");
-        doAnswer(invocation -> {
-            ProductionDemand demand = invocation.getArgument(0);
-            demand.setId(31L);
-            return 1;
-        }).when(productionDemandMapper).insert(any(ProductionDemand.class));
-        when(productionDemandMapper.updateById(any(ProductionDemand.class))).thenReturn(1);
+	@Mock
+	private ProductionOrderService productionOrderService;
 
-        service.addProductionDemand(dto);
+	@Mock
+	private ProductionDemandMapper productionDemandMapper;
 
-        ArgumentCaptor<ProductionOrderAddDto> orderCaptor =
-                ArgumentCaptor.forClass(ProductionOrderAddDto.class);
-        verify(productionOrderService).addProductionOrder(orderCaptor.capture());
-        assertThat(orderCaptor.getValue().getProductionDemandId()).isEqualTo(31L);
-        assertThat(orderCaptor.getValue().getWarehouseId()).isEqualTo(21L);
-        assertThat(orderCaptor.getValue().getPlannedQuantity()).isEqualByComparingTo("5");
+	@Mock
+	private NotificationPublisher notificationPublisher;
 
-        ArgumentCaptor<ProductionDemand> demandCaptor =
-                ArgumentCaptor.forClass(ProductionDemand.class);
-        verify(productionDemandMapper).updateById(demandCaptor.capture());
-        assertThat(demandCaptor.getValue().getStatus()).isEqualTo(ProductionStatus.PLANNED);
-        ArgumentCaptor<NotificationPublishDTO> notificationCaptor =
-                ArgumentCaptor.forClass(NotificationPublishDTO.class);
-        verify(notificationPublisher).publish(notificationCaptor.capture());
-        assertThat(notificationCaptor.getValue().getType()).isEqualTo(NotificationType.TASK);
-        assertThat(notificationCaptor.getValue().getContent()).contains("PD-001");
-        assertThat(notificationCaptor.getValue().getBusiness().getBusinessType())
-                .isEqualTo("PRODUCTION_DEMAND_PLANNED");
-        assertThat(notificationCaptor.getValue().getBusiness().getBusinessId()).isEqualTo(31L);
-        assertThat(notificationCaptor.getValue().getRecipients().getPermissionCodes())
-                .containsExactly("production:order:release");
-        assertThat(notificationCaptor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
-    }
+	private ProductionDemandServiceImpl service;
 
-    @Test
-    void cancellingSalesOrderCancelsDraftProductionAndDemand() {
-        ProductionDemand demand = productionDemand(ProductionStatus.PLANNED);
-        ProductionOrder order = productionOrder(ProductionOrderStatus.DRAFT);
-        when(productionDemandMapper.selectList(any(Wrapper.class))).thenReturn(List.of(demand));
-        when(productionOrderService.list(any(Wrapper.class))).thenReturn(List.of(order));
+	@BeforeEach
+	void setUp() {
+		service = new ProductionDemandServiceImpl(salesOrderMapper, materialMapper, businessNoGenerator,
+				productionOrderService, productionDemandMapper, notificationPublisher);
+	}
 
-        service.cancelBySalesOrder("SO-001");
+	@Test
+	void salesShortageCarriesTargetWarehouseIntoDemandAndProductionOrder() {
+		ProductionDemandAddDto dto = demandDto();
+		SalesOrder salesOrder = new SalesOrder();
+		salesOrder.setOrderNo("SO-001");
+		when(productionDemandMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
+		when(salesOrderMapper.selectOne(any(Wrapper.class))).thenReturn(salesOrder);
+		when(businessNoGenerator.generateNo(any(), any())).thenReturn("PD-001");
+		doAnswer(invocation -> {
+			ProductionDemand demand = invocation.getArgument(0);
+			demand.setId(31L);
+			return 1;
+		}).when(productionDemandMapper).insert(any(ProductionDemand.class));
+		when(productionDemandMapper.updateById(any(ProductionDemand.class))).thenReturn(1);
 
-        verify(productionOrderService).cancelProductionOrder(41L);
-        verify(productionDemandMapper).updateById(demand);
-        assertThat(demand.getStatus()).isEqualTo(ProductionStatus.CANCELLED);
-    }
+		service.addProductionDemand(dto);
 
-    @Test
-    void cancellingSalesOrderIsRejectedAfterProductionWasReleased() {
-        ProductionDemand demand = productionDemand(ProductionStatus.PLANNED);
-        ProductionOrder order = productionOrder(ProductionOrderStatus.RELEASED);
-        when(productionDemandMapper.selectList(any(Wrapper.class))).thenReturn(List.of(demand));
-        when(productionOrderService.list(any(Wrapper.class))).thenReturn(List.of(order));
+		ArgumentCaptor<ProductionOrderAddDto> orderCaptor = ArgumentCaptor.forClass(ProductionOrderAddDto.class);
+		verify(productionOrderService).addProductionOrder(orderCaptor.capture());
+		assertThat(orderCaptor.getValue().getProductionDemandId()).isEqualTo(31L);
+		assertThat(orderCaptor.getValue().getWarehouseId()).isEqualTo(21L);
+		assertThat(orderCaptor.getValue().getPlannedQuantity()).isEqualByComparingTo("5");
 
-        assertThatThrownBy(() -> service.cancelBySalesOrder("SO-001"))
-                .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getMessage()).contains("不可直接取消"));
+		ArgumentCaptor<ProductionDemand> demandCaptor = ArgumentCaptor.forClass(ProductionDemand.class);
+		verify(productionDemandMapper).updateById(demandCaptor.capture());
+		assertThat(demandCaptor.getValue().getStatus()).isEqualTo(ProductionStatus.PLANNED);
+		ArgumentCaptor<NotificationPublishDTO> notificationCaptor = ArgumentCaptor
+			.forClass(NotificationPublishDTO.class);
+		verify(notificationPublisher).publish(notificationCaptor.capture());
+		assertThat(notificationCaptor.getValue().getType()).isEqualTo(NotificationType.TASK);
+		assertThat(notificationCaptor.getValue().getContent()).contains("PD-001");
+		assertThat(notificationCaptor.getValue().getBusiness().getBusinessType())
+			.isEqualTo("PRODUCTION_DEMAND_PLANNED");
+		assertThat(notificationCaptor.getValue().getBusiness().getBusinessId()).isEqualTo(31L);
+		assertThat(notificationCaptor.getValue().getRecipients().getPermissionCodes())
+			.containsExactly("production:order:release");
+		assertThat(notificationCaptor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
+	}
 
-        verify(productionOrderService, never()).cancelProductionOrder(any());
-        verify(productionDemandMapper, never()).updateById(any(ProductionDemand.class));
-    }
+	@Test
+	void cancellingSalesOrderCancelsDraftProductionAndDemand() {
+		ProductionDemand demand = productionDemand(ProductionStatus.PLANNED);
+		ProductionOrder order = productionOrder(ProductionOrderStatus.DRAFT);
+		when(productionDemandMapper.selectList(any(Wrapper.class))).thenReturn(List.of(demand));
+		when(productionOrderService.list(any(Wrapper.class))).thenReturn(List.of(order));
 
-    private ProductionDemandAddDto demandDto() {
-        ProductionDemandAddDto dto = new ProductionDemandAddDto();
-        dto.setMaterialId(11L);
-        dto.setWarehouseId(21L);
-        dto.setQuantity(new BigDecimal("5"));
-        dto.setSourceType(ProductionSourceType.SALES_ORDER);
-        dto.setSourceNo("SO-001");
-        return dto;
-    }
+		service.cancelBySalesOrder("SO-001");
 
-    private ProductionDemand productionDemand(ProductionStatus status) {
-        ProductionDemand demand = new ProductionDemand();
-        demand.setId(31L);
-        demand.setSourceType(ProductionSourceType.SALES_ORDER);
-        demand.setSourceNo("SO-001");
-        demand.setStatus(status);
-        return demand;
-    }
+		verify(productionOrderService).cancelProductionOrder(41L);
+		verify(productionDemandMapper).updateById(demand);
+		assertThat(demand.getStatus()).isEqualTo(ProductionStatus.CANCELLED);
+	}
 
-    private ProductionOrder productionOrder(ProductionOrderStatus status) {
-        ProductionOrder order = new ProductionOrder();
-        order.setId(41L);
-        order.setProductionDemandId(31L);
-        order.setProductionOrderNo("PO-001");
-        order.setStatus(status);
-        return order;
-    }
+	@Test
+	void cancellingSalesOrderIsRejectedAfterProductionWasReleased() {
+		ProductionDemand demand = productionDemand(ProductionStatus.PLANNED);
+		ProductionOrder order = productionOrder(ProductionOrderStatus.RELEASED);
+		when(productionDemandMapper.selectList(any(Wrapper.class))).thenReturn(List.of(demand));
+		when(productionOrderService.list(any(Wrapper.class))).thenReturn(List.of(order));
+
+		assertThatThrownBy(() -> service.cancelBySalesOrder("SO-001")).isInstanceOfSatisfying(BusinessException.class,
+				exception -> assertThat(exception.getMessage()).contains("不可直接取消"));
+
+		verify(productionOrderService, never()).cancelProductionOrder(any());
+		verify(productionDemandMapper, never()).updateById(any(ProductionDemand.class));
+	}
+
+	private ProductionDemandAddDto demandDto() {
+		ProductionDemandAddDto dto = new ProductionDemandAddDto();
+		dto.setMaterialId(11L);
+		dto.setWarehouseId(21L);
+		dto.setQuantity(new BigDecimal("5"));
+		dto.setSourceType(ProductionSourceType.SALES_ORDER);
+		dto.setSourceNo("SO-001");
+		return dto;
+	}
+
+	private ProductionDemand productionDemand(ProductionStatus status) {
+		ProductionDemand demand = new ProductionDemand();
+		demand.setId(31L);
+		demand.setSourceType(ProductionSourceType.SALES_ORDER);
+		demand.setSourceNo("SO-001");
+		demand.setStatus(status);
+		return demand;
+	}
+
+	private ProductionOrder productionOrder(ProductionOrderStatus status) {
+		ProductionOrder order = new ProductionOrder();
+		order.setId(41L);
+		order.setProductionDemandId(31L);
+		order.setProductionOrderNo("PO-001");
+		order.setStatus(status);
+		return order;
+	}
+
 }

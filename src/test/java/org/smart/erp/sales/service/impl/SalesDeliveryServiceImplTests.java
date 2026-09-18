@@ -60,341 +60,335 @@ import static org.mockito.Mockito.never;
 @ExtendWith(MockitoExtension.class)
 class SalesDeliveryServiceImplTests {
 
-    @Mock
-    private SalesDeliveryMapper salesDeliveryMapper;
-    @Mock
-    private SalesDeliveryItemService salesDeliveryItemService;
-    @Mock
-    private MaterialStockService materialStockService;
-    @Mock
-    private ProductionDemandService productionDemandService;
-    @Mock
-    private BusinessNoGenerator businessNoGenerator;
-    @Mock
-    private CustomerMapper customerMapper;
-    @Mock
-    private SalesOrderMapper salesOrderMapper;
-    @Mock
-    private SalesOrderItemMapper salesOrderItemMapper;
-    @Mock
-    private SalesOrderService salesOrderService;
-    @Mock
-    private RedissonClient redissonClient;
-    @Mock
-    private RLock deliveryLock;
-    @Mock
-    private NotificationPublisher notificationPublisher;
+	@Mock
+	private SalesDeliveryMapper salesDeliveryMapper;
 
-    private SalesDeliveryServiceImpl service;
+	@Mock
+	private SalesDeliveryItemService salesDeliveryItemService;
 
-    @BeforeEach
-    void setUp() throws Exception {
-        lenient().when(redissonClient.getLock(anyString())).thenReturn(deliveryLock);
-        lenient().doReturn(true).when(deliveryLock).tryLock(anyLong(), any());
-        lenient().when(deliveryLock.isHeldByCurrentThread()).thenReturn(true);
-        lenient().when(salesDeliveryMapper.updateById(any(SalesDelivery.class))).thenReturn(1);
-        service = new SalesDeliveryServiceImpl(
-                salesDeliveryMapper,
-                salesDeliveryItemService,
-                materialStockService,
-                productionDemandService,
-                businessNoGenerator,
-                customerMapper,
-                salesOrderMapper,
-                salesOrderItemMapper,
-                salesOrderService,
-                redissonClient,
-                notificationPublisher);
-    }
+	@Mock
+	private MaterialStockService materialStockService;
 
-    @Test
-    void confirmReservesAvailableQuantityAndCreatesProductionDemandForShortfall() {
-        SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
-        SalesDeliveryItem item = item(new BigDecimal("5"), BigDecimal.ZERO);
-        MaterialStock stock = stock(new BigDecimal("2"), BigDecimal.ZERO);
+	@Mock
+	private ProductionDemandService productionDemandService;
 
-        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-        when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(item));
-        when(materialStockService.getOne(any(), eq(false))).thenReturn(stock);
-        when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
-        when(customerMapper.selectById(71L)).thenReturn(customer());
+	@Mock
+	private BusinessNoGenerator businessNoGenerator;
 
-        SalesDeliveryVo result = service.confirmSalesDeliveryById(1L);
+	@Mock
+	private CustomerMapper customerMapper;
 
-        assertThat(result.getStatus()).isEqualTo(SalesDeliveryStatus.CONFIRMED);
-        assertThat(item.getReservedQuantity()).isEqualByComparingTo("2");
-        verify(materialStockService).reserveStock(
-                11L, 21L, new BigDecimal("2"),
-                "SALES_DELIVERY_RESERVE", "SD-001", "销售预占 关联销售订单 SO-001");
+	@Mock
+	private SalesOrderMapper salesOrderMapper;
 
-        ArgumentCaptor<ProductionDemandAddDto> demandCaptor =
-                ArgumentCaptor.forClass(ProductionDemandAddDto.class);
-        verify(productionDemandService).addProductionDemand(demandCaptor.capture());
-        assertThat(demandCaptor.getValue().getMaterialId()).isEqualTo(11L);
-        assertThat(demandCaptor.getValue().getQuantity()).isEqualByComparingTo("3");
-        assertThat(demandCaptor.getValue().getSourceType()).isEqualTo(ProductionSourceType.SALES_ORDER);
-        assertThat(demandCaptor.getValue().getSourceNo()).isEqualTo("SO-001");
-        verify(salesDeliveryMapper).updateById(delivery);
-        ArgumentCaptor<NotificationPublishDTO> notificationCaptor =
-                ArgumentCaptor.forClass(NotificationPublishDTO.class);
-        verify(notificationPublisher).publish(notificationCaptor.capture());
-        assertThat(notificationCaptor.getValue().getType()).isEqualTo(NotificationType.TASK);
-        assertThat(notificationCaptor.getValue().getBusiness().getBusinessType())
-                .isEqualTo("SALES_DELIVERY_PENDING_OUTBOUND");
-        assertThat(notificationCaptor.getValue().getBusiness().getBusinessId()).isEqualTo(1L);
-        assertThat(notificationCaptor.getValue().getRecipients().getPermissionCodes())
-                .containsExactly("sales:delivery:complete");
-        assertThat(notificationCaptor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
-    }
+	@Mock
+	private SalesOrderItemMapper salesOrderItemMapper;
 
-    @Test
-    void orderConfirmationPreparationCreatesOneDraftDeliveryPerWarehouse() {
-        SalesOrder order = new SalesOrder();
-        order.setId(51L);
-        order.setOrderNo("SO-001");
-        order.setCustomerId(71L);
-        order.setStatus(SalesOrderStatus.CONFIRMED);
-        SalesOrderItem first = orderItem(91L, 21L);
-        SalesOrderItem second = orderItem(92L, 22L);
-        AtomicLong deliveryIds = new AtomicLong(101L);
+	@Mock
+	private SalesOrderService salesOrderService;
 
-        when(salesOrderMapper.selectById(51L)).thenReturn(order);
-        when(salesOrderItemMapper.selectList(any())).thenReturn(List.of(first, second));
-        doAnswer(invocation -> {
-            SalesDelivery inserted = invocation.getArgument(0);
-            inserted.setId(deliveryIds.getAndIncrement());
-            return 1;
-        }).when(salesDeliveryMapper).insert(any(SalesDelivery.class));
+	@Mock
+	private RedissonClient redissonClient;
 
-        service.addDeliveriesForOrder(51L);
+	@Mock
+	private RLock deliveryLock;
 
-        verify(salesDeliveryMapper, times(2)).insert(any(SalesDelivery.class));
-        ArgumentCaptor<Collection<SalesDeliveryItem>> itemCaptor =
-                ArgumentCaptor.forClass(Collection.class);
-        verify(salesDeliveryItemService).saveBatch(itemCaptor.capture());
-        assertThat(itemCaptor.getValue()).hasSize(2);
-        assertThat(itemCaptor.getValue()).extracting(SalesDeliveryItem::getWarehouseId)
-                .containsExactlyInAnyOrder(21L, 22L);
-        assertThat(itemCaptor.getValue()).allSatisfy(item ->
-                assertThat(item.getReservedQuantity()).isEqualByComparingTo("0"));
-    }
+	@Mock
+	private NotificationPublisher notificationPublisher;
 
-    @Test
-    void completeOutboundConsumesReservedStockAndFinishesOrderWhenAllDeliveriesAreComplete() {
-        SalesDelivery delivery = delivery(SalesDeliveryStatus.CONFIRMED);
-        SalesDeliveryItem item = item(new BigDecimal("5"), new BigDecimal("5"));
+	private SalesDeliveryServiceImpl service;
 
-        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-        when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(item));
-        when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
-        when(customerMapper.selectById(71L)).thenReturn(customer());
-        when(salesDeliveryMapper.selectList(any())).thenReturn(List.of(delivery));
+	@BeforeEach
+	void setUp() throws Exception {
+		lenient().when(redissonClient.getLock(anyString())).thenReturn(deliveryLock);
+		lenient().doReturn(true).when(deliveryLock).tryLock(anyLong(), any());
+		lenient().when(deliveryLock.isHeldByCurrentThread()).thenReturn(true);
+		lenient().when(salesDeliveryMapper.updateById(any(SalesDelivery.class))).thenReturn(1);
+		service = new SalesDeliveryServiceImpl(salesDeliveryMapper, salesDeliveryItemService, materialStockService,
+				productionDemandService, businessNoGenerator, customerMapper, salesOrderMapper, salesOrderItemMapper,
+				salesOrderService, redissonClient, notificationPublisher);
+	}
 
-        SalesDeliveryVo result = service.completeSalesDeliveryById(1L);
+	@Test
+	void confirmReservesAvailableQuantityAndCreatesProductionDemandForShortfall() {
+		SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
+		SalesDeliveryItem item = item(new BigDecimal("5"), BigDecimal.ZERO);
+		MaterialStock stock = stock(new BigDecimal("2"), BigDecimal.ZERO);
 
-        assertThat(result.getStatus()).isEqualTo(SalesDeliveryStatus.COMPLETED);
-        assertThat(item.getReservedQuantity()).isEqualByComparingTo("0");
-        verify(materialStockService).outboundStock(
-                11L, 21L, new BigDecimal("5"),
-                "SALES_DELIVERY_OUT", "SD-001", "销售出库 关联销售订单 SO-001");
-        verify(salesOrderItemMapper).increaseDeliveredQuantity(91L, new BigDecimal("5"));
-        verify(salesOrderService).finishSalesOrderById(51L);
-    }
+		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+		when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(item));
+		when(materialStockService.getOne(any(), eq(false))).thenReturn(stock);
+		when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
+		when(customerMapper.selectById(71L)).thenReturn(customer());
 
-    @Test
-    void shortagesForSameMaterialAcrossWarehousesProduceSeparateRequestsAtDeliveryBoundary() {
-        SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
-        SalesDeliveryItem first = item(new BigDecimal("3"), BigDecimal.ZERO);
-        SalesDeliveryItem second = item(new BigDecimal("4"), BigDecimal.ZERO);
-        second.setId(82L);
-        second.setWarehouseId(22L);
-        MaterialStock emptyStock = stock(BigDecimal.ZERO, BigDecimal.ZERO);
+		SalesDeliveryVo result = service.confirmSalesDeliveryById(1L);
 
-        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-        when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(first, second));
-        when(materialStockService.getOne(any(), eq(false))).thenReturn(emptyStock);
-        when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
-        when(customerMapper.selectById(71L)).thenReturn(customer());
+		assertThat(result.getStatus()).isEqualTo(SalesDeliveryStatus.CONFIRMED);
+		assertThat(item.getReservedQuantity()).isEqualByComparingTo("2");
+		verify(materialStockService).reserveStock(11L, 21L, new BigDecimal("2"), "SALES_DELIVERY_RESERVE", "SD-001",
+				"销售预占 关联销售订单 SO-001");
 
-        service.confirmSalesDeliveryById(1L);
+		ArgumentCaptor<ProductionDemandAddDto> demandCaptor = ArgumentCaptor.forClass(ProductionDemandAddDto.class);
+		verify(productionDemandService).addProductionDemand(demandCaptor.capture());
+		assertThat(demandCaptor.getValue().getMaterialId()).isEqualTo(11L);
+		assertThat(demandCaptor.getValue().getQuantity()).isEqualByComparingTo("3");
+		assertThat(demandCaptor.getValue().getSourceType()).isEqualTo(ProductionSourceType.SALES_ORDER);
+		assertThat(demandCaptor.getValue().getSourceNo()).isEqualTo("SO-001");
+		verify(salesDeliveryMapper).updateById(delivery);
+		ArgumentCaptor<NotificationPublishDTO> notificationCaptor = ArgumentCaptor
+			.forClass(NotificationPublishDTO.class);
+		verify(notificationPublisher).publish(notificationCaptor.capture());
+		assertThat(notificationCaptor.getValue().getType()).isEqualTo(NotificationType.TASK);
+		assertThat(notificationCaptor.getValue().getBusiness().getBusinessType())
+			.isEqualTo("SALES_DELIVERY_PENDING_OUTBOUND");
+		assertThat(notificationCaptor.getValue().getBusiness().getBusinessId()).isEqualTo(1L);
+		assertThat(notificationCaptor.getValue().getRecipients().getPermissionCodes())
+			.containsExactly("sales:delivery:complete");
+		assertThat(notificationCaptor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
+	}
 
-        ArgumentCaptor<ProductionDemandAddDto> demandCaptor =
-                ArgumentCaptor.forClass(ProductionDemandAddDto.class);
-        verify(productionDemandService, times(2)).addProductionDemand(demandCaptor.capture());
-        assertThat(demandCaptor.getAllValues()).extracting(ProductionDemandAddDto::getMaterialId)
-                .containsOnly(11L);
-        assertThat(demandCaptor.getAllValues()).extracting(ProductionDemandAddDto::getQuantity)
-                .containsExactlyInAnyOrder(new BigDecimal("3"), new BigDecimal("4"));
-        assertThat(demandCaptor.getAllValues()).extracting(ProductionDemandAddDto::getWarehouseId)
-                .containsExactlyInAnyOrder(21L, 22L);
-    }
+	@Test
+	void orderConfirmationPreparationCreatesOneDraftDeliveryPerWarehouse() {
+		SalesOrder order = new SalesOrder();
+		order.setId(51L);
+		order.setOrderNo("SO-001");
+		order.setCustomerId(71L);
+		order.setStatus(SalesOrderStatus.CONFIRMED);
+		SalesOrderItem first = orderItem(91L, 21L);
+		SalesOrderItem second = orderItem(92L, 22L);
+		AtomicLong deliveryIds = new AtomicLong(101L);
 
-    @Test
-    void shortagesForSameMaterialAndWarehouseAreAggregatedIntoOneDemand() {
-        SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
-        SalesDeliveryItem first = item(new BigDecimal("3"), BigDecimal.ZERO);
-        SalesDeliveryItem second = item(new BigDecimal("4"), BigDecimal.ZERO);
-        second.setId(82L);
-        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-        when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(first, second));
-        when(materialStockService.getOne(any(), eq(false)))
-                .thenReturn(stock(BigDecimal.ZERO, BigDecimal.ZERO));
-        when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
-        when(customerMapper.selectById(71L)).thenReturn(customer());
+		when(salesOrderMapper.selectById(51L)).thenReturn(order);
+		when(salesOrderItemMapper.selectList(any())).thenReturn(List.of(first, second));
+		doAnswer(invocation -> {
+			SalesDelivery inserted = invocation.getArgument(0);
+			inserted.setId(deliveryIds.getAndIncrement());
+			return 1;
+		}).when(salesDeliveryMapper).insert(any(SalesDelivery.class));
 
-        service.confirmSalesDeliveryById(1L);
+		service.addDeliveriesForOrder(51L);
 
-        ArgumentCaptor<ProductionDemandAddDto> demandCaptor =
-                ArgumentCaptor.forClass(ProductionDemandAddDto.class);
-        verify(productionDemandService).addProductionDemand(demandCaptor.capture());
-        assertThat(demandCaptor.getValue().getQuantity()).isEqualByComparingTo("7");
-        assertThat(demandCaptor.getValue().getWarehouseId()).isEqualTo(21L);
-    }
+		verify(salesDeliveryMapper, times(2)).insert(any(SalesDelivery.class));
+		ArgumentCaptor<Collection<SalesDeliveryItem>> itemCaptor = ArgumentCaptor.forClass(Collection.class);
+		verify(salesDeliveryItemService).saveBatch(itemCaptor.capture());
+		assertThat(itemCaptor.getValue()).hasSize(2);
+		assertThat(itemCaptor.getValue()).extracting(SalesDeliveryItem::getWarehouseId)
+			.containsExactlyInAnyOrder(21L, 22L);
+		assertThat(itemCaptor.getValue())
+			.allSatisfy(item -> assertThat(item.getReservedQuantity()).isEqualByComparingTo("0"));
+	}
 
-    @Test
-    void duplicateProcessingLockRejectsBeforeInventorySideEffects() throws Exception {
-        doReturn(false).when(deliveryLock).tryLock(anyLong(), any());
+	@Test
+	void completeOutboundConsumesReservedStockAndFinishesOrderWhenAllDeliveriesAreComplete() {
+		SalesDelivery delivery = delivery(SalesDeliveryStatus.CONFIRMED);
+		SalesDeliveryItem item = item(new BigDecimal("5"), new BigDecimal("5"));
 
-        assertThatThrownBy(() -> service.confirmSalesDeliveryById(1L))
-                .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getCode()).isEqualTo(409));
+		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+		when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(item));
+		when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
+		when(customerMapper.selectById(71L)).thenReturn(customer());
+		when(salesDeliveryMapper.selectList(any())).thenReturn(List.of(delivery));
 
-        verify(salesDeliveryItemService, never()).list(any(Wrapper.class));
-        verify(salesDeliveryMapper, never()).updateById(any(SalesDelivery.class));
-    }
+		SalesDeliveryVo result = service.completeSalesDeliveryById(1L);
 
-    @Test
-    void cancelConfirmedDeliveryReleasesOnlyItsReservedQuantity() {
-        SalesDelivery delivery = delivery(SalesDeliveryStatus.CONFIRMED);
-        SalesDeliveryItem item = item(new BigDecimal("5"), new BigDecimal("2"));
+		assertThat(result.getStatus()).isEqualTo(SalesDeliveryStatus.COMPLETED);
+		assertThat(item.getReservedQuantity()).isEqualByComparingTo("0");
+		verify(materialStockService).outboundStock(11L, 21L, new BigDecimal("5"), "SALES_DELIVERY_OUT", "SD-001",
+				"销售出库 关联销售订单 SO-001");
+		verify(salesOrderItemMapper).increaseDeliveredQuantity(91L, new BigDecimal("5"));
+		verify(salesOrderService).finishSalesOrderById(51L);
+	}
 
-        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-        when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(item));
-        when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
-        when(customerMapper.selectById(71L)).thenReturn(customer());
+	@Test
+	void shortagesForSameMaterialAcrossWarehousesProduceSeparateRequestsAtDeliveryBoundary() {
+		SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
+		SalesDeliveryItem first = item(new BigDecimal("3"), BigDecimal.ZERO);
+		SalesDeliveryItem second = item(new BigDecimal("4"), BigDecimal.ZERO);
+		second.setId(82L);
+		second.setWarehouseId(22L);
+		MaterialStock emptyStock = stock(BigDecimal.ZERO, BigDecimal.ZERO);
 
-        SalesDeliveryVo result = service.cancelSalesDeliveryById(1L);
+		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+		when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(first, second));
+		when(materialStockService.getOne(any(), eq(false))).thenReturn(emptyStock);
+		when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
+		when(customerMapper.selectById(71L)).thenReturn(customer());
 
-        assertThat(result.getStatus()).isEqualTo(SalesDeliveryStatus.CANCELLED);
-        assertThat(item.getReservedQuantity()).isEqualByComparingTo("0");
-        verify(materialStockService).releaseStock(
-                11L, 21L, new BigDecimal("2"),
-                "SALES_DELIVERY_RELEASE", "SD-001", "释放预占 关联销售订单 SO-001");
-        verify(salesDeliveryMapper).updateById(delivery);
-    }
+		service.confirmSalesDeliveryById(1L);
 
-    @Test
-    void completeRejectsDeliveryThatIsNotConfirmed() {
-        SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
-        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+		ArgumentCaptor<ProductionDemandAddDto> demandCaptor = ArgumentCaptor.forClass(ProductionDemandAddDto.class);
+		verify(productionDemandService, times(2)).addProductionDemand(demandCaptor.capture());
+		assertThat(demandCaptor.getAllValues()).extracting(ProductionDemandAddDto::getMaterialId).containsOnly(11L);
+		assertThat(demandCaptor.getAllValues()).extracting(ProductionDemandAddDto::getQuantity)
+			.containsExactlyInAnyOrder(new BigDecimal("3"), new BigDecimal("4"));
+		assertThat(demandCaptor.getAllValues()).extracting(ProductionDemandAddDto::getWarehouseId)
+			.containsExactlyInAnyOrder(21L, 22L);
+	}
 
-        assertThatThrownBy(() -> service.completeSalesDeliveryById(1L))
-                .isInstanceOfSatisfying(BusinessException.class, exception -> {
-                    assertThat(exception.getCode()).isEqualTo(400);
-                    assertThat(exception.getMessage()).isEqualTo("仅已确认的发货单可完成出库");
-                });
-    }
+	@Test
+	void shortagesForSameMaterialAndWarehouseAreAggregatedIntoOneDemand() {
+		SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
+		SalesDeliveryItem first = item(new BigDecimal("3"), BigDecimal.ZERO);
+		SalesDeliveryItem second = item(new BigDecimal("4"), BigDecimal.ZERO);
+		second.setId(82L);
+		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+		when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(first, second));
+		when(materialStockService.getOne(any(), eq(false))).thenReturn(stock(BigDecimal.ZERO, BigDecimal.ZERO));
+		when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
+		when(customerMapper.selectById(71L)).thenReturn(customer());
 
-    @Test
-    void deliveryLockIsReleasedOnlyAfterTransactionCommit() {
-        SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
-        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
-        when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
-        when(customerMapper.selectById(71L)).thenReturn(customer());
+		service.confirmSalesDeliveryById(1L);
 
-        beginTransactionSynchronization();
-        try {
-            service.cancelSalesDeliveryById(1L);
+		ArgumentCaptor<ProductionDemandAddDto> demandCaptor = ArgumentCaptor.forClass(ProductionDemandAddDto.class);
+		verify(productionDemandService).addProductionDemand(demandCaptor.capture());
+		assertThat(demandCaptor.getValue().getQuantity()).isEqualByComparingTo("7");
+		assertThat(demandCaptor.getValue().getWarehouseId()).isEqualTo(21L);
+	}
 
-            verify(deliveryLock, never()).unlock();
-            completeTransactionSynchronization(TransactionSynchronization.STATUS_COMMITTED);
-            verify(deliveryLock).unlock();
-        } finally {
-            clearTransactionSynchronization();
-        }
-    }
+	@Test
+	void duplicateProcessingLockRejectsBeforeInventorySideEffects() throws Exception {
+		doReturn(false).when(deliveryLock).tryLock(anyLong(), any());
 
-    @Test
-    void deliveryLockIsReleasedOnlyAfterTransactionRollback() {
-        SalesDelivery delivery = delivery(SalesDeliveryStatus.COMPLETED);
-        when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+		assertThatThrownBy(() -> service.confirmSalesDeliveryById(1L)).isInstanceOfSatisfying(BusinessException.class,
+				exception -> assertThat(exception.getCode()).isEqualTo(409));
 
-        beginTransactionSynchronization();
-        try {
-            assertThatThrownBy(() -> service.cancelSalesDeliveryById(1L))
-                    .isInstanceOf(BusinessException.class);
+		verify(salesDeliveryItemService, never()).list(any(Wrapper.class));
+		verify(salesDeliveryMapper, never()).updateById(any(SalesDelivery.class));
+	}
 
-            verify(deliveryLock, never()).unlock();
-            completeTransactionSynchronization(TransactionSynchronization.STATUS_ROLLED_BACK);
-            verify(deliveryLock).unlock();
-        } finally {
-            clearTransactionSynchronization();
-        }
-    }
+	@Test
+	void cancelConfirmedDeliveryReleasesOnlyItsReservedQuantity() {
+		SalesDelivery delivery = delivery(SalesDeliveryStatus.CONFIRMED);
+		SalesDeliveryItem item = item(new BigDecimal("5"), new BigDecimal("2"));
 
-    private void beginTransactionSynchronization() {
-        TransactionSynchronizationManager.initSynchronization();
-        TransactionSynchronizationManager.setActualTransactionActive(true);
-    }
+		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+		when(salesDeliveryItemService.list(any(Wrapper.class))).thenReturn(List.of(item));
+		when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
+		when(customerMapper.selectById(71L)).thenReturn(customer());
 
-    private void completeTransactionSynchronization(int status) {
-        TransactionSynchronizationManager.getSynchronizations()
-                .forEach(synchronization -> synchronization.afterCompletion(status));
-    }
+		SalesDeliveryVo result = service.cancelSalesDeliveryById(1L);
 
-    private void clearTransactionSynchronization() {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.clearSynchronization();
-        }
-        TransactionSynchronizationManager.setActualTransactionActive(false);
-    }
+		assertThat(result.getStatus()).isEqualTo(SalesDeliveryStatus.CANCELLED);
+		assertThat(item.getReservedQuantity()).isEqualByComparingTo("0");
+		verify(materialStockService).releaseStock(11L, 21L, new BigDecimal("2"), "SALES_DELIVERY_RELEASE", "SD-001",
+				"释放预占 关联销售订单 SO-001");
+		verify(salesDeliveryMapper).updateById(delivery);
+	}
 
-    private SalesDelivery delivery(SalesDeliveryStatus status) {
-        SalesDelivery delivery = new SalesDelivery();
-        delivery.setId(1L);
-        delivery.setDeliveryNo("SD-001");
-        delivery.setSalesOrderId(51L);
-        delivery.setSalesOrderNo("SO-001");
-        delivery.setCustomerId(71L);
-        delivery.setStatus(status);
-        return delivery;
-    }
+	@Test
+	void completeRejectsDeliveryThatIsNotConfirmed() {
+		SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
+		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
 
-    private SalesDeliveryItem item(BigDecimal quantity, BigDecimal reservedQuantity) {
-        SalesDeliveryItem item = new SalesDeliveryItem();
-        item.setId(81L);
-        item.setDeliveryId(1L);
-        item.setSalesOrderItemId(91L);
-        item.setMaterialId(11L);
-        item.setWarehouseId(21L);
-        item.setQuantity(quantity);
-        item.setReservedQuantity(reservedQuantity);
-        return item;
-    }
+		assertThatThrownBy(() -> service.completeSalesDeliveryById(1L)).isInstanceOfSatisfying(BusinessException.class,
+				exception -> {
+					assertThat(exception.getCode()).isEqualTo(400);
+					assertThat(exception.getMessage()).isEqualTo("仅已确认的发货单可完成出库");
+				});
+	}
 
-    private SalesOrderItem orderItem(Long id, Long warehouseId) {
-        SalesOrderItem item = new SalesOrderItem();
-        item.setId(id);
-        item.setSalesOrderId(51L);
-        item.setMaterialId(11L);
-        item.setWarehouseId(warehouseId);
-        item.setQuantity(new BigDecimal("5"));
-        return item;
-    }
+	@Test
+	void deliveryLockIsReleasedOnlyAfterTransactionCommit() {
+		SalesDelivery delivery = delivery(SalesDeliveryStatus.DRAFT);
+		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+		when(salesDeliveryItemService.getItemVoByDeliveryIds(anyCollection())).thenReturn(List.of());
+		when(customerMapper.selectById(71L)).thenReturn(customer());
 
-    private MaterialStock stock(BigDecimal onHand, BigDecimal reserved) {
-        MaterialStock stock = new MaterialStock();
-        stock.setMaterialId(11L);
-        stock.setWarehouseId(21L);
-        stock.setOnHand(onHand);
-        stock.setReserved(reserved);
-        return stock;
-    }
+		beginTransactionSynchronization();
+		try {
+			service.cancelSalesDeliveryById(1L);
 
-    private Customer customer() {
-        Customer customer = new Customer();
-        customer.setId(71L);
-        customer.setName("客户 A");
-        return customer;
-    }
+			verify(deliveryLock, never()).unlock();
+			completeTransactionSynchronization(TransactionSynchronization.STATUS_COMMITTED);
+			verify(deliveryLock).unlock();
+		}
+		finally {
+			clearTransactionSynchronization();
+		}
+	}
+
+	@Test
+	void deliveryLockIsReleasedOnlyAfterTransactionRollback() {
+		SalesDelivery delivery = delivery(SalesDeliveryStatus.COMPLETED);
+		when(salesDeliveryMapper.selectById(1L)).thenReturn(delivery);
+
+		beginTransactionSynchronization();
+		try {
+			assertThatThrownBy(() -> service.cancelSalesDeliveryById(1L)).isInstanceOf(BusinessException.class);
+
+			verify(deliveryLock, never()).unlock();
+			completeTransactionSynchronization(TransactionSynchronization.STATUS_ROLLED_BACK);
+			verify(deliveryLock).unlock();
+		}
+		finally {
+			clearTransactionSynchronization();
+		}
+	}
+
+	private void beginTransactionSynchronization() {
+		TransactionSynchronizationManager.initSynchronization();
+		TransactionSynchronizationManager.setActualTransactionActive(true);
+	}
+
+	private void completeTransactionSynchronization(int status) {
+		TransactionSynchronizationManager.getSynchronizations()
+			.forEach(synchronization -> synchronization.afterCompletion(status));
+	}
+
+	private void clearTransactionSynchronization() {
+		if (TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.clearSynchronization();
+		}
+		TransactionSynchronizationManager.setActualTransactionActive(false);
+	}
+
+	private SalesDelivery delivery(SalesDeliveryStatus status) {
+		SalesDelivery delivery = new SalesDelivery();
+		delivery.setId(1L);
+		delivery.setDeliveryNo("SD-001");
+		delivery.setSalesOrderId(51L);
+		delivery.setSalesOrderNo("SO-001");
+		delivery.setCustomerId(71L);
+		delivery.setStatus(status);
+		return delivery;
+	}
+
+	private SalesDeliveryItem item(BigDecimal quantity, BigDecimal reservedQuantity) {
+		SalesDeliveryItem item = new SalesDeliveryItem();
+		item.setId(81L);
+		item.setDeliveryId(1L);
+		item.setSalesOrderItemId(91L);
+		item.setMaterialId(11L);
+		item.setWarehouseId(21L);
+		item.setQuantity(quantity);
+		item.setReservedQuantity(reservedQuantity);
+		return item;
+	}
+
+	private SalesOrderItem orderItem(Long id, Long warehouseId) {
+		SalesOrderItem item = new SalesOrderItem();
+		item.setId(id);
+		item.setSalesOrderId(51L);
+		item.setMaterialId(11L);
+		item.setWarehouseId(warehouseId);
+		item.setQuantity(new BigDecimal("5"));
+		return item;
+	}
+
+	private MaterialStock stock(BigDecimal onHand, BigDecimal reserved) {
+		MaterialStock stock = new MaterialStock();
+		stock.setMaterialId(11L);
+		stock.setWarehouseId(21L);
+		stock.setOnHand(onHand);
+		stock.setReserved(reserved);
+		return stock;
+	}
+
+	private Customer customer() {
+		Customer customer = new Customer();
+		customer.setId(71L);
+		customer.setName("客户 A");
+		return customer;
+	}
+
 }

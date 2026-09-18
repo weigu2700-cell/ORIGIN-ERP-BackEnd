@@ -16,16 +16,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/eip/notifications")
 @Tag(name = "系统通知", description = "系统通知")
 public class SystemNotificationController {
-    private final SystemNotificationService service;
 
-    public SystemNotificationController(SystemNotificationService service) {
-        this.service = service;
-    }
+	private final SystemNotificationService service;
 
-    @PostMapping("/publish")
-    @Operation(summary = "发布系统通知")
-    @PreAuthorize("hasAuthority('eip:notification:publish')")
-    public Result<String> publish(@RequestBody @Valid SystemNotificationPublishDTO dto) {
-        return Result.success(service.publish(dto));
-    }
+	public SystemNotificationController(SystemNotificationService service) {
+		this.service = service;
+	}
+
+	@PostMapping("/publish")
+	@Operation(summary = "发布系统通知")
+	@PreAuthorize("hasAuthority('eip:notification:publish')")
+	public Result<String> publish(@RequestBody @Valid SystemNotificationPublishDTO dto) {
+		return Result.success(service.publish(dto));
+	}
+
 }

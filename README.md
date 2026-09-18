@@ -155,8 +155,7 @@ cd ORIGIN-ERP-BackEnd
 4. 初始化用户、角色、菜单、权限及其关联数据。仓库不提供可用于生产的默认账号或密码。
 5. 消息通知功能依赖 `sys_notification`、`sys_notification_publish`、`sys_notification_template` 和
    `sys_notification_template_recipient` 表，实体与转换逻辑位于 `eip/entity` 和 `eip/converter`。
-   首次部署请执行 `sql/migrations/V20260918__eip_notification_expand.sql`；已有库再执行
-   `V20260918__notification_business_dedup.sql`（脚本可重复执行）。
+   首次部署或已有库升级均执行 `sql/migrations/V20260918__eip_notification_expand.sql`；脚本可重复执行。
 
 数据库、Redis 和 JWT 默认配置位于 `src/main/resources/application.yaml`。本地可直接按文件中的开发配置启动；共享、测试和生产环境应使用环境变量或外部配置覆盖，禁止沿用仓库中的开发凭据。
 
@@ -263,7 +262,9 @@ eip.listener.NotificationPublishEventListener
 发布事件在原业务事务中产生，监听器在 `AFTER_COMMIT` 阶段解析收件人，再以独立事务写入发布批次和收件箱；
 收件箱事务提交后才尝试 WebSocket 推送。推送失败只记录警告，不回滚业务数据或已经持久化的通知。
 
-`V20260918__notification_business_dedup.sql` 为 `(user_id, business_type, business_id)` 增加唯一索引。同一用户、同一业务阶段的并发重复事件只会形成一条通知；不同业务阶段使用不同 `businessType`，例如“报工待审批”“报工审批通过”和“报工驳回”互不覆盖。
+每次发布以 `requestId` 作为批次幂等键，业务通知默认生成
+`BUSINESS:{businessType}:{businessId}`；同一批次通过 `(publish_id, user_id)` 保证每位收件人只有一条收件箱记录。
+不同业务阶段使用不同 `businessType`，因此“报工待审批”“报工审批通过”和“报工驳回”可以分别通知。
 
 ### 已接入的业务节点
 
@@ -355,19 +356,14 @@ WebSocket 推送内容与通知详情字段保持一致，示例：
 用 `RecipientSelectorDTO` 表达收件人选择：
 
 ```java
-RecipientSelectorDTO recipients = new RecipientSelectorDTO();
-recipients.setPermissionCodes(Set.of("purchase:demand:approve"));
-recipients.setIncludeAdministrators(true);
-NotificationPublishDTO publish = NotificationPublishDTO.builder()
-        .sourceType(NotificationSourceType.BUSINESS)
-        .type(NotificationType.TASK)
-        .title("待审批采购需求")
-        .content("采购需求 PR-001 已创建，请及时审批。")
-        .business(NotificationBusinessRefDTO.builder()
-                .businessType("PURCHASE_DEMAND_PENDING_APPROVAL")
-                .businessId(demandId).businessNo("PR-001").build())
-        .recipients(recipients)
-        .build();
+NotificationPublishDTO publish = NotificationPublishDTO.business(
+        NotificationType.TASK,
+        "待审批采购需求",
+        "采购需求 PR-001 已创建，请及时审批。",
+        NotificationBusinessRefDTO.of(
+                "PURCHASE_DEMAND_PENDING_APPROVAL", demandId, "PR-001"),
+        RecipientSelectorDTO.permissions(
+                Set.of("purchase:demand:approve"), true));
 notificationPublisher.publish(publish);
 ```
 
@@ -376,6 +372,7 @@ notificationPublisher.publish(publish);
 `includeAdministrators=true` 时额外覆盖启用管理员。系统通知可通过 `/eip/notification-templates`
 提前配置模板和收件人；发布接口 `/eip/notifications/publish` 支持 PRESET_ONLY、MERGE、OVERRIDE
 策略，分别表示仅模板收件人、模板与手选收件人合并、手选收件人覆盖模板。
+不使用模板直接发布时，默认使用本次手选收件人；调用方可传入稳定 `requestId` 防止重复提交。
 
 业务模块不应直接操作 `NotificationPersistenceService` 或 `WebSocketSessionManager`，统一通过单参数
 `NotificationPublisher#publish` 保持“业务提交、通知落库、实时推送”的顺序和故障隔离。

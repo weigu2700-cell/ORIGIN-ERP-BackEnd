@@ -33,7 +33,6 @@ import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.dto.RecipientSelectorDTO;
 import org.smart.erp.eip.enums.NotificationType;
-import org.smart.erp.eip.enums.NotificationSourceType;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -121,11 +120,13 @@ public class PurchaseInStockServiceImpl
         if (!this.save(purchaseInStock)) {
             throw new BusinessException(500, "采购入库单创建失败");
         }
-        notificationPublisher.publish(notification(
+        notificationPublisher.publish(NotificationPublishDTO.business(
                 NotificationType.TASK, "待审批采购入库单",
                 "采购入库单 " + purchaseInStock.getInStockNo() + " 已创建，请及时审批。",
-                "PURCHASE_IN_STOCK_PENDING_APPROVAL", purchaseInStock.getId(),
-                purchaseInStock.getInStockNo(), Set.of("purchase:in:stock:approve")));
+                NotificationBusinessRefDTO.of(
+                        "PURCHASE_IN_STOCK_PENDING_APPROVAL",
+                        purchaseInStock.getId(), purchaseInStock.getInStockNo()),
+                RecipientSelectorDTO.permissions(Set.of("purchase:in:stock:approve"), true)));
 
     }
 
@@ -260,28 +261,13 @@ public class PurchaseInStockServiceImpl
         if (!this.updateById(purchaseInStock)) {
             throw new BusinessException(409, "采购入库单状态更新失败，请刷新后重试");
         }
-        notificationPublisher.publish(notification(
+        notificationPublisher.publish(NotificationPublishDTO.business(
                 NotificationType.TASK, "待上架采购入库单",
                 "采购入库单 " + purchaseInStock.getInStockNo() + " 已审批通过，请及时上架。",
-                "PURCHASE_IN_STOCK_PENDING_UPLOAD", purchaseInStock.getId(),
-                purchaseInStock.getInStockNo(), Set.of("purchase:in:stock:upload")));
-    }
-
-    private static NotificationPublishDTO notification(
-            NotificationType type, String title, String content, String businessType,
-            Long businessId, String businessNo, Set<String> permissionCodes) {
-        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
-        recipients.setPermissionCodes(permissionCodes);
-        recipients.setIncludeAdministrators(true);
-        NotificationPublishDTO dto = new NotificationPublishDTO();
-        dto.setType(type);
-        dto.setSourceType(NotificationSourceType.BUSINESS);
-        dto.setTitle(title);
-        dto.setContent(content);
-        dto.setBusiness(NotificationBusinessRefDTO.builder()
-                .businessType(businessType).businessId(businessId).businessNo(businessNo).build());
-        dto.setRecipients(recipients);
-        return dto;
+                NotificationBusinessRefDTO.of(
+                        "PURCHASE_IN_STOCK_PENDING_UPLOAD",
+                        purchaseInStock.getId(), purchaseInStock.getInStockNo()),
+                RecipientSelectorDTO.permissions(Set.of("purchase:in:stock:upload"), true)));
     }
 
     @Override

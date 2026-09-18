@@ -29,7 +29,6 @@ import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.dto.RecipientSelectorDTO;
 import org.smart.erp.eip.enums.NotificationType;
-import org.smart.erp.eip.enums.NotificationSourceType;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -154,11 +153,14 @@ public class ProductionReportServiceImpl
             throw new BusinessException(500, "生产报工保存失败");
         }
 
-        notificationPublisher.publish(permissionNotification(
-                NotificationType.TASK, "报工单待审批",
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.TASK,
+                "报工单待审批",
                 "生产报工单「" + productionReport.getProductionReportNo() + "」已提交，请及时审批",
-                "PRODUCTION_REPORT_PENDING_APPROVAL", productionReport.getId(),
-                productionReport.getProductionReportNo(), Set.of("prd:report:approve")));
+                NotificationBusinessRefDTO.of(
+                        "PRODUCTION_REPORT_PENDING_APPROVAL",
+                        productionReport.getId(), productionReport.getProductionReportNo()),
+                RecipientSelectorDTO.permissions(Set.of("prd:report:approve"), true)));
     }
 
     private static @NonNull BigDecimal getReportQty(ProductionReportAddDto dto) {
@@ -385,37 +387,13 @@ public class ProductionReportServiceImpl
         if (report == null || report.getReportUserId() == null) {
             return;
         }
-        NotificationPublishDTO notification = new NotificationPublishDTO();
-        notification.setType(type);
-        notification.setSourceType(NotificationSourceType.BUSINESS);
-        notification.setTitle(title);
-        notification.setContent(title + "：「" + report.getProductionReportNo() + "」");
-        notification.setBusiness(NotificationBusinessRefDTO.builder()
-                .businessType(businessType).businessId(report.getId())
-                .businessNo(report.getProductionReportNo()).build());
-        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
-        recipients.setUserIds(Set.of(report.getReportUserId()));
-        // 报工结果明确归属报工人，不向管理员扩散。
-        recipients.setIncludeAdministrators(false);
-        notification.setRecipients(recipients);
-        notificationPublisher.publish(notification);
-    }
-
-    private static NotificationPublishDTO permissionNotification(
-            NotificationType type, String title, String content, String businessType,
-            Long businessId, String businessNo, Set<String> permissionCodes) {
-        NotificationPublishDTO notification = new NotificationPublishDTO();
-        notification.setType(type);
-        notification.setSourceType(NotificationSourceType.BUSINESS);
-        notification.setTitle(title);
-        notification.setContent(content);
-        notification.setBusiness(NotificationBusinessRefDTO.builder()
-                .businessType(businessType).businessId(businessId).businessNo(businessNo).build());
-        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
-        recipients.setPermissionCodes(permissionCodes);
-        recipients.setIncludeAdministrators(true);
-        notification.setRecipients(recipients);
-        return notification;
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                type,
+                title,
+                title + "：「" + report.getProductionReportNo() + "」",
+                NotificationBusinessRefDTO.of(
+                        businessType, report.getId(), report.getProductionReportNo()),
+                RecipientSelectorDTO.users(Set.of(report.getReportUserId()))));
     }
 
     @Override

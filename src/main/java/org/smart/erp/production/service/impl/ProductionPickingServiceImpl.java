@@ -30,7 +30,6 @@ import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.dto.RecipientSelectorDTO;
 import org.smart.erp.eip.enums.NotificationType;
-import org.smart.erp.eip.enums.NotificationSourceType;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -491,20 +490,12 @@ public class ProductionPickingServiceImpl
     }
 
     private void publishPickingReady(ProductionPicking picking) {
-        NotificationPublishDTO notification = new NotificationPublishDTO();
-        notification.setType(NotificationType.TASK);
-        notification.setSourceType(NotificationSourceType.BUSINESS);
-        notification.setTitle("领料单待领料");
-        notification.setContent("领料单「" + picking.getPickingNo() + "」已审批，请及时确认领料");
-        notification.setBusiness(NotificationBusinessRefDTO.builder()
-                .businessType("PRODUCTION_PICKING_READY")
-                .businessId(picking.getId())
-                .businessNo(picking.getPickingNo())
-                .build());
-        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
-        recipients.setPermissionCodes(Set.of("production:picking:confirm"));
-        recipients.setIncludeAdministrators(true);
-        notification.setRecipients(recipients);
-        notificationPublisher.publish(notification);
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.TASK,
+                "领料单待领料",
+                "领料单「" + picking.getPickingNo() + "」已审批，请及时确认领料",
+                NotificationBusinessRefDTO.of(
+                        "PRODUCTION_PICKING_READY", picking.getId(), picking.getPickingNo()),
+                RecipientSelectorDTO.permissions(Set.of("production:picking:confirm"), true)));
     }
 }

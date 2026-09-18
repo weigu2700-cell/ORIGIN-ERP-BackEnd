@@ -1,11 +1,8 @@
 package org.smart.erp.eip.enums;
 
-/** Supported recipient dimensions for notifications. */
+/** 通知支持的收件人维度。 */
 public enum RecipientSelectorType {
-    USER,
-    ROLE,
-    PERMISSION,
-    DEPARTMENT,
-    ALL_ACTIVE_USERS,
-    ADMINISTRATORS
+
+	USER, ROLE, PERMISSION, DEPARTMENT, ALL_ACTIVE_USERS, ADMINISTRATORS
+
 }

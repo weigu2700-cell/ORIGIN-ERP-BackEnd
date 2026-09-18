@@ -11,10 +11,18 @@ import java.time.LocalDateTime;
 @Data
 @TableName("sys_notification_template_recipient")
 public class NotificationTemplateRecipient {
-    @TableId(value = "id", type = IdType.ASSIGN_ID)
-    private Long id;
-    private Long templateId;
-    private RecipientSelectorType selectorType;
-    private String selectorValue;
-    private LocalDateTime createTime;
+
+	@TableId(value = "id", type = IdType.ASSIGN_ID)
+	private Long id;
+
+	private Long templateId;
+
+	private RecipientSelectorType selectorType;
+
+	private String selectorValue;
+
+	private Boolean includeChildren;
+
+	private LocalDateTime createTime;
+
 }

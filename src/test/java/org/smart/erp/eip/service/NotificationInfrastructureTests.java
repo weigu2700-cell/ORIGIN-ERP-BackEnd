@@ -21,37 +21,38 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationInfrastructureTests {
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
 
-    @Test
-    void publisherEmitsFrozenDtoAsOneDomainEvent() {
-        NotificationPublisherImpl publisher = new NotificationPublisherImpl(eventPublisher);
-        NotificationPublishDTO dto = NotificationPublishDTO.builder()
-                .requestId("req-1")
-                .sourceType(NotificationSourceType.BUSINESS)
-                .type(NotificationType.TASK)
-                .title("待处理")
-                .content("请处理")
-                .business(NotificationBusinessRefDTO.builder()
-                        .businessType("purchase_demand")
-                        .businessId(12L)
-                        .businessNo("PR-12")
-                        .build())
-                .recipients(RecipientSelectorDTO.builder()
-                        .userIds(Set.of(3L))
-                        .permissionCodes(Set.of("purchase:approve"))
-                        .build())
-                .build();
+	@Mock
+	private ApplicationEventPublisher eventPublisher;
 
-        publisher.publish(dto);
+	@Test
+	void publisherEmitsFrozenDtoAsOneDomainEvent() {
+		NotificationPublisherImpl publisher = new NotificationPublisherImpl(eventPublisher);
+		NotificationPublishDTO dto = NotificationPublishDTO.builder()
+			.requestId("req-1")
+			.sourceType(NotificationSourceType.BUSINESS)
+			.type(NotificationType.TASK)
+			.title("待处理")
+			.content("请处理")
+			.business(NotificationBusinessRefDTO.builder()
+				.businessType("purchase_demand")
+				.businessId(12L)
+				.businessNo("PR-12")
+				.build())
+			.recipients(RecipientSelectorDTO.builder()
+				.userIds(Set.of(3L))
+				.permissionCodes(Set.of("purchase:approve"))
+				.build())
+			.build();
 
-        ArgumentCaptor<NotificationPublishEvent> captor =
-                ArgumentCaptor.forClass(NotificationPublishEvent.class);
-        verify(eventPublisher).publishEvent(captor.capture());
-        NotificationPublishEvent event = captor.getValue();
-        assertThat(event.getRequestId()).isEqualTo("req-1");
-        assertThat(event.getPublish().getBusiness().getBusinessType()).isEqualTo("purchase_demand");
-        assertThat(event.getPublish().getRecipients().getUserIds()).containsExactly(3L);
-    }
+		publisher.publish(dto);
+
+		ArgumentCaptor<NotificationPublishEvent> captor = ArgumentCaptor.forClass(NotificationPublishEvent.class);
+		verify(eventPublisher).publishEvent(captor.capture());
+		NotificationPublishEvent event = captor.getValue();
+		assertThat(event.getRequestId()).isEqualTo("req-1");
+		assertThat(event.getPublish().getBusiness().getBusinessType()).isEqualTo("purchase_demand");
+		assertThat(event.getPublish().getRecipients().getUserIds()).containsExactly(3L);
+	}
+
 }

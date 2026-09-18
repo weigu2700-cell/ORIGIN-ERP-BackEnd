@@ -5,13 +5,15 @@ import org.smart.erp.eip.dto.NotificationPageDto;
 import org.smart.erp.eip.vo.NotificationVo;
 
 public interface NotificationInboxService {
-    Page<NotificationVo> page(NotificationPageDto dto);
 
-    NotificationVo get(Long notificationId);
+	Page<NotificationVo> page(NotificationPageDto dto);
 
-    Long unreadCount();
+	NotificationVo get(Long notificationId);
 
-    void markAsRead(Long notificationId);
+	Long unreadCount();
 
-    void markAllAsRead();
+	void markAsRead(Long notificationId);
+
+	void markAllAsRead();
+
 }

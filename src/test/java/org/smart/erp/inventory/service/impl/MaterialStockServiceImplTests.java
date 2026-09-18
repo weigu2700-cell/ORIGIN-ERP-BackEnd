@@ -41,146 +41,141 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MaterialStockServiceImplTests {
 
-    @Mock
-    private MaterialStockMapper materialStockMapper;
-    @Mock
-    private MaterialMapper materialMapper;
-    @Mock
-    private WarehouseMapper warehouseMapper;
-    @Mock
-    private TransactionService transactionService;
+	@Mock
+	private MaterialStockMapper materialStockMapper;
 
-    private MaterialStockServiceImpl service;
+	@Mock
+	private MaterialMapper materialMapper;
 
-    @BeforeEach
-    void setUp() {
-        TableInfoHelper.initTableInfo(
-                new MapperBuilderAssistant(new MybatisConfiguration(), "material-test"),
-                Material.class);
-        service = new MaterialStockServiceImpl(
-                materialStockMapper, materialMapper, warehouseMapper, transactionService);
-    }
+	@Mock
+	private WarehouseMapper warehouseMapper;
 
-    @Test
-    void keywordMatchesMaterialCodeOrNameAndPageEnrichmentIsBatched() {
-        MaterialStockPageDto dto = new MaterialStockPageDto();
-        dto.setKeyword(" steel ");
+	@Mock
+	private TransactionService transactionService;
 
-        Material material = material(11L, "MAT-STEEL", "不锈钢");
-        Warehouse warehouse = warehouse(21L, "原料仓");
-        MaterialStock stock = stock(31L, material.getId(), warehouse.getId());
+	private MaterialStockServiceImpl service;
 
-        when(materialMapper.selectList(any())).thenReturn(List.of(material));
-        when(materialStockMapper.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
-            Page<MaterialStock> page = invocation.getArgument(0);
-            page.setTotal(1);
-            page.setRecords(List.of(stock));
-            return page;
-        });
-        when(materialMapper.selectByIds(anyCollection())).thenReturn(List.of(material));
-        when(warehouseMapper.selectByIds(anyCollection())).thenReturn(List.of(warehouse));
+	@BeforeEach
+	void setUp() {
+		TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "material-test"),
+				Material.class);
+		service = new MaterialStockServiceImpl(materialStockMapper, materialMapper, warehouseMapper,
+				transactionService);
+	}
 
-        Page<MaterialStockVo> result = service.pageMaterialStock(dto);
+	@Test
+	void keywordMatchesMaterialCodeOrNameAndPageEnrichmentIsBatched() {
+		MaterialStockPageDto dto = new MaterialStockPageDto();
+		dto.setKeyword(" steel ");
 
-        assertThat(result.getRecords()).singleElement().satisfies(vo -> {
-            assertThat(vo.getMaterialCode()).isEqualTo("MAT-STEEL");
-            assertThat(vo.getMaterialName()).isEqualTo("不锈钢");
-            assertThat(vo.getWarehouseName()).isEqualTo("原料仓");
-            assertThat(vo.getAvailable()).isEqualByComparingTo("8");
-        });
+		Material material = material(11L, "MAT-STEEL", "不锈钢");
+		Warehouse warehouse = warehouse(21L, "原料仓");
+		MaterialStock stock = stock(31L, material.getId(), warehouse.getId());
 
-        ArgumentCaptor<LambdaQueryWrapper<Material>> queryCaptor =
-                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
-        verify(materialMapper).selectList(queryCaptor.capture());
-        String sql = queryCaptor.getValue().getSqlSegment();
-        assertThat(sql).contains("code LIKE").contains("name LIKE").contains("OR");
-        assertThat(queryCaptor.getValue().getParamNameValuePairs().values()).contains("%steel%");
-        verify(materialMapper, never()).selectById(any());
-        verify(warehouseMapper, never()).selectById(any());
-    }
+		when(materialMapper.selectList(any())).thenReturn(List.of(material));
+		when(materialStockMapper.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
+			Page<MaterialStock> page = invocation.getArgument(0);
+			page.setTotal(1);
+			page.setRecords(List.of(stock));
+			return page;
+		});
+		when(materialMapper.selectByIds(anyCollection())).thenReturn(List.of(material));
+		when(warehouseMapper.selectByIds(anyCollection())).thenReturn(List.of(warehouse));
 
-    @Test
-    void materialCodeRemainsAnExactFilter() {
-        MaterialStockPageDto dto = new MaterialStockPageDto();
-        dto.setMaterialCode(" MAT-001 ");
-        when(materialMapper.selectList(any())).thenReturn(List.of());
+		Page<MaterialStockVo> result = service.pageMaterialStock(dto);
 
-        Page<MaterialStockVo> result = service.pageMaterialStock(dto);
+		assertThat(result.getRecords()).singleElement().satisfies(vo -> {
+			assertThat(vo.getMaterialCode()).isEqualTo("MAT-STEEL");
+			assertThat(vo.getMaterialName()).isEqualTo("不锈钢");
+			assertThat(vo.getWarehouseName()).isEqualTo("原料仓");
+			assertThat(vo.getAvailable()).isEqualByComparingTo("8");
+		});
 
-        assertThat(result.getRecords()).isEmpty();
-        ArgumentCaptor<LambdaQueryWrapper<Material>> queryCaptor =
-                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
-        verify(materialMapper).selectList(queryCaptor.capture());
-        assertThat(queryCaptor.getValue().getSqlSegment()).contains("code =").doesNotContain("LIKE");
-        assertThat(queryCaptor.getValue().getParamNameValuePairs().values()).contains("MAT-001");
-        verify(materialStockMapper, never()).selectPage(any(Page.class), any());
-    }
+		ArgumentCaptor<LambdaQueryWrapper<Material>> queryCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+		verify(materialMapper).selectList(queryCaptor.capture());
+		String sql = queryCaptor.getValue().getSqlSegment();
+		assertThat(sql).contains("code LIKE").contains("name LIKE").contains("OR");
+		assertThat(queryCaptor.getValue().getParamNameValuePairs().values()).contains("%steel%");
+		verify(materialMapper, never()).selectById(any());
+		verify(warehouseMapper, never()).selectById(any());
+	}
 
-    @Test
-    void inboundUsesAtomicUpsertAndComputesLedgerBeforeFromAfterQuantity() {
-        MaterialStock after = stock(31L, 11L, 21L);
-        after.setOnHand(new BigDecimal("8"));
-        after.setReserved(new BigDecimal("2"));
-        when(materialStockMapper.selectOne(any())).thenReturn(after);
+	@Test
+	void materialCodeRemainsAnExactFilter() {
+		MaterialStockPageDto dto = new MaterialStockPageDto();
+		dto.setMaterialCode(" MAT-001 ");
+		when(materialMapper.selectList(any())).thenReturn(List.of());
 
-        service.inboundStock(11L, 21L, new BigDecimal("3"),
-                "PURCHASE_INBOUND", "PI-1", "采购入库");
+		Page<MaterialStockVo> result = service.pageMaterialStock(dto);
 
-        ArgumentCaptor<MaterialStock> deltaCaptor = ArgumentCaptor.forClass(MaterialStock.class);
-        verify(materialStockMapper).inboundAtomic(deltaCaptor.capture());
-        assertThat(deltaCaptor.getValue().getOnHand()).isEqualByComparingTo("3");
-        ArgumentCaptor<BigDecimal> beforeCaptor = ArgumentCaptor.forClass(BigDecimal.class);
-        verify(transactionService).recordTransaction(
-                eq(after), eq(TransactionType.INBOUND), eq(new BigDecimal("3")),
-                beforeCaptor.capture(), eq(new BigDecimal("2")),
-                eq("PURCHASE_INBOUND"), eq("PI-1"), eq("采购入库"));
-        assertThat(beforeCaptor.getValue()).isEqualByComparingTo("5");
-    }
+		assertThat(result.getRecords()).isEmpty();
+		ArgumentCaptor<LambdaQueryWrapper<Material>> queryCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+		verify(materialMapper).selectList(queryCaptor.capture());
+		assertThat(queryCaptor.getValue().getSqlSegment()).contains("code =").doesNotContain("LIKE");
+		assertThat(queryCaptor.getValue().getParamNameValuePairs().values()).contains("MAT-001");
+		verify(materialStockMapper, never()).selectPage(any(Page.class), any());
+	}
 
-    @Test
-    void reserveReturnsConflictAfterThreeOptimisticLockCollisions() {
-        MaterialStockServiceImpl retryingService = spy(service);
-        when(materialStockMapper.selectOne(any())).thenAnswer(invocation -> {
-            MaterialStock current = stock(31L, 11L, 21L);
-            current.setVersion(7);
-            return current;
-        });
-        doReturn(false).when(retryingService).updateById(any(MaterialStock.class));
+	@Test
+	void inboundUsesAtomicUpsertAndComputesLedgerBeforeFromAfterQuantity() {
+		MaterialStock after = stock(31L, 11L, 21L);
+		after.setOnHand(new BigDecimal("8"));
+		after.setReserved(new BigDecimal("2"));
+		when(materialStockMapper.selectOne(any())).thenReturn(after);
 
-        assertThatThrownBy(() -> retryingService.reserveStock(
-                11L, 21L, BigDecimal.ONE,
-                "SALES_RESERVE", "SO-1", "锁冲突"))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(409));
+		service.inboundStock(11L, 21L, new BigDecimal("3"), "PURCHASE_INBOUND", "PI-1", "采购入库");
 
-        verify(materialStockMapper, times(3)).selectOne(any());
-        verify(retryingService, times(3)).updateById(any(MaterialStock.class));
-        verify(transactionService, never()).recordTransaction(
-                any(), any(), any(), any(), any(), any(), any(), any());
-    }
+		ArgumentCaptor<MaterialStock> deltaCaptor = ArgumentCaptor.forClass(MaterialStock.class);
+		verify(materialStockMapper).inboundAtomic(deltaCaptor.capture());
+		assertThat(deltaCaptor.getValue().getOnHand()).isEqualByComparingTo("3");
+		ArgumentCaptor<BigDecimal> beforeCaptor = ArgumentCaptor.forClass(BigDecimal.class);
+		verify(transactionService).recordTransaction(eq(after), eq(TransactionType.INBOUND), eq(new BigDecimal("3")),
+				beforeCaptor.capture(), eq(new BigDecimal("2")), eq("PURCHASE_INBOUND"), eq("PI-1"), eq("采购入库"));
+		assertThat(beforeCaptor.getValue()).isEqualByComparingTo("5");
+	}
 
-    private Material material(Long id, String code, String name) {
-        Material material = new Material();
-        material.setId(id);
-        material.setCode(code);
-        material.setName(name);
-        return material;
-    }
+	@Test
+	void reserveReturnsConflictAfterThreeOptimisticLockCollisions() {
+		MaterialStockServiceImpl retryingService = spy(service);
+		when(materialStockMapper.selectOne(any())).thenAnswer(invocation -> {
+			MaterialStock current = stock(31L, 11L, 21L);
+			current.setVersion(7);
+			return current;
+		});
+		doReturn(false).when(retryingService).updateById(any(MaterialStock.class));
 
-    private Warehouse warehouse(Long id, String name) {
-        Warehouse warehouse = new Warehouse();
-        warehouse.setId(id);
-        warehouse.setName(name);
-        return warehouse;
-    }
+		assertThatThrownBy(() -> retryingService.reserveStock(11L, 21L, BigDecimal.ONE, "SALES_RESERVE", "SO-1", "锁冲突"))
+			.isInstanceOfSatisfying(BusinessException.class,
+					exception -> assertThat(exception.getCode()).isEqualTo(409));
 
-    private MaterialStock stock(Long id, Long materialId, Long warehouseId) {
-        MaterialStock stock = new MaterialStock();
-        stock.setId(id);
-        stock.setMaterialId(materialId);
-        stock.setWarehouseId(warehouseId);
-        stock.setOnHand(new BigDecimal("10"));
-        stock.setReserved(new BigDecimal("2"));
-        return stock;
-    }
+		verify(materialStockMapper, times(3)).selectOne(any());
+		verify(retryingService, times(3)).updateById(any(MaterialStock.class));
+		verify(transactionService, never()).recordTransaction(any(), any(), any(), any(), any(), any(), any(), any());
+	}
+
+	private Material material(Long id, String code, String name) {
+		Material material = new Material();
+		material.setId(id);
+		material.setCode(code);
+		material.setName(name);
+		return material;
+	}
+
+	private Warehouse warehouse(Long id, String name) {
+		Warehouse warehouse = new Warehouse();
+		warehouse.setId(id);
+		warehouse.setName(name);
+		return warehouse;
+	}
+
+	private MaterialStock stock(Long id, Long materialId, Long warehouseId) {
+		MaterialStock stock = new MaterialStock();
+		stock.setId(id);
+		stock.setMaterialId(materialId);
+		stock.setWarehouseId(warehouseId);
+		stock.setOnHand(new BigDecimal("10"));
+		stock.setReserved(new BigDecimal("2"));
+		return stock;
+	}
+
 }

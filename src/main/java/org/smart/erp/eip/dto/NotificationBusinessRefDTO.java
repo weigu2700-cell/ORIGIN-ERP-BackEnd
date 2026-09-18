@@ -11,19 +11,19 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NotificationBusinessRefDTO {
-    private String businessType;
-    private Long businessId;
-    private String businessNo;
 
-    public static NotificationBusinessRefDTO of(
-            String businessType,
-            Long businessId,
-            String businessNo
-    ) {
-        return NotificationBusinessRefDTO.builder()
-                .businessType(businessType)
-                .businessId(businessId)
-                .businessNo(businessNo)
-                .build();
-    }
+	private String businessType;
+
+	private Long businessId;
+
+	private String businessNo;
+
+	public static NotificationBusinessRefDTO of(String businessType, Long businessId, String businessNo) {
+		return NotificationBusinessRefDTO.builder()
+			.businessType(businessType)
+			.businessId(businessId)
+			.businessNo(businessNo)
+			.build();
+	}
+
 }

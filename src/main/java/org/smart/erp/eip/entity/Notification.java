@@ -16,25 +16,38 @@ import java.time.LocalDateTime;
 @Data
 @TableName("sys_notification")
 public class Notification {
-    @TableId(value = "id", type = IdType.ASSIGN_ID)
-    private Long id;
-    @JsonIgnore
-    private Long publishId;
-    private Long userId;
-    private NotificationType type;
-    private String title;
-    private String content;
-    private Long businessId;
-    private String businessNo;
-    private String businessType;
-    private Boolean isRead;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime readTime;
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    @TableField(value = "create_time", fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updateTime;
+	@TableId(value = "id", type = IdType.ASSIGN_ID)
+	private Long id;
+
+	@JsonIgnore
+	private Long publishId;
+
+	private Long userId;
+
+	private NotificationType type;
+
+	private String title;
+
+	private String content;
+
+	private Long businessId;
+
+	private String businessNo;
+
+	private String businessType;
+
+	private Boolean isRead;
+
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	private LocalDateTime readTime;
+
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	@TableField(value = "create_time", fill = FieldFill.INSERT)
+	private LocalDateTime createTime;
+
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	@TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
+	private LocalDateTime updateTime;
+
 }

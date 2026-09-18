@@ -25,7 +25,6 @@ import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.dto.RecipientSelectorDTO;
 import org.smart.erp.eip.enums.NotificationType;
-import org.smart.erp.eip.enums.NotificationSourceType;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -132,22 +131,14 @@ public class ProductionDemandServiceImpl
             throw new BusinessException(409, "生产需求状态更新失败");
         }
 
-        NotificationPublishDTO notification = new NotificationPublishDTO();
-        notification.setType(NotificationType.TASK);
-        notification.setSourceType(NotificationSourceType.BUSINESS);
-        notification.setTitle("生产需求已排产");
-        notification.setContent("生产需求「" + productionDemand.getDemandNo()
-                + "」已自动生成生产订单，请及时审核下达");
-        notification.setBusiness(NotificationBusinessRefDTO.builder()
-                .businessType("PRODUCTION_DEMAND_PLANNED")
-                .businessId(productionDemand.getId())
-                .businessNo(productionDemand.getDemandNo())
-                .build());
-        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
-        recipients.setPermissionCodes(Set.of("production:order:release"));
-        recipients.setIncludeAdministrators(true);
-        notification.setRecipients(recipients);
-        notificationPublisher.publish(notification);
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.TASK,
+                "生产需求已排产",
+                "生产需求「" + productionDemand.getDemandNo() + "」已自动生成生产订单，请及时审核下达",
+                NotificationBusinessRefDTO.of(
+                        "PRODUCTION_DEMAND_PLANNED",
+                        productionDemand.getId(), productionDemand.getDemandNo()),
+                RecipientSelectorDTO.permissions(Set.of("production:order:release"), true)));
     }
 
     @Override

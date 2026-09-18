@@ -13,32 +13,35 @@ import org.smart.erp.eip.enums.NotificationType;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NotificationPublishDTO {
-    private String requestId;
-    private NotificationSourceType sourceType;
-    private NotificationType type;
-    private String title;
-    private String content;
-    private NotificationBusinessRefDTO business;
-    private RecipientSelectorDTO recipients;
 
-    public static NotificationPublishDTO business(
-            NotificationType type,
-            String title,
-            String content,
-            NotificationBusinessRefDTO business,
-            RecipientSelectorDTO recipients
-    ) {
-        if (business == null || business.getBusinessType() == null || business.getBusinessId() == null) {
-            throw new IllegalArgumentException("业务通知必须提供业务类型和业务ID");
-        }
-        return NotificationPublishDTO.builder()
-                .requestId("BUSINESS:" + business.getBusinessType() + ":" + business.getBusinessId())
-                .sourceType(NotificationSourceType.BUSINESS)
-                .type(type)
-                .title(title)
-                .content(content)
-                .business(business)
-                .recipients(recipients)
-                .build();
-    }
+	private String requestId;
+
+	private NotificationSourceType sourceType;
+
+	private NotificationType type;
+
+	private String title;
+
+	private String content;
+
+	private NotificationBusinessRefDTO business;
+
+	private RecipientSelectorDTO recipients;
+
+	public static NotificationPublishDTO business(NotificationType type, String title, String content,
+			NotificationBusinessRefDTO business, RecipientSelectorDTO recipients) {
+		if (business == null || business.getBusinessType() == null || business.getBusinessId() == null) {
+			throw new IllegalArgumentException("业务通知必须提供业务类型和业务ID");
+		}
+		return NotificationPublishDTO.builder()
+			.requestId("BUSINESS:" + business.getBusinessType() + ":" + business.getBusinessId())
+			.sourceType(NotificationSourceType.BUSINESS)
+			.type(type)
+			.title(title)
+			.content(content)
+			.business(business)
+			.recipients(recipients)
+			.build();
+	}
+
 }

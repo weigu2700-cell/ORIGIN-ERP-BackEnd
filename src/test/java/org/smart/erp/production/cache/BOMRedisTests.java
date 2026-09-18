@@ -27,76 +27,79 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class BOMRedisTests {
 
-    @Mock
-    private OperationString operationString;
-    @Mock
-    private RedissonClient redissonClient;
-    @Mock
-    private RLock lock;
+	@Mock
+	private OperationString operationString;
 
-    private BOMRedis bomRedis;
+	@Mock
+	private RedissonClient redissonClient;
 
-    @BeforeEach
-    void setUp() {
-        bomRedis = new BOMRedis(operationString, redissonClient);
-    }
+	@Mock
+	private RLock lock;
 
-    @Test
-    void emptyMarkerIsAHitAndDoesNotInvokeLoader() {
-        when(operationString.get(anyString(), eq(1L))).thenReturn("EMPTY");
+	private BOMRedis bomRedis;
 
-        assertThat(bomRedis.getOrLoad(1L, () -> {
-            throw new AssertionError("EMPTY must not load");
-        })).isNull();
-        verify(redissonClient, never()).getLock(anyString());
-    }
+	@BeforeEach
+	void setUp() {
+		bomRedis = new BOMRedis(operationString, redissonClient);
+	}
 
-    @Test
-    void normalValueIsReturnedWithoutLock() {
-        BOMCacheDto dto = new BOMCacheDto();
-        when(operationString.get(anyString(), eq(1L))).thenReturn(dto);
+	@Test
+	void emptyMarkerIsAHitAndDoesNotInvokeLoader() {
+		when(operationString.get(anyString(), eq(1L))).thenReturn("EMPTY");
 
-        assertThat(bomRedis.getOrLoad(1L, () -> null)).isSameAs(dto);
-        verify(redissonClient, never()).getLock(anyString());
-    }
+		assertThat(bomRedis.getOrLoad(1L, () -> {
+			throw new AssertionError("EMPTY must not load");
+		})).isNull();
+		verify(redissonClient, never()).getLock(anyString());
+	}
 
-    @Test
-    void missLoadsAndCachesNormalValue() throws Exception {
-        BOMCacheDto dto = new BOMCacheDto();
-        dto.setMaterialId(1L);
-        when(operationString.get(anyString(), eq(1L))).thenReturn(null);
-        when(redissonClient.getLock(anyString())).thenReturn(lock);
-        doReturn(true).when(lock).tryLock(anyLong(), any());
+	@Test
+	void normalValueIsReturnedWithoutLock() {
+		BOMCacheDto dto = new BOMCacheDto();
+		when(operationString.get(anyString(), eq(1L))).thenReturn(dto);
 
-        assertThat(bomRedis.getOrLoad(1L, () -> dto)).isSameAs(dto);
-        verify(operationString).set(eq("erp:bom:hot:"), eq(1L), eq(dto), any(Duration.class));
-    }
+		assertThat(bomRedis.getOrLoad(1L, () -> null)).isSameAs(dto);
+		verify(redissonClient, never()).getLock(anyString());
+	}
 
-    @Test
-    void missCachesEmptyWhenLoaderReturnsNull() throws Exception {
-        when(operationString.get(anyString(), eq(1L))).thenReturn(null);
-        when(redissonClient.getLock(anyString())).thenReturn(lock);
-        doReturn(true).when(lock).tryLock(anyLong(), any());
+	@Test
+	void missLoadsAndCachesNormalValue() throws Exception {
+		BOMCacheDto dto = new BOMCacheDto();
+		dto.setMaterialId(1L);
+		when(operationString.get(anyString(), eq(1L))).thenReturn(null);
+		when(redissonClient.getLock(anyString())).thenReturn(lock);
+		doReturn(true).when(lock).tryLock(anyLong(), any());
 
-        assertThat(bomRedis.getOrLoad(1L, () -> null)).isNull();
-        verify(operationString).set(eq("erp:bom:hot:"), eq(1L), eq("EMPTY"), any(Duration.class));
-    }
+		assertThat(bomRedis.getOrLoad(1L, () -> dto)).isSameAs(dto);
+		verify(operationString).set(eq("erp:bom:hot:"), eq(1L), eq(dto), any(Duration.class));
+	}
 
-    @Test
-    void evictionRunsOnlyAfterCommitWhenTransactionIsActive() {
-        TransactionSynchronizationManager.initSynchronization();
-        TransactionSynchronizationManager.setActualTransactionActive(true);
-        try {
-            bomRedis.evictAfterCommit(1L);
-            verify(operationString, never()).delete(anyString(), eq(1L));
-            for (TransactionSynchronization synchronization
-                    : TransactionSynchronizationManager.getSynchronizations()) {
-                synchronization.afterCommit();
-            }
-            verify(operationString).delete("erp:bom:hot:", 1L);
-        } finally {
-            TransactionSynchronizationManager.clearSynchronization();
-            TransactionSynchronizationManager.setActualTransactionActive(false);
-        }
-    }
+	@Test
+	void missCachesEmptyWhenLoaderReturnsNull() throws Exception {
+		when(operationString.get(anyString(), eq(1L))).thenReturn(null);
+		when(redissonClient.getLock(anyString())).thenReturn(lock);
+		doReturn(true).when(lock).tryLock(anyLong(), any());
+
+		assertThat(bomRedis.getOrLoad(1L, () -> null)).isNull();
+		verify(operationString).set(eq("erp:bom:hot:"), eq(1L), eq("EMPTY"), any(Duration.class));
+	}
+
+	@Test
+	void evictionRunsOnlyAfterCommitWhenTransactionIsActive() {
+		TransactionSynchronizationManager.initSynchronization();
+		TransactionSynchronizationManager.setActualTransactionActive(true);
+		try {
+			bomRedis.evictAfterCommit(1L);
+			verify(operationString, never()).delete(anyString(), eq(1L));
+			for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+				synchronization.afterCommit();
+			}
+			verify(operationString).delete("erp:bom:hot:", 1L);
+		}
+		finally {
+			TransactionSynchronizationManager.clearSynchronization();
+			TransactionSynchronizationManager.setActualTransactionActive(false);
+		}
+	}
+
 }

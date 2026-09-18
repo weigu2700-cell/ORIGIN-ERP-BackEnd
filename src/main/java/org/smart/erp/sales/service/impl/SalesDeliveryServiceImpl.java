@@ -37,7 +37,6 @@ import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.dto.RecipientSelectorDTO;
 import org.smart.erp.eip.enums.NotificationType;
-import org.smart.erp.eip.enums.NotificationSourceType;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -513,19 +512,13 @@ public class SalesDeliveryServiceImpl
                 SalesDeliveryStatus.CONFIRMED,
                 "发货单状态不允许确认",
                 () -> reserveStockForDelivery(id));
-        NotificationPublishDTO notification = new NotificationPublishDTO();
-        notification.setType(NotificationType.TASK);
-        notification.setSourceType(NotificationSourceType.BUSINESS);
-        notification.setTitle("待完成销售发货单");
-        notification.setContent("销售发货单 " + result.getDeliveryNo() + " 已确认，请及时完成出库。");
-        notification.setBusiness(NotificationBusinessRefDTO.builder()
-                .businessType("SALES_DELIVERY_PENDING_OUTBOUND")
-                .businessId(result.getId()).businessNo(result.getDeliveryNo()).build());
-        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
-        recipients.setPermissionCodes(Set.of("sales:delivery:complete"));
-        recipients.setIncludeAdministrators(true);
-        notification.setRecipients(recipients);
-        notificationPublisher.publish(notification);
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.TASK,
+                "待完成销售发货单",
+                "销售发货单 " + result.getDeliveryNo() + " 已确认，请及时完成出库。",
+                NotificationBusinessRefDTO.of(
+                        "SALES_DELIVERY_PENDING_OUTBOUND", result.getId(), result.getDeliveryNo()),
+                RecipientSelectorDTO.permissions(Set.of("sales:delivery:complete"), true)));
         return result;
     }
 

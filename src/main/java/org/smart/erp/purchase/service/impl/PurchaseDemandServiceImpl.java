@@ -9,7 +9,6 @@ import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.dto.RecipientSelectorDTO;
 import org.smart.erp.eip.enums.NotificationType;
-import org.smart.erp.eip.enums.NotificationSourceType;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.smart.erp.purchase.dto.PurchaseDemandAddDto;
 import org.smart.erp.purchase.dto.PurchaseDemandPageDto;
@@ -105,14 +104,15 @@ public class PurchaseDemandServiceImpl
         if (purchaseDemandMapper.insert(purchaseDemand) != 1) {
             throw new BusinessException(500, "采购需求创建失败");
         }
-        notificationPublisher.publish(notification(
+        notificationPublisher.publish(NotificationPublishDTO.business(
                 NotificationType.TASK,
                 "待审批采购需求",
                 "采购需求 " + purchaseDemand.getPurchaseDemandNo() + " 已创建，请及时审批。",
-                "PURCHASE_DEMAND_PENDING_APPROVAL",
-                purchaseDemand.getId(),
-                purchaseDemand.getPurchaseDemandNo(),
-                Set.of("purchase:demand:approve"), Set.of(), true));
+                NotificationBusinessRefDTO.of(
+                        "PURCHASE_DEMAND_PENDING_APPROVAL",
+                        purchaseDemand.getId(),
+                        purchaseDemand.getPurchaseDemandNo()),
+                RecipientSelectorDTO.permissions(Set.of("purchase:demand:approve"), true)));
         return purchaseDemand;
     }
 
@@ -152,33 +152,14 @@ public class PurchaseDemandServiceImpl
         if (purchaseDemandMapper.updateById(demand) != 1) {
             throw new BusinessException(409, "采购需求状态更新失败，请刷新后重试");
         }
-        notificationPublisher.publish(notification(
+        notificationPublisher.publish(NotificationPublishDTO.business(
                 NotificationType.BUSINESS,
                 "采购需求审批通过",
                 "采购需求 " + demand.getPurchaseDemandNo() + " 已审批通过，请创建或更新采购订单。",
-                "PURCHASE_DEMAND_APPROVED",
-                demand.getId(),
-                demand.getPurchaseDemandNo(),
-                Set.of("purchase:order:create", "purchase:order:update"), Set.of(), true));
-    }
-
-    private static NotificationPublishDTO notification(
-            NotificationType type, String title, String content, String businessType,
-            Long businessId, String businessNo, Set<String> permissionCodes,
-            Set<Long> userIds, boolean includeAdministrators) {
-        RecipientSelectorDTO recipients = new RecipientSelectorDTO();
-        recipients.setPermissionCodes(permissionCodes);
-        recipients.setUserIds(userIds);
-        recipients.setIncludeAdministrators(includeAdministrators);
-        NotificationPublishDTO dto = new NotificationPublishDTO();
-        dto.setType(type);
-        dto.setSourceType(NotificationSourceType.BUSINESS);
-        dto.setTitle(title);
-        dto.setContent(content);
-        dto.setBusiness(NotificationBusinessRefDTO.builder()
-                .businessType(businessType).businessId(businessId).businessNo(businessNo).build());
-        dto.setRecipients(recipients);
-        return dto;
+                NotificationBusinessRefDTO.of(
+                        "PURCHASE_DEMAND_APPROVED", demand.getId(), demand.getPurchaseDemandNo()),
+                RecipientSelectorDTO.permissions(
+                        Set.of("purchase:order:create", "purchase:order:update"), true)));
     }
 
     @Override

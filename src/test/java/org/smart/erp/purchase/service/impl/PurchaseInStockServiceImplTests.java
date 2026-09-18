@@ -42,143 +42,140 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PurchaseInStockServiceImplTests {
 
-    @Mock
-    private Validator validator;
-    @Mock
-    private BusinessNoGenerator businessNoGenerator;
-    @Mock
-    private MaterialMapper materialMapper;
-    @Mock
-    private SupplierMapper supplierMapper;
-    @Mock
-    private WarehouseMapper warehouseMapper;
-    @Mock
-    private PurchaseOrderMapper purchaseOrderMapper;
-    @Mock
-    private MaterialStockService materialStockService;
-    @Mock
-    private ProductionPickingService productionPickingService;
-    @Mock
-    private RedissonClient redissonClient;
-    @Mock
-    private NotificationPublisher notificationPublisher;
+	@Mock
+	private Validator validator;
 
-    private PurchaseInStockServiceImpl service;
+	@Mock
+	private BusinessNoGenerator businessNoGenerator;
 
-    @BeforeEach
-    void setUp() {
-        service = spy(new PurchaseInStockServiceImpl(
-                validator,
-                businessNoGenerator,
-                materialMapper,
-                supplierMapper,
-                warehouseMapper,
-                purchaseOrderMapper,
-                materialStockService,
-                productionPickingService,
-                redissonClient,
-                notificationPublisher));
-    }
+	@Mock
+	private MaterialMapper materialMapper;
 
-    @Test
-    void addPublishesPendingApprovalNotificationAfterInsert() {
-        when(businessNoGenerator.generateNo(any(), eq("PI"))).thenReturn("PI-001");
-        doReturn(true).when(service).save(any(PurchaseInStock.class));
-        PurchaseInStockAddDto dto = new PurchaseInStockAddDto();
-        dto.setPurchaseOrderId(2L);
-        dto.setMaterialId(11L);
-        dto.setInType(PurchaseInStockType.PURCHASE_NORMAL);
-        dto.setInQuantity(new BigDecimal("3"));
-        dto.setUnitPrice(new BigDecimal("10"));
-        when(validator.validate(dto)).thenReturn(Set.of());
+	@Mock
+	private SupplierMapper supplierMapper;
 
-        service.addPurchaseInStock(dto);
+	@Mock
+	private WarehouseMapper warehouseMapper;
 
-        ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
-        verify(notificationPublisher).publish(captor.capture());
-        assertThat(captor.getValue().getType()).isEqualTo(NotificationType.TASK);
-        assertThat(captor.getValue().getBusiness().getBusinessType())
-                .isEqualTo("PURCHASE_IN_STOCK_PENDING_APPROVAL");
-        assertThat(captor.getValue().getRecipients().getPermissionCodes())
-                .containsExactly("purchase:in:stock:approve");
-        assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
-    }
+	@Mock
+	private PurchaseOrderMapper purchaseOrderMapper;
 
-    @Test
-    void approvalPublishesPendingUploadNotificationAfterStatusUpdate() {
-        PurchaseInStock stock = approvedStock();
-        stock.setStatus(PurchaseInStockStatus.DRAFT);
-        doReturn(stock).when(service).getById(1L);
-        doReturn(true).when(service).updateById(any(PurchaseInStock.class));
+	@Mock
+	private MaterialStockService materialStockService;
 
-        service.doApprovePurchaseInStock(1L);
+	@Mock
+	private ProductionPickingService productionPickingService;
 
-        ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
-        verify(notificationPublisher).publish(captor.capture());
-        assertThat(captor.getValue().getType()).isEqualTo(NotificationType.TASK);
-        assertThat(captor.getValue().getBusiness().getBusinessType())
-                .isEqualTo("PURCHASE_IN_STOCK_PENDING_UPLOAD");
-        assertThat(captor.getValue().getRecipients().getPermissionCodes())
-                .containsExactly("purchase:in:stock:upload");
-        assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
-    }
+	@Mock
+	private RedissonClient redissonClient;
 
-    @Test
-    void uploadUsesRequestedWarehouseThenUpdatesStatusAndNotifiesPicking() {
-        PurchaseInStock stock = approvedStock();
-        PurchaseInStockUploadDto dto = uploadDto(22L);
-        when(validator.validate(dto)).thenReturn(Set.of());
-        doReturn(stock).when(service).getById(1L);
-        doReturn(true).when(service).updateById(any(PurchaseInStock.class));
+	@Mock
+	private NotificationPublisher notificationPublisher;
 
-        service.uploadPurchaseInStock(1L, dto);
+	private PurchaseInStockServiceImpl service;
 
-        verify(materialStockService).inboundStock(
-                11L, 22L, new BigDecimal("3"),
-                "PURCHASE_IN_STOCK", "PI-001", "采购入库上架");
-        verify(productionPickingService).notifyPickingForInStock(11L, 22L);
-        verify(service).updateById(stock);
-        assertThat(stock.getWarehouseId()).isEqualTo(22L);
-        assertThat(stock.getStatus()).isEqualTo(PurchaseInStockStatus.UPLOADED);
-        assertThat(stock.getStorageLocation()).isEqualTo("A-01");
-        assertThat(stock.getInDate()).isNotNull();
-    }
+	@BeforeEach
+	void setUp() {
+		service = spy(new PurchaseInStockServiceImpl(validator, businessNoGenerator, materialMapper, supplierMapper,
+				warehouseMapper, purchaseOrderMapper, materialStockService, productionPickingService, redissonClient,
+				notificationPublisher));
+	}
 
-    @Test
-    void uploadStopsBeforeStatusAndNotificationWhenInventoryInboundFails() {
-        PurchaseInStock stock = approvedStock();
-        PurchaseInStockUploadDto dto = uploadDto(null);
-        when(validator.validate(dto)).thenReturn(Set.of());
-        doReturn(stock).when(service).getById(1L);
-        doThrow(new BusinessException(409, "入库失败"))
-                .when(materialStockService)
-                .inboundStock(11L, 21L, new BigDecimal("3"),
-                        "PURCHASE_IN_STOCK", "PI-001", "采购入库上架");
+	@Test
+	void addPublishesPendingApprovalNotificationAfterInsert() {
+		when(businessNoGenerator.generateNo(any(), eq("PI"))).thenReturn("PI-001");
+		doAnswer(invocation -> {
+			((PurchaseInStock) invocation.getArgument(0)).setId(1L);
+			return true;
+		}).when(service).save(any(PurchaseInStock.class));
+		PurchaseInStockAddDto dto = new PurchaseInStockAddDto();
+		dto.setPurchaseOrderId(2L);
+		dto.setMaterialId(11L);
+		dto.setInType(PurchaseInStockType.PURCHASE_NORMAL);
+		dto.setInQuantity(new BigDecimal("3"));
+		dto.setUnitPrice(new BigDecimal("10"));
+		when(validator.validate(dto)).thenReturn(Set.of());
 
-        assertThatThrownBy(() -> service.uploadPurchaseInStock(1L, dto))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(409));
+		service.addPurchaseInStock(dto);
 
-        verify(service, never()).updateById(any(PurchaseInStock.class));
-        verify(productionPickingService, never()).notifyPickingForInStock(any(), any());
-        assertThat(stock.getStatus()).isEqualTo(PurchaseInStockStatus.APPROVED);
-    }
+		ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
+		verify(notificationPublisher).publish(captor.capture());
+		assertThat(captor.getValue().getType()).isEqualTo(NotificationType.TASK);
+		assertThat(captor.getValue().getBusiness().getBusinessType()).isEqualTo("PURCHASE_IN_STOCK_PENDING_APPROVAL");
+		assertThat(captor.getValue().getRecipients().getPermissionCodes()).containsExactly("purchase:in:stock:approve");
+		assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
+	}
 
-    private PurchaseInStock approvedStock() {
-        PurchaseInStock stock = new PurchaseInStock();
-        stock.setId(1L);
-        stock.setInStockNo("PI-001");
-        stock.setMaterialId(11L);
-        stock.setWarehouseId(21L);
-        stock.setInQuantity(new BigDecimal("3"));
-        stock.setStatus(PurchaseInStockStatus.APPROVED);
-        return stock;
-    }
+	@Test
+	void approvalPublishesPendingUploadNotificationAfterStatusUpdate() {
+		PurchaseInStock stock = approvedStock();
+		stock.setStatus(PurchaseInStockStatus.DRAFT);
+		doReturn(stock).when(service).getById(1L);
+		doReturn(true).when(service).updateById(any(PurchaseInStock.class));
 
-    private PurchaseInStockUploadDto uploadDto(Long warehouseId) {
-        PurchaseInStockUploadDto dto = new PurchaseInStockUploadDto();
-        dto.setWarehouseId(warehouseId);
-        dto.setStorageLocation("A-01");
-        return dto;
-    }
+		service.doApprovePurchaseInStock(1L);
+
+		ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
+		verify(notificationPublisher).publish(captor.capture());
+		assertThat(captor.getValue().getType()).isEqualTo(NotificationType.TASK);
+		assertThat(captor.getValue().getBusiness().getBusinessType()).isEqualTo("PURCHASE_IN_STOCK_PENDING_UPLOAD");
+		assertThat(captor.getValue().getRecipients().getPermissionCodes()).containsExactly("purchase:in:stock:upload");
+		assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
+	}
+
+	@Test
+	void uploadUsesRequestedWarehouseThenUpdatesStatusAndNotifiesPicking() {
+		PurchaseInStock stock = approvedStock();
+		PurchaseInStockUploadDto dto = uploadDto(22L);
+		when(validator.validate(dto)).thenReturn(Set.of());
+		doReturn(stock).when(service).getById(1L);
+		doReturn(true).when(service).updateById(any(PurchaseInStock.class));
+
+		service.uploadPurchaseInStock(1L, dto);
+
+		verify(materialStockService).inboundStock(11L, 22L, new BigDecimal("3"), "PURCHASE_IN_STOCK", "PI-001",
+				"采购入库上架");
+		verify(productionPickingService).notifyPickingForInStock(11L, 22L);
+		verify(service).updateById(stock);
+		assertThat(stock.getWarehouseId()).isEqualTo(22L);
+		assertThat(stock.getStatus()).isEqualTo(PurchaseInStockStatus.UPLOADED);
+		assertThat(stock.getStorageLocation()).isEqualTo("A-01");
+		assertThat(stock.getInDate()).isNotNull();
+	}
+
+	@Test
+	void uploadStopsBeforeStatusAndNotificationWhenInventoryInboundFails() {
+		PurchaseInStock stock = approvedStock();
+		PurchaseInStockUploadDto dto = uploadDto(null);
+		when(validator.validate(dto)).thenReturn(Set.of());
+		doReturn(stock).when(service).getById(1L);
+		doThrow(new BusinessException(409, "入库失败")).when(materialStockService)
+			.inboundStock(11L, 21L, new BigDecimal("3"), "PURCHASE_IN_STOCK", "PI-001", "采购入库上架");
+
+		assertThatThrownBy(() -> service.uploadPurchaseInStock(1L, dto)).isInstanceOfSatisfying(BusinessException.class,
+				exception -> assertThat(exception.getCode()).isEqualTo(409));
+
+		verify(service, never()).updateById(any(PurchaseInStock.class));
+		verify(productionPickingService, never()).notifyPickingForInStock(any(), any());
+		assertThat(stock.getStatus()).isEqualTo(PurchaseInStockStatus.APPROVED);
+	}
+
+	private PurchaseInStock approvedStock() {
+		PurchaseInStock stock = new PurchaseInStock();
+		stock.setId(1L);
+		stock.setInStockNo("PI-001");
+		stock.setMaterialId(11L);
+		stock.setWarehouseId(21L);
+		stock.setInQuantity(new BigDecimal("3"));
+		stock.setStatus(PurchaseInStockStatus.APPROVED);
+		return stock;
+	}
+
+	private PurchaseInStockUploadDto uploadDto(Long warehouseId) {
+		PurchaseInStockUploadDto dto = new PurchaseInStockUploadDto();
+		dto.setWarehouseId(warehouseId);
+		dto.setStorageLocation("A-01");
+		return dto;
+	}
+
 }

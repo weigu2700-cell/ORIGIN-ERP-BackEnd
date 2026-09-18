@@ -9,7 +9,11 @@ import org.smart.erp.eip.enums.RecipientSelectorType;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RecipientOptionVO {
-    private RecipientSelectorType type;
-    private String value;
-    private String label;
+
+	private RecipientSelectorType type;
+
+	private String value;
+
+	private String label;
+
 }

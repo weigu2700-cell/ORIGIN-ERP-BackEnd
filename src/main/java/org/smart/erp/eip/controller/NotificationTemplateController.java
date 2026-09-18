@@ -16,47 +16,50 @@ import java.util.List;
 @RequestMapping("/eip/notification-templates")
 @Tag(name = "通知模板", description = "通知模板")
 public class NotificationTemplateController {
-    private final NotificationTemplateService service;
 
-    public NotificationTemplateController(NotificationTemplateService service) {
-        this.service = service;
-    }
+	private final NotificationTemplateService service;
 
-    @GetMapping
-    @PreAuthorize("hasAuthority('eip:notification:template:list')")
-    public Result<List<NotificationTemplateDTO>> list(@RequestParam(required = false) String keyword) {
-        return Result.success(service.list(keyword));
-    }
+	public NotificationTemplateController(NotificationTemplateService service) {
+		this.service = service;
+	}
 
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('eip:notification:template:get')")
-    public Result<NotificationTemplateDTO> get(@PathVariable Long id) {
-        return Result.success(service.get(id));
-    }
+	@GetMapping
+	@PreAuthorize("hasAuthority('eip:notification:template:list')")
+	public Result<List<NotificationTemplateDTO>> list(@RequestParam(required = false) String keyword) {
+		return Result.success(service.list(keyword));
+	}
 
-    @PostMapping
-    @PreAuthorize("hasAuthority('eip:notification:template:create')")
-    public Result<NotificationTemplateDTO> create(@RequestBody @Valid NotificationTemplateDTO dto) {
-        return Result.success(service.save(dto));
-    }
+	@GetMapping("/{id}")
+	@PreAuthorize("hasAuthority('eip:notification:template:get')")
+	public Result<NotificationTemplateDTO> get(@PathVariable Long id) {
+		return Result.success(service.get(id));
+	}
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('eip:notification:template:update')")
-    public Result<NotificationTemplateDTO> update(@PathVariable Long id, @RequestBody @Valid NotificationTemplateDTO dto) {
-        return Result.success(service.update(id, dto));
-    }
+	@PostMapping
+	@PreAuthorize("hasAuthority('eip:notification:template:create')")
+	public Result<NotificationTemplateDTO> create(@RequestBody @Valid NotificationTemplateDTO dto) {
+		return Result.success(service.save(dto));
+	}
 
-    @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('eip:notification:template:status')")
-    public Result<Void> status(@PathVariable Long id, @RequestParam Status status) {
-        service.updateStatus(id, status);
-        return Result.success();
-    }
+	@PutMapping("/{id}")
+	@PreAuthorize("hasAuthority('eip:notification:template:update')")
+	public Result<NotificationTemplateDTO> update(@PathVariable Long id,
+			@RequestBody @Valid NotificationTemplateDTO dto) {
+		return Result.success(service.update(id, dto));
+	}
 
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('eip:notification:template:delete')")
-    public Result<Void> delete(@PathVariable Long id) {
-        service.delete(id);
-        return Result.success();
-    }
+	@PutMapping("/{id}/status")
+	@PreAuthorize("hasAuthority('eip:notification:template:status')")
+	public Result<Void> status(@PathVariable Long id, @RequestParam Status status) {
+		service.updateStatus(id, status);
+		return Result.success();
+	}
+
+	@DeleteMapping("/{id}")
+	@PreAuthorize("hasAuthority('eip:notification:template:delete')")
+	public Result<Void> delete(@PathVariable Long id) {
+		service.delete(id);
+		return Result.success();
+	}
+
 }

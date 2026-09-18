@@ -45,162 +45,161 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ProductionPickingServiceImplTests {
 
-    @Mock
-    private BusinessNoGenerator businessNoGenerator;
-    @Mock
-    private ProductionPickingMapper productionPickingMapper;
-    @Mock
-    private ProductionOrderMapper productionOrderMapper;
-    @Mock
-    private MaterialMapper materialMapper;
-    @Mock
-    private WarehouseMapper warehouseMapper;
-    @Mock
-    private PurchaseDemandMapper purchaseDemandMapper;
-    @Mock
-    private BOMService bomService;
-    @Mock
-    private MaterialStockService materialStockService;
-    @Mock
-    private NotificationPublisher notificationPublisher;
+	@Mock
+	private BusinessNoGenerator businessNoGenerator;
 
-    private ProductionPickingServiceImpl service;
+	@Mock
+	private ProductionPickingMapper productionPickingMapper;
 
-    @BeforeEach
-    void setUp() {
-        TableInfoHelper.initTableInfo(
-                new MapperBuilderAssistant(new MybatisConfiguration(), "picking-test"),
-                ProductionPicking.class);
-        service = new ProductionPickingServiceImpl(
-                businessNoGenerator,
-                productionPickingMapper,
-                productionOrderMapper,
-                materialMapper,
-                warehouseMapper,
-                purchaseDemandMapper,
-                bomService,
-                materialStockService,
-                notificationPublisher);
-    }
+	@Mock
+	private ProductionOrderMapper productionOrderMapper;
 
-    @Test
-    void detailUsesTheSharedVoEnrichment() {
-        ProductionPicking picking = picking();
-        when(productionPickingMapper.selectById(1L)).thenReturn(picking);
-        when(materialMapper.selectByIds(anyCollection())).thenReturn(List.of(material()));
-        when(warehouseMapper.selectByIds(anyCollection())).thenReturn(List.of(warehouse()));
-        when(productionOrderMapper.selectByIds(anyCollection())).thenReturn(List.of(order()));
-        when(purchaseDemandMapper.selectByIds(anyCollection())).thenReturn(List.of(demand()));
+	@Mock
+	private MaterialMapper materialMapper;
 
-        ProductionPickingVo result = service.getProductionPicking(1L);
+	@Mock
+	private WarehouseMapper warehouseMapper;
 
-        assertThat(result.getPickingNo()).isEqualTo("PICK-001");
-        assertThat(result.getMaterialCode()).isEqualTo("MAT-001");
-        assertThat(result.getMaterialName()).isEqualTo("螺栓");
-        assertThat(result.getWarehouseName()).isEqualTo("原料仓");
-        assertThat(result.getProductionOrderNo()).isEqualTo("PO-001");
-        assertThat(result.getPurchaseDemandNo()).isEqualTo("PD-001");
-        assertThat(result.getStatus()).isEqualTo(ProductionPickingStatus.APPROVED);
-    }
+	@Mock
+	private PurchaseDemandMapper purchaseDemandMapper;
 
-    @Test
-    void missingDetailReturnsNotFoundBusinessCode() {
-        when(productionPickingMapper.selectById(99L)).thenReturn(null);
+	@Mock
+	private BOMService bomService;
 
-        assertThatThrownBy(() -> service.getProductionPicking(99L))
-                .isInstanceOfSatisfying(BusinessException.class, exception -> {
-                    assertThat(exception.getCode()).isEqualTo(404);
-                    assertThat(exception.getMessage()).isEqualTo("领料单不存在");
-                });
-    }
+	@Mock
+	private MaterialStockService materialStockService;
 
-    @Test
-    void pageStatusAcceptsStableNumericCodeAndQueriesWithEnumValue() {
-        ProductionPickingPageDto dto = new ProductionPickingPageDto();
-        dto.setStatus(ProductionPickingStatus.APPROVED.getCode());
-        when(productionPickingMapper.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
-            Page<ProductionPicking> page = invocation.getArgument(0);
-            page.setRecords(List.of());
-            return page;
-        });
+	@Mock
+	private NotificationPublisher notificationPublisher;
 
-        service.pageProductionPicking(dto);
+	private ProductionPickingServiceImpl service;
 
-        ArgumentCaptor<LambdaQueryWrapper<ProductionPicking>> queryCaptor =
-                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
-        verify(productionPickingMapper).selectPage(any(Page.class), queryCaptor.capture());
-        assertThat(queryCaptor.getValue().getSqlSegment()).contains("status =");
-        assertThat(queryCaptor.getValue().getParamNameValuePairs().values())
-                .contains(ProductionPickingStatus.APPROVED);
-    }
+	@BeforeEach
+	void setUp() {
+		TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "picking-test"),
+				ProductionPicking.class);
+		service = new ProductionPickingServiceImpl(businessNoGenerator, productionPickingMapper, productionOrderMapper,
+				materialMapper, warehouseMapper, purchaseDemandMapper, bomService, materialStockService,
+				notificationPublisher);
+	}
 
-    @Test
-    void pageRejectsUnknownStatusCode() {
-        ProductionPickingPageDto dto = new ProductionPickingPageDto();
-        dto.setStatus(99);
+	@Test
+	void detailUsesTheSharedVoEnrichment() {
+		ProductionPicking picking = picking();
+		when(productionPickingMapper.selectById(1L)).thenReturn(picking);
+		when(materialMapper.selectByIds(anyCollection())).thenReturn(List.of(material()));
+		when(warehouseMapper.selectByIds(anyCollection())).thenReturn(List.of(warehouse()));
+		when(productionOrderMapper.selectByIds(anyCollection())).thenReturn(List.of(order()));
+		when(purchaseDemandMapper.selectByIds(anyCollection())).thenReturn(List.of(demand()));
 
-        assertThatThrownBy(() -> service.pageProductionPicking(dto))
-                .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.getCode()).isEqualTo(400));
-    }
+		ProductionPickingVo result = service.getProductionPicking(1L);
 
-    @Test
-    void approvingDraftPublishesPickingReadyNotification() {
-        ProductionPicking picking = picking();
-        picking.setStatus(ProductionPickingStatus.DRAFT);
-        when(productionPickingMapper.selectById(1L)).thenReturn(picking);
-        when(productionPickingMapper.updateById(any(ProductionPicking.class))).thenReturn(1);
+		assertThat(result.getPickingNo()).isEqualTo("PICK-001");
+		assertThat(result.getMaterialCode()).isEqualTo("MAT-001");
+		assertThat(result.getMaterialName()).isEqualTo("螺栓");
+		assertThat(result.getWarehouseName()).isEqualTo("原料仓");
+		assertThat(result.getProductionOrderNo()).isEqualTo("PO-001");
+		assertThat(result.getPurchaseDemandNo()).isEqualTo("PD-001");
+		assertThat(result.getStatus()).isEqualTo(ProductionPickingStatus.APPROVED);
+	}
 
-        service.approvePicking(1L);
+	@Test
+	void missingDetailReturnsNotFoundBusinessCode() {
+		when(productionPickingMapper.selectById(99L)).thenReturn(null);
 
-        ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
-        verify(notificationPublisher).publish(captor.capture());
-        assertThat(captor.getValue().getType()).isEqualTo(NotificationType.TASK);
-        assertThat(captor.getValue().getBusiness().getBusinessType()).isEqualTo("PRODUCTION_PICKING_READY");
-        assertThat(captor.getValue().getBusiness().getBusinessId()).isEqualTo(1L);
-        assertThat(captor.getValue().getRecipients().getPermissionCodes())
-                .containsExactly("production:picking:confirm");
-        assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
-    }
+		assertThatThrownBy(() -> service.getProductionPicking(99L)).isInstanceOfSatisfying(BusinessException.class,
+				exception -> {
+					assertThat(exception.getCode()).isEqualTo(404);
+					assertThat(exception.getMessage()).isEqualTo("领料单不存在");
+				});
+	}
 
-    private ProductionPicking picking() {
-        ProductionPicking picking = new ProductionPicking();
-        picking.setId(1L);
-        picking.setPickingNo("PICK-001");
-        picking.setMaterialId(11L);
-        picking.setWarehouseId(21L);
-        picking.setProductionOrderId(31L);
-        picking.setPurchaseDemandId(41L);
-        picking.setStatus(ProductionPickingStatus.APPROVED);
-        return picking;
-    }
+	@Test
+	void pageStatusAcceptsStableNumericCodeAndQueriesWithEnumValue() {
+		ProductionPickingPageDto dto = new ProductionPickingPageDto();
+		dto.setStatus(ProductionPickingStatus.APPROVED.getCode());
+		when(productionPickingMapper.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
+			Page<ProductionPicking> page = invocation.getArgument(0);
+			page.setRecords(List.of());
+			return page;
+		});
 
-    private Material material() {
-        Material material = new Material();
-        material.setId(11L);
-        material.setCode("MAT-001");
-        material.setName("螺栓");
-        return material;
-    }
+		service.pageProductionPicking(dto);
 
-    private Warehouse warehouse() {
-        Warehouse warehouse = new Warehouse();
-        warehouse.setId(21L);
-        warehouse.setName("原料仓");
-        return warehouse;
-    }
+		ArgumentCaptor<LambdaQueryWrapper<ProductionPicking>> queryCaptor = ArgumentCaptor
+			.forClass(LambdaQueryWrapper.class);
+		verify(productionPickingMapper).selectPage(any(Page.class), queryCaptor.capture());
+		assertThat(queryCaptor.getValue().getSqlSegment()).contains("status =");
+		assertThat(queryCaptor.getValue().getParamNameValuePairs().values()).contains(ProductionPickingStatus.APPROVED);
+	}
 
-    private ProductionOrder order() {
-        ProductionOrder order = new ProductionOrder();
-        order.setId(31L);
-        order.setProductionOrderNo("PO-001");
-        return order;
-    }
+	@Test
+	void pageRejectsUnknownStatusCode() {
+		ProductionPickingPageDto dto = new ProductionPickingPageDto();
+		dto.setStatus(99);
 
-    private PurchaseDemand demand() {
-        PurchaseDemand demand = new PurchaseDemand();
-        demand.setId(41L);
-        demand.setPurchaseDemandNo("PD-001");
-        return demand;
-    }
+		assertThatThrownBy(() -> service.pageProductionPicking(dto)).isInstanceOfSatisfying(BusinessException.class,
+				exception -> assertThat(exception.getCode()).isEqualTo(400));
+	}
+
+	@Test
+	void approvingDraftPublishesPickingReadyNotification() {
+		ProductionPicking picking = picking();
+		picking.setStatus(ProductionPickingStatus.DRAFT);
+		when(productionPickingMapper.selectById(1L)).thenReturn(picking);
+		when(productionPickingMapper.updateById(any(ProductionPicking.class))).thenReturn(1);
+
+		service.approvePicking(1L);
+
+		ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
+		verify(notificationPublisher).publish(captor.capture());
+		assertThat(captor.getValue().getType()).isEqualTo(NotificationType.TASK);
+		assertThat(captor.getValue().getBusiness().getBusinessType()).isEqualTo("PRODUCTION_PICKING_READY");
+		assertThat(captor.getValue().getBusiness().getBusinessId()).isEqualTo(1L);
+		assertThat(captor.getValue().getRecipients().getPermissionCodes())
+			.containsExactly("production:picking:confirm");
+		assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
+	}
+
+	private ProductionPicking picking() {
+		ProductionPicking picking = new ProductionPicking();
+		picking.setId(1L);
+		picking.setPickingNo("PICK-001");
+		picking.setMaterialId(11L);
+		picking.setWarehouseId(21L);
+		picking.setProductionOrderId(31L);
+		picking.setPurchaseDemandId(41L);
+		picking.setStatus(ProductionPickingStatus.APPROVED);
+		return picking;
+	}
+
+	private Material material() {
+		Material material = new Material();
+		material.setId(11L);
+		material.setCode("MAT-001");
+		material.setName("螺栓");
+		return material;
+	}
+
+	private Warehouse warehouse() {
+		Warehouse warehouse = new Warehouse();
+		warehouse.setId(21L);
+		warehouse.setName("原料仓");
+		return warehouse;
+	}
+
+	private ProductionOrder order() {
+		ProductionOrder order = new ProductionOrder();
+		order.setId(31L);
+		order.setProductionOrderNo("PO-001");
+		return order;
+	}
+
+	private PurchaseDemand demand() {
+		PurchaseDemand demand = new PurchaseDemand();
+		demand.setId(41L);
+		demand.setPurchaseDemandNo("PD-001");
+		return demand;
+	}
+
 }

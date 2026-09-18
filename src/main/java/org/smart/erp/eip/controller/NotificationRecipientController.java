@@ -18,17 +18,19 @@ import java.util.List;
 @RequestMapping("/eip")
 @Tag(name = "通知收件人", description = "通知收件人")
 public class NotificationRecipientController {
-    private final RecipientDirectory directory;
 
-    public NotificationRecipientController(RecipientDirectory directory) {
-        this.directory = directory;
-    }
+	private final RecipientDirectory directory;
 
-    @GetMapping("/notification-recipient-options")
-    @Operation(summary = "查询可选通知收件人")
-    @PreAuthorize("hasAnyAuthority('eip:notification:recipient:list', 'eip:notification:publish')")
-    public Result<List<RecipientOptionVO>> options(@RequestParam RecipientSelectorType type,
-                                                   @RequestParam(required = false) String keyword) {
-        return Result.success(directory.options(type, keyword));
-    }
+	public NotificationRecipientController(RecipientDirectory directory) {
+		this.directory = directory;
+	}
+
+	@GetMapping("/notification-recipient-options")
+	@Operation(summary = "查询可选通知收件人")
+	@PreAuthorize("hasAnyAuthority('eip:notification:recipient:list', 'eip:notification:publish')")
+	public Result<List<RecipientOptionVO>> options(@RequestParam RecipientSelectorType type,
+			@RequestParam(required = false) String keyword) {
+		return Result.success(directory.options(type, keyword));
+	}
+
 }
