@@ -214,6 +214,18 @@ public class ProductionPickingServiceImpl
         }
         save(productionPicking);
 
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.BUSINESS,
+                "新增生产领料单",
+                "生产领料单" + productionPicking.getPickingNo() + "已经创建，请及时处理",
+                NotificationBusinessRefDTO.of(
+                        "PRODUCTION_PICKING_DART",
+                        productionPicking.getId(),
+                        productionPicking.getPickingNo()
+                ),
+                RecipientSelectorDTO.permissions(Set.of("production:picking:approve"), true)
+        ));
+
         // 说明：草稿领料单仅登记计划，实际库存出库（materialStockService.outboundStock）
         // 应在领料单确认/领料（状态流转至 PICKED）时执行，而非新增草稿阶段。
     }
@@ -306,6 +318,18 @@ public class ProductionPickingServiceImpl
                 order.setStatus(ProductionOrderStatus.IN_PROGRESS);
                 order.setActualStartTime(LocalDateTime.now());
                 productionOrderMapper.updateById(order);
+
+                notificationPublisher.publish(NotificationPublishDTO.business(
+                        NotificationType.BUSINESS,
+                        "生产领料已经完成",
+                        "生产订单" + order.getProductionOrderNo() + "已经下达生产",
+                        NotificationBusinessRefDTO.of(
+                                "PRODUCTION_PICKING_CONFIRM",
+                                picking.getId(),
+                                picking.getPickingNo()
+                        ),
+                        RecipientSelectorDTO.permissions(Set.of("production:order"),true)
+                ));
             }
         }
     }

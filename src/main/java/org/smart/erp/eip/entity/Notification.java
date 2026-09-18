@@ -12,9 +12,9 @@ import org.smart.erp.eip.enums.NotificationType;
 
 import java.time.LocalDateTime;
 
-/** 个人收件箱记录；字段与既有 sys_notification JSON 合同保持一致。 */
+/** 个人收件箱记录；字段与既有通知 JSON 合同保持一致。 */
 @Data
-@TableName("sys_notification")
+@TableName("eip_notification")
 public class Notification {
 
 	@TableId(value = "id", type = IdType.ASSIGN_ID)

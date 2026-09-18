@@ -19,6 +19,8 @@ public class MenuTreeVo {
 
     private String icon;
 
+    private Integer visible;
+
     private Long parentId;
 
     private List<MenuTreeVo> children;

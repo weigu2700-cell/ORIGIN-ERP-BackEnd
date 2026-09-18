@@ -1,35 +1,32 @@
 package org.smart.erp.eip.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
+import lombok.extern.jackson.Jacksonized;
 import org.smart.erp.eip.enums.NotificationSourceType;
 import org.smart.erp.eip.enums.NotificationType;
 
-/** 冻结的 EIP 通知发布边界；业务方只需提交一个参数对象。 */
+/** 业务模块发布通知的参数对象。 */
 @Data
-@Builder
+@EqualsAndHashCode(callSuper = true)
+@SuperBuilder
 @NoArgsConstructor
-@AllArgsConstructor
-public class NotificationPublishDTO {
-
-	private String requestId;
+@Jacksonized
+public class NotificationPublishDTO extends AbstractNotificationPublishDTO {
 
 	private NotificationSourceType sourceType;
 
-	private NotificationType type;
-
-	private String title;
-
-	private String content;
-
 	private NotificationBusinessRefDTO business;
 
-	private RecipientSelectorDTO recipients;
-
-	public static NotificationPublishDTO business(NotificationType type, String title, String content,
-			NotificationBusinessRefDTO business, RecipientSelectorDTO recipients) {
+	public static NotificationPublishDTO business(
+			NotificationType type,
+			String title,
+			String content,
+			NotificationBusinessRefDTO business,
+			RecipientSelectorDTO recipients
+	) {
 		if (business == null || business.getBusinessType() == null || business.getBusinessId() == null) {
 			throw new IllegalArgumentException("业务通知必须提供业务类型和业务ID");
 		}

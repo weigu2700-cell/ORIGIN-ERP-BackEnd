@@ -1,6 +1,7 @@
 package org.smart.erp.eip.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
+import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.eip.converter.NotificationConverter;
 import org.smart.erp.eip.entity.Notification;
 import org.smart.erp.eip.entity.NotificationPublish;
@@ -47,7 +48,7 @@ public class NotificationPersistenceServiceImpl implements NotificationPersisten
 	@Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
 	public void persist(NotificationPublishEvent event, Set<Long> recipientIds) {
 		if (recipientIds == null || recipientIds.isEmpty()) {
-			return;
+			throw new BusinessException(422, "未解析到有效通知收件人");
 		}
 
 		NotificationPublish publish = converter.toPublish(event.getPublish(), event.getRequestId());

@@ -137,7 +137,9 @@ public class ProductionDemandServiceImpl
                 "生产需求「" + productionDemand.getDemandNo() + "」已自动生成生产订单，请及时审核下达",
                 NotificationBusinessRefDTO.of(
                         "PRODUCTION_DEMAND_PLANNED",
-                        productionDemand.getId(), productionDemand.getDemandNo()),
+                        productionDemand.getId(),
+                        productionDemand.getDemandNo()
+                ),
                 RecipientSelectorDTO.permissions(Set.of("production:order:release"), true)));
     }
 

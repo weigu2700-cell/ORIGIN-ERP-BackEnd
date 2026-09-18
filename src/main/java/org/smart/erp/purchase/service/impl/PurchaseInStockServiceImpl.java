@@ -121,11 +121,14 @@ public class PurchaseInStockServiceImpl
             throw new BusinessException(500, "采购入库单创建失败");
         }
         notificationPublisher.publish(NotificationPublishDTO.business(
-                NotificationType.TASK, "待审批采购入库单",
+                NotificationType.TASK,
+                "待审批采购入库单",
                 "采购入库单 " + purchaseInStock.getInStockNo() + " 已创建，请及时审批。",
                 NotificationBusinessRefDTO.of(
                         "PURCHASE_IN_STOCK_PENDING_APPROVAL",
-                        purchaseInStock.getId(), purchaseInStock.getInStockNo()),
+                        purchaseInStock.getId(),
+                        purchaseInStock.getInStockNo()
+                ),
                 RecipientSelectorDTO.permissions(Set.of("purchase:in:stock:approve"), true)));
 
     }
@@ -262,11 +265,13 @@ public class PurchaseInStockServiceImpl
             throw new BusinessException(409, "采购入库单状态更新失败，请刷新后重试");
         }
         notificationPublisher.publish(NotificationPublishDTO.business(
-                NotificationType.TASK, "待上架采购入库单",
+                NotificationType.TASK,
+                "待上架采购入库单",
                 "采购入库单 " + purchaseInStock.getInStockNo() + " 已审批通过，请及时上架。",
                 NotificationBusinessRefDTO.of(
                         "PURCHASE_IN_STOCK_PENDING_UPLOAD",
-                        purchaseInStock.getId(), purchaseInStock.getInStockNo()),
+                        purchaseInStock.getId(), purchaseInStock.getInStockNo()
+                ),
                 RecipientSelectorDTO.permissions(Set.of("purchase:in:stock:upload"), true)));
     }
 

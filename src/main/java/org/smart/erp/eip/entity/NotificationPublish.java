@@ -8,7 +8,7 @@ import org.smart.erp.eip.enums.NotificationType;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_notification_publish")
+@TableName("eip_notification_publish")
 public class NotificationPublish {
 
 	@TableId(value = "id", type = IdType.ASSIGN_ID)

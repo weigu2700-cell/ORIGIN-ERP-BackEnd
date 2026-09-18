@@ -1,12 +1,45 @@
 -- EIP notification expansion. This script is safe to run repeatedly and never removes business rows.
 -- It intentionally lives only under sql/migrations; do not duplicate it under sql/sql or sql/smart-erp.
 
-CREATE TABLE IF NOT EXISTS `smart-erp`.sys_notification (
+-- 兼容已执行早期版本的安装：仅在新表不存在时保留原数据并重命名。
+SET @eip_rename_inbox = IF(
+    (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification') > 0
+    AND (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification') = 0,
+    'RENAME TABLE `smart-erp`.sys_notification TO `smart-erp`.eip_notification', 'SELECT 1');
+PREPARE eip_rename_inbox_stmt FROM @eip_rename_inbox;
+EXECUTE eip_rename_inbox_stmt;
+DEALLOCATE PREPARE eip_rename_inbox_stmt;
+
+SET @eip_rename_publish = IF(
+    (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification_publish') > 0
+    AND (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification_publish') = 0,
+    'RENAME TABLE `smart-erp`.sys_notification_publish TO `smart-erp`.eip_notification_publish', 'SELECT 1');
+PREPARE eip_rename_publish_stmt FROM @eip_rename_publish;
+EXECUTE eip_rename_publish_stmt;
+DEALLOCATE PREPARE eip_rename_publish_stmt;
+
+SET @eip_rename_template = IF(
+    (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification_template') > 0
+    AND (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification_template') = 0,
+    'RENAME TABLE `smart-erp`.sys_notification_template TO `smart-erp`.eip_notification_template', 'SELECT 1');
+PREPARE eip_rename_template_stmt FROM @eip_rename_template;
+EXECUTE eip_rename_template_stmt;
+DEALLOCATE PREPARE eip_rename_template_stmt;
+
+SET @eip_rename_template_recipient = IF(
+    (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification_template_recipient') > 0
+    AND (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification_template_recipient') = 0,
+    'RENAME TABLE `smart-erp`.sys_notification_template_recipient TO `smart-erp`.eip_notification_template_recipient', 'SELECT 1');
+PREPARE eip_rename_template_recipient_stmt FROM @eip_rename_template_recipient;
+EXECUTE eip_rename_template_recipient_stmt;
+DEALLOCATE PREPARE eip_rename_template_recipient_stmt;
+
+CREATE TABLE IF NOT EXISTS `smart-erp`.eip_notification (
     id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     type TINYINT NOT NULL,
     title VARCHAR(200) NOT NULL,
-    content TEXT NOT NULL,
+    content LONGTEXT NOT NULL,
     business_id BIGINT NULL,
     business_no VARCHAR(100) NULL,
     business_type VARCHAR(100) NULL,
@@ -23,31 +56,31 @@ CREATE TABLE IF NOT EXISTS `smart-erp`.sys_notification (
 
 SET @eip_has_publish_id = (
     SELECT COUNT(*) FROM information_schema.columns
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification' AND column_name = 'publish_id'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification' AND column_name = 'publish_id'
 );
 SET @eip_add_publish_id = IF(@eip_has_publish_id = 0,
-    'ALTER TABLE `smart-erp`.sys_notification ADD COLUMN publish_id BIGINT NULL', 'SELECT 1');
+    'ALTER TABLE `smart-erp`.eip_notification ADD COLUMN publish_id BIGINT NULL', 'SELECT 1');
 PREPARE eip_add_publish_id_stmt FROM @eip_add_publish_id;
 EXECUTE eip_add_publish_id_stmt;
 DEALLOCATE PREPARE eip_add_publish_id_stmt;
 
 SET @eip_has_publish_index = (
     SELECT COUNT(*) FROM information_schema.statistics
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification' AND index_name = 'idx_notification_publish_id'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification' AND index_name = 'idx_notification_publish_id'
 );
 SET @eip_add_publish_index = IF(@eip_has_publish_index = 0,
-    'ALTER TABLE `smart-erp`.sys_notification ADD KEY idx_notification_publish_id (publish_id)', 'SELECT 1');
+    'ALTER TABLE `smart-erp`.eip_notification ADD KEY idx_notification_publish_id (publish_id)', 'SELECT 1');
 PREPARE eip_add_publish_index_stmt FROM @eip_add_publish_index;
 EXECUTE eip_add_publish_index_stmt;
 DEALLOCATE PREPARE eip_add_publish_index_stmt;
 
 SET @eip_has_publish_user_key = (
     SELECT COUNT(*) FROM information_schema.statistics
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification'
       AND index_name = 'uk_notification_publish_user'
 );
 SET @eip_add_publish_user_key = IF(@eip_has_publish_user_key = 0,
-    'ALTER TABLE `smart-erp`.sys_notification ADD UNIQUE KEY uk_notification_publish_user (publish_id, user_id)',
+    'ALTER TABLE `smart-erp`.eip_notification ADD UNIQUE KEY uk_notification_publish_user (publish_id, user_id)',
     'SELECT 1');
 PREPARE eip_add_publish_user_key_stmt FROM @eip_add_publish_user_key;
 EXECUTE eip_add_publish_user_key_stmt;
@@ -55,11 +88,11 @@ DEALLOCATE PREPARE eip_add_publish_user_key_stmt;
 
 SET @eip_has_inbox_index = (
     SELECT COUNT(*) FROM information_schema.statistics
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification'
       AND index_name = 'idx_notification_inbox'
 );
 SET @eip_add_inbox_index = IF(@eip_has_inbox_index = 0,
-    'ALTER TABLE `smart-erp`.sys_notification ADD KEY idx_notification_inbox (user_id, is_read, create_time, id)',
+    'ALTER TABLE `smart-erp`.eip_notification ADD KEY idx_notification_inbox (user_id, is_read, create_time, id)',
     'SELECT 1');
 PREPARE eip_add_inbox_index_stmt FROM @eip_add_inbox_index;
 EXECUTE eip_add_inbox_index_stmt;
@@ -67,23 +100,23 @@ DEALLOCATE PREPARE eip_add_inbox_index_stmt;
 
 SET @eip_has_business_index = (
     SELECT COUNT(*) FROM information_schema.statistics
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification'
       AND index_name = 'idx_notification_business'
 );
 SET @eip_add_business_index = IF(@eip_has_business_index = 0,
-    'ALTER TABLE `smart-erp`.sys_notification ADD KEY idx_notification_business (business_type, business_id)',
+    'ALTER TABLE `smart-erp`.eip_notification ADD KEY idx_notification_business (business_type, business_id)',
     'SELECT 1');
 PREPARE eip_add_business_index_stmt FROM @eip_add_business_index;
 EXECUTE eip_add_business_index_stmt;
 DEALLOCATE PREPARE eip_add_business_index_stmt;
 
-CREATE TABLE IF NOT EXISTS `smart-erp`.sys_notification_publish (
+CREATE TABLE IF NOT EXISTS `smart-erp`.eip_notification_publish (
     id BIGINT NOT NULL,
     request_id VARCHAR(100) NOT NULL,
     source_type VARCHAR(20) NOT NULL,
     type TINYINT NOT NULL,
     title VARCHAR(200) NOT NULL,
-    content TEXT NOT NULL,
+    content LONGTEXT NOT NULL,
     business_type VARCHAR(100) NULL,
     business_id BIGINT NULL,
     business_no VARCHAR(100) NULL,
@@ -98,41 +131,41 @@ CREATE TABLE IF NOT EXISTS `smart-erp`.sys_notification_publish (
 -- Upgrade installations that already have a publish table from an earlier EIP preview.
 SET @eip_has_request_id = (
     SELECT COUNT(*) FROM information_schema.columns
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification_publish' AND column_name = 'request_id'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification_publish' AND column_name = 'request_id'
 );
 SET @eip_add_request_id = IF(@eip_has_request_id = 0,
-    'ALTER TABLE `smart-erp`.sys_notification_publish ADD COLUMN request_id VARCHAR(100) NULL', 'SELECT 1');
+    'ALTER TABLE `smart-erp`.eip_notification_publish ADD COLUMN request_id VARCHAR(100) NULL', 'SELECT 1');
 PREPARE eip_add_request_id_stmt FROM @eip_add_request_id;
 EXECUTE eip_add_request_id_stmt;
 DEALLOCATE PREPARE eip_add_request_id_stmt;
 
 SET @eip_has_source_type = (
     SELECT COUNT(*) FROM information_schema.columns
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification_publish' AND column_name = 'source_type'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification_publish' AND column_name = 'source_type'
 );
 SET @eip_add_source_type = IF(@eip_has_source_type = 0,
-    'ALTER TABLE `smart-erp`.sys_notification_publish ADD COLUMN source_type VARCHAR(20) NULL', 'SELECT 1');
+    'ALTER TABLE `smart-erp`.eip_notification_publish ADD COLUMN source_type VARCHAR(20) NULL', 'SELECT 1');
 PREPARE eip_add_source_type_stmt FROM @eip_add_source_type;
 EXECUTE eip_add_source_type_stmt;
 DEALLOCATE PREPARE eip_add_source_type_stmt;
 
 SET @eip_has_type = (
     SELECT COUNT(*) FROM information_schema.columns
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification_publish' AND column_name = 'type'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification_publish' AND column_name = 'type'
 );
 SET @eip_add_type = IF(@eip_has_type = 0,
-    'ALTER TABLE `smart-erp`.sys_notification_publish ADD COLUMN type TINYINT NULL', 'SELECT 1');
+    'ALTER TABLE `smart-erp`.eip_notification_publish ADD COLUMN type TINYINT NULL', 'SELECT 1');
 PREPARE eip_add_type_stmt FROM @eip_add_type;
 EXECUTE eip_add_type_stmt;
 DEALLOCATE PREPARE eip_add_type_stmt;
 
 SET @eip_has_publish_request_key = (
     SELECT COUNT(*) FROM information_schema.statistics
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification_publish'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification_publish'
       AND index_name = 'uk_notification_publish_request'
 );
 SET @eip_add_publish_request_key = IF(@eip_has_publish_request_key = 0,
-    'ALTER TABLE `smart-erp`.sys_notification_publish ADD UNIQUE KEY uk_notification_publish_request (request_id)',
+    'ALTER TABLE `smart-erp`.eip_notification_publish ADD UNIQUE KEY uk_notification_publish_request (request_id)',
     'SELECT 1');
 PREPARE eip_add_publish_request_key_stmt FROM @eip_add_publish_request_key;
 EXECUTE eip_add_publish_request_key_stmt;
@@ -140,22 +173,22 @@ DEALLOCATE PREPARE eip_add_publish_request_key_stmt;
 
 SET @eip_has_publish_business_index = (
     SELECT COUNT(*) FROM information_schema.statistics
-    WHERE table_schema = 'smart-erp' AND table_name = 'sys_notification_publish'
+    WHERE table_schema = 'smart-erp' AND table_name = 'eip_notification_publish'
       AND index_name = 'idx_notification_publish_business'
 );
 SET @eip_add_publish_business_index = IF(@eip_has_publish_business_index = 0,
-    'ALTER TABLE `smart-erp`.sys_notification_publish ADD KEY idx_notification_publish_business (business_type, business_id)',
+    'ALTER TABLE `smart-erp`.eip_notification_publish ADD KEY idx_notification_publish_business (business_type, business_id)',
     'SELECT 1');
 PREPARE eip_add_publish_business_index_stmt FROM @eip_add_publish_business_index;
 EXECUTE eip_add_publish_business_index_stmt;
 DEALLOCATE PREPARE eip_add_publish_business_index_stmt;
 
-CREATE TABLE IF NOT EXISTS `smart-erp`.sys_notification_template (
+CREATE TABLE IF NOT EXISTS `smart-erp`.eip_notification_template (
     id BIGINT NOT NULL,
     code VARCHAR(100) NOT NULL,
     name VARCHAR(200) NOT NULL,
     title_template VARCHAR(200) NOT NULL,
-    content_template TEXT NOT NULL,
+    content_template LONGTEXT NOT NULL,
     notification_type TINYINT NOT NULL DEFAULT 0,
     status TINYINT NOT NULL DEFAULT 1,
     remark VARCHAR(500) NULL,
@@ -166,7 +199,7 @@ CREATE TABLE IF NOT EXISTS `smart-erp`.sys_notification_template (
     KEY idx_notification_template_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `smart-erp`.sys_notification_template_recipient (
+CREATE TABLE IF NOT EXISTS `smart-erp`.eip_notification_template_recipient (
     id BIGINT NOT NULL,
     template_id BIGINT NOT NULL,
     selector_type VARCHAR(32) NOT NULL,
@@ -181,15 +214,20 @@ CREATE TABLE IF NOT EXISTS `smart-erp`.sys_notification_template_recipient (
 SET @eip_has_recipient_include_children = (
     SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema = 'smart-erp'
-      AND table_name = 'sys_notification_template_recipient'
+      AND table_name = 'eip_notification_template_recipient'
       AND column_name = 'include_children'
 );
 SET @eip_add_recipient_include_children = IF(@eip_has_recipient_include_children = 0,
-    'ALTER TABLE `smart-erp`.sys_notification_template_recipient ADD COLUMN include_children TINYINT(1) NOT NULL DEFAULT 0',
+    'ALTER TABLE `smart-erp`.eip_notification_template_recipient ADD COLUMN include_children TINYINT(1) NOT NULL DEFAULT 0',
     'SELECT 1');
 PREPARE eip_add_recipient_include_children_stmt FROM @eip_add_recipient_include_children;
 EXECUTE eip_add_recipient_include_children_stmt;
 DEALLOCATE PREPARE eip_add_recipient_include_children_stmt;
+
+-- 富文本正文可能包含图片 base64 或较长的 HTML，不能沿用旧收件箱的 VARCHAR(255)。
+ALTER TABLE `smart-erp`.eip_notification MODIFY COLUMN content LONGTEXT NOT NULL;
+ALTER TABLE `smart-erp`.eip_notification_publish MODIFY COLUMN content LONGTEXT NOT NULL;
+ALTER TABLE `smart-erp`.eip_notification_template MODIFY COLUMN content_template LONGTEXT NOT NULL;
 
 -- Permission seeds are conditional and therefore safe with existing installations.
 INSERT INTO `smart-erp`.sys_permission

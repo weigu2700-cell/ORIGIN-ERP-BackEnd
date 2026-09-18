@@ -28,6 +28,11 @@ import org.smart.erp.sales.service.SalesDeliveryService;
 import org.smart.erp.sales.service.SalesOrderItemService;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.sales.vo.SalesOrderItemVo;
+import org.smart.erp.eip.dto.NotificationBusinessRefDTO;
+import org.smart.erp.eip.dto.NotificationPublishDTO;
+import org.smart.erp.eip.dto.RecipientSelectorDTO;
+import org.smart.erp.eip.enums.NotificationType;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.smart.erp.sales.vo.SalesOrderVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -57,6 +62,7 @@ public class SalesOrderServiceImpl
     private final SalesDeliveryMapper salesDeliveryMapper;
     private final SalesDeliveryService salesDeliveryService;
     private final ProductionDemandService productionDemandService;
+    private final NotificationPublisher notificationPublisher;
 
     public SalesOrderServiceImpl(
             SalesOrderMapper salesOrderMapper,
@@ -68,7 +74,8 @@ public class SalesOrderServiceImpl
             WarehouseMapper warehouseMapper,
             SalesDeliveryMapper salesDeliveryMapper,
             SalesDeliveryService salesDeliveryService,
-            ProductionDemandService productionDemandService
+            ProductionDemandService productionDemandService,
+            NotificationPublisher notificationPublisher
     )
     {
         this.salesOrderMapper = salesOrderMapper;
@@ -81,6 +88,7 @@ public class SalesOrderServiceImpl
         this.salesDeliveryMapper = salesDeliveryMapper;
         this.salesDeliveryService = salesDeliveryService;
         this.productionDemandService = productionDemandService;
+        this.notificationPublisher = notificationPublisher;
     }
     //业务封装：------------------------------------------------
 
@@ -173,6 +181,14 @@ public class SalesOrderServiceImpl
 
         salesOrder.setTotalAmount(totalAmount);
         salesOrderMapper.updateById(salesOrder);
+
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.TASK,
+                "待确认销售订单",
+                "销售订单 " + salesOrder.getOrderNo() + " 已创建，请及时确认。",
+                NotificationBusinessRefDTO.of(
+                        "SALES_ORDER_PENDING_CONFIRM", salesOrder.getId(), salesOrder.getOrderNo()),
+                RecipientSelectorDTO.permissions(Set.of("sales:order:confirm"), true)));
 
         SalesOrderVo salesOrderVo = new SalesOrderVo();
         String customerName = customer.getName();
@@ -340,7 +356,7 @@ public class SalesOrderServiceImpl
     @Transactional(rollbackFor = Exception.class)
     public SalesOrderVo confirmSalesOrderById(Long id, SalesOrderUpdateDto dto) {
 
-        return changeStatus(
+        SalesOrderVo vo = changeStatus(
                 id,
                 SalesOrderStatus.DRAFT,
                 SalesOrderStatus.CONFIRMED,
@@ -359,12 +375,21 @@ public class SalesOrderServiceImpl
                     }
                 }
         );
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.BUSINESS,
+                "销售订单已确认",
+                "销售订单 " + vo.getOrderNo() + " 已确认，请安排发货。",
+                NotificationBusinessRefDTO.of(
+                        "SALES_ORDER_CONFIRMED", id, vo.getOrderNo()),
+                RecipientSelectorDTO.permissions(
+                        Set.of("sales:order:create", "sales:delivery:complete"), true)));
+        return vo;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesOrderVo cancelSalesOrderById(Long id, SalesOrderUpdateDto dto) {
-        return changeStatus(
+        SalesOrderVo vo = changeStatus(
                 id,
                 SalesOrderStatus.CONFIRMED,
                 SalesOrderStatus.CANCELLED,
@@ -388,6 +413,14 @@ public class SalesOrderServiceImpl
                     productionDemandService.cancelBySalesOrder(current.getOrderNo());
                 }
         );
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.BUSINESS,
+                "销售订单已取消",
+                "销售订单 " + vo.getOrderNo() + " 已取消。",
+                NotificationBusinessRefDTO.of(
+                        "SALES_ORDER_CANCELLED", id, vo.getOrderNo()),
+                RecipientSelectorDTO.permissions(Set.of("sales:order:create"), true)));
+        return vo;
     }
 
     @Override
@@ -417,6 +450,13 @@ public class SalesOrderServiceImpl
         if (salesOrderMapper.updateById(salesOrder) != 1) {
             throw new BusinessException(409, "销售订单已被其他操作修改，请刷新后重试");
         }
+        notificationPublisher.publish(NotificationPublishDTO.business(
+                NotificationType.BUSINESS,
+                "销售订单已完成",
+                "销售订单 " + salesOrder.getOrderNo() + " 已完成。",
+                NotificationBusinessRefDTO.of(
+                        "SALES_ORDER_COMPLETED", salesOrder.getId(), salesOrder.getOrderNo()),
+                RecipientSelectorDTO.permissions(Set.of("sales:order:create"), true)));
     }
 
 }

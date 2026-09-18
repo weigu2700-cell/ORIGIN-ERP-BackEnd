@@ -30,7 +30,8 @@ public class Menu {
 
     private Status status;
 
-    private String permission_code;
+    @TableField("permission_code")
+    private String permissionCode;
 
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField(value = "create_time", fill = FieldFill.INSERT)
