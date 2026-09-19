@@ -200,7 +200,7 @@ public class MaterialStockServiceImpl
     }
 
     @Override
-    public MaterialStockVo getMaterialStockByCode(String materialCode) {
+    public MaterialStockVo listMaterialStockByCode(String materialCode) {
         Material material = materialMapper.selectOne(new LambdaQueryWrapper<Material>()
                 .eq(Material::getCode, materialCode));
         if (material == null) {
