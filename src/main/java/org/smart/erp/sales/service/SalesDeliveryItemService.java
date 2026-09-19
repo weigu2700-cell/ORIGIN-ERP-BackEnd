@@ -1,6 +1,6 @@
 package org.smart.erp.sales.service;
 
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import org.smart.erp.sales.dto.salesDeliveryItemDto.SalesDeliveryItemAddDto;
 import org.smart.erp.sales.entity.SalesDeliveryItem;
 import org.smart.erp.sales.vo.SalesDeliveryItemVo;

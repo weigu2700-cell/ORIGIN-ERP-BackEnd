@@ -2,7 +2,7 @@ package org.smart.erp.sales.service;
 
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import org.smart.erp.sales.dto.salesDeliveryDto.SalesDeliveryAddDto;
 import org.smart.erp.sales.dto.salesDeliveryDto.SalesDeliveryPageDto;
 import org.smart.erp.sales.entity.SalesDelivery;

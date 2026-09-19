@@ -1,7 +1,7 @@
 package org.smart.erp.inventory.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import org.smart.erp.inventory.dto.MaterialStockAddDto;
 import org.smart.erp.inventory.dto.MaterialStockPageDto;
 import org.smart.erp.inventory.entity.MaterialStock;

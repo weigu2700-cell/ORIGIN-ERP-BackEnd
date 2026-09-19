@@ -1,7 +1,7 @@
 package org.smart.erp.master.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.master.dto.FactoryDto.FactoryAddDto;
 import org.smart.erp.master.dto.FactoryDto.FactoryPageDto;

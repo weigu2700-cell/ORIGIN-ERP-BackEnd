@@ -1,7 +1,7 @@
 package org.smart.erp.production.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import org.smart.erp.production.dto.BOMAddDto;
 import org.smart.erp.production.dto.BOMPageDto;
 import org.smart.erp.production.entity.BOM;
