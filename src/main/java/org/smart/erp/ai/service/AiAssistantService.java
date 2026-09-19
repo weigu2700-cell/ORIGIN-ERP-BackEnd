@@ -5,4 +5,5 @@ import org.smart.erp.ai.dto.result.AiAssistantResult;
 
 public interface AiAssistantService {
     AiAssistantResult chat(AiAssistantRequest request);
+
 }

@@ -16,7 +16,7 @@ public interface MaterialStockService extends IService<MaterialStock> {
 
     MaterialStockVo getMaterialStock(Long id);
 
-    MaterialStockVo getMaterialStockByCode(String materialCode);
+    MaterialStockVo listMaterialStockByCode(String materialCode);
 
     void reserveStock(Long materialId, Long warehouseId, BigDecimal quantity,
                       String businessType, String businessNo, String remark);
