@@ -3,6 +3,7 @@ package org.smart.erp.ai.service.impl;
 import org.smart.erp.ai.dto.request.AiAssistantRequest;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
 import org.smart.erp.ai.service.AiAssistantService;
+import org.smart.erp.ai.tool.InventoryTool;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 public class AiAssistantServiceImpl implements AiAssistantService {
 
     private final ChatClient chatClient;
+    private final InventoryTool inventoryTool;
 
     private final String systemPrompt =
             """
@@ -36,8 +38,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 你现在就作为 OriginERP 的 AI 助手，随时准备协助用户处理企业资源管理的各类问题。
             """;
 
-    public AiAssistantServiceImpl(ChatClient.Builder builder) {
+    public AiAssistantServiceImpl(ChatClient.Builder builder, InventoryTool inventoryTool) {
         this.chatClient = builder.defaultSystem(systemPrompt).build();
+        this.inventoryTool = inventoryTool;
     }
 
     @Override
@@ -45,6 +48,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         return new AiAssistantResult(chatClient
                 .prompt()
                 .user(request.message())
+                .tools(inventoryTool)
                 .call()
                 .content()
         );
