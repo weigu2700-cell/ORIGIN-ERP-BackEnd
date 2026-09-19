@@ -199,6 +199,16 @@ public class MaterialStockServiceImpl
         return getMaterialStockVo(materialStock, materialStock.getMaterialId(), materialStock.getWarehouseId());
     }
 
+    @Override
+    public MaterialStockVo getMaterialStockByCode(String materialCode) {
+        Material material = materialMapper.selectOne(new LambdaQueryWrapper<Material>()
+                .eq(Material::getCode, materialCode));
+        if (material == null) {
+            throw new BusinessException(400, "物料不存在");
+        }
+        return getMaterialStock(material.getId());
+    }
+
     // 预留库存
     @Override
     @Transactional(rollbackFor = Exception.class)
