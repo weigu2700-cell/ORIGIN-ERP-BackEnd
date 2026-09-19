@@ -8,6 +8,7 @@
     <img src="https://img.shields.io/badge/Spring_Boot-4.1-6db33f?logo=springboot&logoColor=white" alt="Spring Boot 4.1" />
     <img src="https://img.shields.io/badge/MyBatis--Plus-3.5-2f54eb" alt="MyBatis-Plus 3.5" />
     <img src="https://img.shields.io/badge/MySQL-8-4479a1?logo=mysql&logoColor=white" alt="MySQL 8" />
+    <img src="https://img.shields.io/badge/Spring_AI-2.0-6db33f?logo=spring&logoColor=white" alt="Spring AI 2.0" />
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   </p>
 </div>
@@ -46,6 +47,7 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 | 生产管理 | 生产需求、生产订单、下达/开工/完工/取消与生产领料               |
 | 采购管理 | 采购需求、采购订单、采购入库审核与上架                          |
 | 消息通知 | 通知落库、实时推送、未读统计与单条/全部已读                      |
+| AI 助手  | 基于 Spring AI 的对话助手，支持工具调用查询库存等 ERP 业务数据  |
 
 ## 业务链路
 
@@ -100,6 +102,7 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 | 缓存与单号 | Spring Data Redis、Redisson    |
 | 实时通信   | Spring WebSocket               |
 | 接口文档   | Springdoc OpenAPI 2.8          |
+| AI 能力    | Spring AI 2.0（OpenAI 兼容协议，接入 DeepSeek 大模型） |
 | Excel      | FastExcel                      |
 | 构建工具   | Maven Wrapper                  |
 
@@ -218,6 +221,9 @@ Windows：
 ```powershell
 ./mvnw.cmd spring-boot:run
 ```
+
+> 前置依赖：本地需运行 Redis（默认 `127.0.0.1:6379`）；AI 助手需配置大模型密钥，例如：
+> `AI_API_KEY=sk-xxx ./mvnw spring-boot:run`（当前接入 DeepSeek，模型名见 `application.yaml` 的 `spring.ai.openai`）。
 
 默认服务地址：<http://localhost:8080>
 
@@ -403,6 +409,7 @@ notificationPublisher.publish(publish);
 ```text
 src/main/java/org/smart/erp/
 ├── common/       # 响应、异常、安全、WebSocket、配置、序号、Excel 和通用工具
+├── ai/           # AI 助手：对话服务、Controller 与工具调用（Spring AI）
 ├── system/       # 用户、角色、部门、菜单、权限和认证
 ├── eip/          # 通知实体、DTO、收件人解析、持久化与 WebSocket 适配
 │   ├── entity/ dto/ mapper/ service/ (service/impl/)
