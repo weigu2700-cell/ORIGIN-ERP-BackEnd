@@ -1,7 +1,7 @@
 package org.smart.erp.system.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import org.smart.erp.system.dto.MenuAddDto;
 import org.smart.erp.system.dto.MenuDetailDto;
 import org.smart.erp.system.dto.MenuTreeDto;

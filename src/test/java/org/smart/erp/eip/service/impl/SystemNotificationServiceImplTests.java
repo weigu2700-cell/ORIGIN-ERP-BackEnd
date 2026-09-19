@@ -13,6 +13,7 @@ import org.smart.erp.eip.mapper.NotificationTemplateMapper;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.smart.erp.eip.service.NotificationRecipientResolver;
 import org.smart.erp.eip.service.NotificationTemplateService;
+import org.smart.erp.common.security.CurrentUser;
 
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +38,9 @@ class SystemNotificationServiceImplTests {
 	@Mock
 	private NotificationPublisher publisher;
 
+	@Mock
+	private CurrentUser currentUser;
+
 	@Test
 	void rendersOnlyNamedVariables() {
 		assertThat(SystemNotificationServiceImpl.render("你好，{{name}}", Map.of("name", "顾威"))).isEqualTo("你好，顾威");
@@ -59,7 +63,7 @@ class SystemNotificationServiceImplTests {
 	@Test
 	void directPublishDefaultsToSelectedRecipientsAndKeepsRequestId() {
 		SystemNotificationServiceImpl service = new SystemNotificationServiceImpl(templateMapper, templateService,
-				recipientResolver, publisher);
+				recipientResolver, publisher, currentUser);
 		RecipientSelectorDTO recipients = RecipientSelectorDTO.users(Set.of(7L));
 		SystemNotificationPublishDTO dto = new SystemNotificationPublishDTO();
 		dto.setRequestId("manual-001");

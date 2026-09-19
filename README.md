@@ -5,7 +5,7 @@
 
   <p>
     <img src="https://img.shields.io/badge/Java-21-ed8b00?logo=openjdk&logoColor=white" alt="Java 21" />
-    <img src="https://img.shields.io/badge/Spring_Boot-3.4-6db33f?logo=springboot&logoColor=white" alt="Spring Boot 3.4" />
+    <img src="https://img.shields.io/badge/Spring_Boot-4.1-6db33f?logo=springboot&logoColor=white" alt="Spring Boot 4.1" />
     <img src="https://img.shields.io/badge/MyBatis--Plus-3.5-2f54eb" alt="MyBatis-Plus 3.5" />
     <img src="https://img.shields.io/badge/MySQL-8-4479a1?logo=mysql&logoColor=white" alt="MySQL 8" />
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
@@ -92,14 +92,14 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 | 分类       | 技术                           |
 | ---------- | ------------------------------ |
 | 运行环境   | Java 21                        |
-| 核心框架   | Spring Boot 3.4.5              |
+| 核心框架   | Spring Boot 4.1.0              |
 | Web 与校验 | Spring Web、Jakarta Validation |
 | 认证授权   | Spring Security、JJWT 0.12     |
 | 数据访问   | MyBatis-Plus 3.5               |
 | 数据库     | MySQL 8.x                      |
 | 缓存与单号 | Spring Data Redis、Redisson    |
 | 实时通信   | Spring WebSocket               |
-| 接口文档   | Springdoc OpenAPI 2.7          |
+| 接口文档   | Springdoc OpenAPI 2.8          |
 | Excel      | FastExcel                      |
 | 构建工具   | Maven Wrapper                  |
 
@@ -473,7 +473,7 @@ controller → dto → service → mapper → entity / vo
 以下能力处于规划阶段，尚未落地：
 
 - **通知能力扩展**：增加自动重连、心跳、多设备会话、消息模板和更多业务事件接入。
-- **AI 智能问答助手**：基于企业业务数据（库存、订单、生产进度、采购等）的自然语言问答与辅助决策，支持以对话方式查询经营指标、定位异常单据，并逐步接入流程建议与自动化工单。
+- **AI 智能问答助手**：基于企业业务数据（库存、订单、生产进度、采购等）的自然语言问答与辅助决策，支持以对话方式查询经营指标、定位异常单据，并逐步接入流程建议与自动化工单（计划基于 Spring AI 2.0 实现）。
 - **零代码表单建设**：提供可视化表单设计器，支持动态字段、校验与联动规则配置，并能基于业务单据自动生成录入页与列表页，为 DIY/低代码场景预留扩展能力。
 
 ## 参与贡献

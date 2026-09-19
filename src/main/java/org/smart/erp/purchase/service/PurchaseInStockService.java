@@ -1,7 +1,7 @@
 package org.smart.erp.purchase.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import org.smart.erp.purchase.dto.PurchaseInStockAddDto;
 import org.smart.erp.purchase.dto.PurchaseInStockPageDto;
 import org.smart.erp.purchase.dto.PurchaseInStockUploadDto;

@@ -2,7 +2,7 @@ package org.smart.erp.master.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.utils.PageConvertUtils;

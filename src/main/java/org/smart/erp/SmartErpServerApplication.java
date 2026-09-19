@@ -3,9 +3,8 @@ package org.smart.erp;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 
-@SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class)
+@SpringBootApplication
 @MapperScan({
         "org.smart.erp.system.mapper",
         "org.smart.erp.master.mapper",

@@ -12,6 +12,7 @@ import org.smart.erp.master.mapper.CustomerMapper;
 import org.smart.erp.master.mapper.MaterialMapper;
 import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.production.service.ProductionDemandService;
+import org.smart.erp.eip.service.NotificationPublisher;
 import org.smart.erp.sales.entity.SalesDelivery;
 import org.smart.erp.sales.entity.SalesOrder;
 import org.smart.erp.sales.enums.SalesDeliveryStatus;
@@ -67,6 +68,9 @@ class SalesOrderServiceImplTests {
 	@Mock
 	private ProductionDemandService productionDemandService;
 
+	@Mock
+	private NotificationPublisher notificationPublisher;
+
 	private SalesOrderServiceImpl service;
 
 	@BeforeEach
@@ -74,7 +78,7 @@ class SalesOrderServiceImplTests {
 		lenient().when(salesOrderMapper.updateById(any(SalesOrder.class))).thenReturn(1);
 		service = new SalesOrderServiceImpl(salesOrderMapper, salesOrderItemMapper, customerMapper,
 				salesOrderItemService, businessNoGenerator, materialMapper, warehouseMapper, salesDeliveryMapper,
-				salesDeliveryService, productionDemandService);
+				salesDeliveryService, productionDemandService, notificationPublisher);
 	}
 
 	@Test
