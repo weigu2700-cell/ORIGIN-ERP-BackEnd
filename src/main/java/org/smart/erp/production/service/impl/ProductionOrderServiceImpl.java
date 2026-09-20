@@ -18,7 +18,7 @@ import org.smart.erp.production.enums.ProductionOrderStatus;
 import org.smart.erp.production.enums.ProductionStatus;
 import org.smart.erp.production.mapper.ProductionDemandMapper;
 import org.smart.erp.production.mapper.ProductionOrderMapper;
-import org.smart.erp.production.service.BOMService;
+import org.smart.erp.production.service.BOMInternalService;
 import org.smart.erp.production.service.ProductionOrderService;
 import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.production.vo.ProductionOrderVo;
@@ -26,6 +26,7 @@ import org.smart.erp.purchase.dto.PurchaseDemandAddDto;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.enums.PurchaseDemandSourceType;
 import org.smart.erp.purchase.service.PurchaseDemandService;
+import org.smart.erp.purchase.service.PurchaseDemandInternalService;
 import org.smart.erp.purchase.service.PurchaseOrderService;
 import org.smart.erp.production.entity.ProductionPicking;
 import org.smart.erp.production.enums.ProductionPickingStatus;
@@ -50,8 +51,8 @@ public class ProductionOrderServiceImpl
     private final BusinessNoGenerator businessNoGenerator;
     private final ProductionDemandMapper productionDemandMapper;
     private final MaterialMapper materialMapper;
-    private final BOMService bomService;
-    private final PurchaseDemandService purchaseDemandService;
+    private final BOMInternalService bomService;
+    private final PurchaseDemandInternalService purchaseDemandService;
     private final PurchaseOrderService purchaseOrderService;
     private final ProductionPickingService productionPickingService;
 
@@ -59,8 +60,8 @@ public class ProductionOrderServiceImpl
             BusinessNoGenerator businessNoGenerator,
             MaterialMapper materialMapper,
             ProductionDemandMapper productionDemandMapper,
-            BOMService bomService,
-            PurchaseDemandService purchaseDemandService,
+            BOMInternalService bomService,
+            PurchaseDemandInternalService purchaseDemandService,
             PurchaseOrderService purchaseOrderService,
             ProductionPickingService productionPickingService
     )
@@ -300,7 +301,7 @@ public class ProductionOrderServiceImpl
 
         // 下达时按成品 + 计划数量计算 BOM 净需求
         List<MaterialRequirementVo> requirements =
-                bomService.calculateMaterialRequirement(order.getMaterialId(), order.getPlannedQuantity());
+                bomService.calculateMaterialRequirementInternally(order.getMaterialId(), order.getPlannedQuantity());
 
         // 对每种净缺物料自动生成一张采购需求，并据此生成一张草稿采购订单
         // （供应商 / 单价 / 预计交货日期由采购员在审批前补全）
@@ -315,7 +316,7 @@ public class ProductionOrderServiceImpl
             demandDto.setSourceType(PurchaseDemandSourceType.PRODUCTION_ORDER);
             demandDto.setSourceNo(sourceNo);
             demandDto.setPurchaseQuantity(req.getShortageQuantity());
-            PurchaseDemand demand = purchaseDemandService.addPurchaseDemand(demandDto);
+            PurchaseDemand demand = purchaseDemandService.addPurchaseDemandInternally(demandDto);
 
             purchaseOrderService.addPurchaseOrderFromDemand(demand.getId());
             demandIdByMaterial.put(req.getMaterialId(), demand.getId());

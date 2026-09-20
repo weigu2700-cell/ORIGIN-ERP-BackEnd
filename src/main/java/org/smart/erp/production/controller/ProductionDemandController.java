@@ -8,7 +8,6 @@ import org.smart.erp.production.dto.ProductionDemandPageDto;
 import org.smart.erp.production.service.ProductionDemandService;
 import org.smart.erp.production.vo.ProductionDemandVo;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,7 +25,6 @@ public class ProductionDemandController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('production:demand:list')")
     @Operation(summary = "分页查询生产需求")
     public Result<Page<ProductionDemandVo>> page(
             @Parameter(description = "分页查询生产需求") ProductionDemandPageDto dto) {
@@ -34,7 +32,6 @@ public class ProductionDemandController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('production:demand:get')")
     @Operation(summary = "查询生产需求详情")
     public Result<ProductionDemandVo> get(
             @PathVariable("id") @Parameter(description = "生产需求ID") Long id) {

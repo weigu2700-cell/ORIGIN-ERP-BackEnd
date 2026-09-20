@@ -25,6 +25,7 @@ import org.smart.erp.sales.mapper.SalesDeliveryMapper;
 import org.smart.erp.sales.mapper.SalesOrderItemMapper;
 import org.smart.erp.sales.mapper.SalesOrderMapper;
 import org.smart.erp.sales.service.SalesDeliveryService;
+import org.smart.erp.sales.service.SalesDeliveryInternalService;
 import org.smart.erp.sales.service.SalesOrderItemService;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.sales.vo.SalesOrderItemVo;
@@ -61,6 +62,7 @@ public class SalesOrderServiceImpl
     private final WarehouseMapper warehouseMapper;
     private final SalesDeliveryMapper salesDeliveryMapper;
     private final SalesDeliveryService salesDeliveryService;
+    private final SalesDeliveryInternalService salesDeliveryInternalService;
     private final ProductionDemandService productionDemandService;
     private final NotificationPublisher notificationPublisher;
 
@@ -74,6 +76,7 @@ public class SalesOrderServiceImpl
             WarehouseMapper warehouseMapper,
             SalesDeliveryMapper salesDeliveryMapper,
             SalesDeliveryService salesDeliveryService,
+            SalesDeliveryInternalService salesDeliveryInternalService,
             ProductionDemandService productionDemandService,
             NotificationPublisher notificationPublisher
     )
@@ -87,6 +90,7 @@ public class SalesOrderServiceImpl
         this.warehouseMapper = warehouseMapper;
         this.salesDeliveryMapper = salesDeliveryMapper;
         this.salesDeliveryService = salesDeliveryService;
+        this.salesDeliveryInternalService = salesDeliveryInternalService;
         this.productionDemandService = productionDemandService;
         this.notificationPublisher = notificationPublisher;
     }
@@ -370,7 +374,7 @@ public class SalesOrderServiceImpl
                             .sorted(java.util.Comparator.comparing(SalesDelivery::getId))
                             .toList()) {
                         if (d.getStatus() == SalesDeliveryStatus.DRAFT) {
-                            salesDeliveryService.confirmSalesDeliveryInternally(d.getId());
+                            salesDeliveryInternalService.confirmSalesDeliveryInternally(d.getId());
                         }
                     }
                 }
@@ -406,7 +410,7 @@ public class SalesOrderServiceImpl
                         }
                         if (d.getStatus() == SalesDeliveryStatus.DRAFT
                                 || d.getStatus() == SalesDeliveryStatus.CONFIRMED) {
-                            salesDeliveryService.cancelSalesDeliveryInternally(d.getId());
+                            salesDeliveryInternalService.cancelSalesDeliveryInternally(d.getId());
                         }
                     }
                     SalesOrder current = salesOrderMapper.selectById(id);

@@ -23,17 +23,11 @@ public interface SalesDeliveryService extends IService<SalesDelivery> {
     @PreAuthorize("hasAnyAuthority('sales:delivery:confirm')")
     SalesDeliveryVo confirmSalesDeliveryById(Long id);
 
-    /** Internal order orchestration entry; keeps the order permission boundary. */
-    SalesDeliveryVo confirmSalesDeliveryInternally(Long id);
-
     @PreAuthorize("hasAnyAuthority('sales:delivery:complete')")
     SalesDeliveryVo completeSalesDeliveryById(Long id);
 
     @PreAuthorize("hasAnyAuthority('sales:delivery:cancel')")
     SalesDeliveryVo cancelSalesDeliveryById(Long id);
-
-    /** Internal order orchestration entry; keeps the order permission boundary. */
-    SalesDeliveryVo cancelSalesDeliveryInternally(Long id);
 
     @PreAuthorize("hasAnyAuthority('sales:delivery:list')")
     Page<SalesDeliveryVo> getPageSalesDeliveryVo(SalesDeliveryPageDto dto);

@@ -23,6 +23,7 @@ import org.smart.erp.sales.mapper.SalesOrderItemMapper;
 import org.smart.erp.sales.mapper.SalesOrderMapper;
 import org.smart.erp.sales.service.SalesDeliveryItemService;
 import org.smart.erp.sales.service.SalesDeliveryService;
+import org.smart.erp.sales.service.SalesDeliveryInternalService;
 import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.sales.service.SalesOrderService;
 import org.smart.erp.sales.vo.SalesDeliveryItemVo;
@@ -56,7 +57,7 @@ import java.util.stream.Collectors;
 @Service
 public class SalesDeliveryServiceImpl
         extends ServiceImpl<SalesDeliveryMapper, SalesDelivery>
-        implements SalesDeliveryService
+        implements SalesDeliveryService, SalesDeliveryInternalService
 {
 
     private final SalesDeliveryMapper salesDeliveryMapper;
