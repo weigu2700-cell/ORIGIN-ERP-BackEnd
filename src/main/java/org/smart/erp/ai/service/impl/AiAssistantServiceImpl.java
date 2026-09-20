@@ -69,18 +69,21 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     public AiAssistantResult chat(AiAssistantRequest request) {
         if (request.conversationId() != null) {
             aiMessageService.addMessage(request.conversationId(),"user",request.message());
-            return new AiAssistantResult(chatClient
+            AiAssistantResult aiAssistantResult = new AiAssistantResult(chatClient
                     .prompt()
                     .user(request.message())
                     .advisors(a -> a.param(
                             ChatMemory.CONVERSATION_ID,
-                            request.conversationId()
+                            request.conversationId().toString()
                     ))
                     .tools(inventoryTool)
                     .toolContext(Map.of("userId",currentUser.getUserId()))
                     .call()
                     .content()
             );
+
+            aiMessageService.addMessage(request.conversationId(),"assistant",aiAssistantResult.content());
+            return aiAssistantResult;
         }
         throw new BusinessException(400,"找不到对话");
     }

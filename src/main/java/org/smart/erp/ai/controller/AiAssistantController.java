@@ -1,8 +1,6 @@
 package org.smart.erp.ai.controller;
 
-import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import org.smart.erp.ai.dto.request.AiAssistantRequest;
-import org.smart.erp.ai.dto.request.ConversationResult;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.springframework.web.bind.annotation.PostMapping;
