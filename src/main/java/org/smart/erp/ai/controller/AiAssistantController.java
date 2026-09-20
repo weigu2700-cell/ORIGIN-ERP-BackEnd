@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 
 import java.util.UUID;
 
@@ -30,5 +31,12 @@ public class AiAssistantController {
     public Result<AiAssistantResult> chat(
             @RequestBody @Parameter(description = "AI助手请求参数") AiAssistantRequest request) {
         return Result.success(aiAssistantService.chat(request));
+    }
+
+    @PostMapping("/chat/stream")
+    @Operation(description = "AI助手对话流式接口")
+    public Flux<AiAssistantResult> chatStream(
+            @RequestBody @Parameter(description = "AI助手请求参数") AiAssistantRequest request) {
+        return aiAssistantService.chatStream(request);
     }
 }

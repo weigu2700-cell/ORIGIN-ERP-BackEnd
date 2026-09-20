@@ -2,6 +2,7 @@ package org.smart.erp.ai.service.impl;
 
 import org.smart.erp.ai.dto.request.AiAssistantRequest;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
+import org.smart.erp.ai.entity.AiMessage;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.smart.erp.ai.service.AiMessageService;
 import org.smart.erp.ai.tool.InventoryTool;
@@ -10,7 +11,11 @@ import org.smart.erp.common.security.CurrentUser;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.boot.web.server.autoconfigure.ServerProperties;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
 
@@ -21,7 +26,6 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final InventoryTool inventoryTool;
     private final CurrentUser currentUser;
     private final AiMessageService aiMessageService;
-
     private final String systemPrompt =
             """
                 你是 OriginERP 企业资源管理系统的智能 AI 助手，旨在帮助企业的管理者、业务人员和员工更高效地处理日常 ERP 事务。
@@ -89,4 +93,35 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         throw new BusinessException(400,"找不到对话");
     }
 
+    @Override
+    public Flux<AiAssistantResult> chatStream(AiAssistantRequest request) {
+        if (request.conversationId() == null) {
+            throw new BusinessException(400, "找不到对话");
+        }
+        Long conversationId = request.conversationId();
+
+        // 用户消息先持久化；addMessage 是阻塞 JDBC 调用，放到弹性线程避免阻塞事件循环
+        Mono.fromRunnable(() -> aiMessageService.addMessage(conversationId, "user", request.message()))
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe();
+
+        StringBuilder assistantBuffer = new StringBuilder();
+        return chatClient
+                .prompt()
+                .user(request.message())
+                .advisors(a -> a.param(
+                        ChatMemory.CONVERSATION_ID,
+                        conversationId.toString()
+                ))
+                .tools(inventoryTool)
+                .toolContext(Map.of("userId", currentUser.getUserId()))
+                .stream()
+                .content()
+                .doOnNext(assistantBuffer::append)                       // 仅累积，不落库
+                .doOnComplete(() -> Mono.fromRunnable(() ->             // 流式结束后整条存一次
+                            aiMessageService.addMessage(conversationId, "assistant", assistantBuffer.toString()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
+                .map(AiAssistantResult::new);
+    }
 }

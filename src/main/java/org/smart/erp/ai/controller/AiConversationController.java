@@ -46,7 +46,7 @@ public class AiConversationController {
     @PutMapping("/{conversationId}/archive")
     @Operation(description = "归档AI对话")
     public Result<ConversationResult> archive(
-            @RequestBody @Parameter(description = "对话ID") Long conversationId) {
+            @PathVariable @Parameter(description = "对话ID") Long conversationId) {
         return Result.success(aiConversationService.archiveConversation(conversationId));
     }
 }

@@ -17,14 +17,14 @@ spring:
     openai:
       api-key: ${AI_API_KEY}
       base-url: https://api.deepseek.com
-    chat:
-      options:
-        model: deepseek-flash
-        temperature: 0.2
-      memory:
-        repository:
-          jdbc:
-            initialize-schema: always
+      chat:
+        options:
+          model: deepseek-flash
+          temperature: 0.2
+        memory:
+          repository:
+            jdbc:
+              initialize-schema: always
 mybatis-plus:
   mapper-locations: classpath*:mapper/*.xml
   type-aliases-package: org.smart.erp.entity
