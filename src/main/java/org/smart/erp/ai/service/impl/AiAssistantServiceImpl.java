@@ -6,6 +6,10 @@ import org.smart.erp.ai.entity.AiMessage;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.smart.erp.ai.service.AiMessageService;
 import org.smart.erp.ai.tool.InventoryTool;
+import org.smart.erp.ai.tool.NotificationQueryTool;
+import org.smart.erp.ai.tool.ProductionQueryTool;
+import org.smart.erp.ai.tool.PurchaseQueryTool;
+import org.smart.erp.ai.tool.SalesQueryTool;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.springframework.ai.chat.client.ChatClient;
@@ -26,36 +30,55 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
     private final ChatClient chatClient;
     private final InventoryTool inventoryTool;
+    private final SalesQueryTool salesQueryTool;
+    private final ProductionQueryTool productionQueryTool;
+    private final PurchaseQueryTool purchaseQueryTool;
+    private final NotificationQueryTool notificationQueryTool;
     private final CurrentUser currentUser;
     private final AiMessageService aiMessageService;
     private final String systemPrompt =
             """
-                你是 OriginERP 企业资源管理系统的智能 AI 助手，旨在帮助企业的管理者、业务人员和员工更高效地处理日常 ERP 事务。
+                你是 OriginERP 企业资源管理系统的智能 AI 助手，帮助企业的管理者与业务人员用自然语言查询和分析 ERP 业务数据、理解流程规则。
 
-                ## 你的职责
-                 - 解答用户关于 OriginERP 各业务模块（采购、销售、库存、生产）的疑问。
-                 - 协助用户完成数据查询、报表解读、流程说明与操作指引。
-                 - 根据用户自然语言描述，给出对应的业务建议、处理方案或下一步操作。
-                 - 在用户提出模糊或不完整需求时，主动澄清关键信息，避免臆测。
+                ## 能力边界
+                 - 你只拥有「只读查询」工具，可查询：库存、销售订单、销售出库、生产订单、生产需求、采购需求、采购订单，以及当前登录用户的通知。
+                 - 你不能创建、修改、删除、审核任何单据，也不能执行审批、上架、出入库等写操作；此类请求只给操作步骤并提醒用户到对应页面确认。
+                 - 你以「当前登录用户」的身份查询，返回结果受该用户的数据权限（RBAC）约束；不要假设能看到全部数据，也不要编造越权可见的内容。
+
+                ## 工具使用规则（重要）
+                 - 凡涉及具体业务数据（数量、金额、单据、状态、库存）的回答，必须调用对应工具获取真实数据，严禁凭空猜测或编造数字。
+                 - 用户意图与工具的对应：
+                   · 查某物料在各仓库的库存（在库/预留/可用量）→ `get_material_stock`，入参为「物料编码」。
+                   · 查销售订单 → `query_sales_orders`；查销售出库单 → `query_sales_deliveries`。
+                   · 查生产订单 → `query_production_orders`；查生产需求 → `query_production_demands`。
+                   · 查采购需求 → `query_purchase_demands`；查采购订单 → `query_purchase_orders`。
+                   · 查“我的通知/待办” → `query_my_notifications`（始终只返回当前用户自己的通知，无需传用户ID）。
+                 - 工具均分页：默认每页 10 条、最多 100 条；数据较多时用 `pageNum` 翻页，并用状态/单号/ID 等条件缩小范围。
+                 - 工具返回的是结构化数据，请用自然语言总结要点，必要时用表格或分点呈现，并标注数据来源（如单号、仓库）。
+
+                ## 业务背景
+                 - 核心业务链路：销售订单 →（库存不足）生产需求 → 生产订单 →（BOM 净需求）采购需求 → 采购订单 → 入库；出入库同步更新在库/预留/可用量。
+                 - 库存口径：可用量 = 在库量 − 预留量。
+                 - 单据普遍有状态流转（草稿 / 已确认 / 已下达 / 生产中 / 已完成 / 已取消 / 已审批 / 已收货等），回答涉及状态时以工具返回的实际状态为准。
+                 - 基础资料包含客户、供应商、物料、仓库、工厂/车间/产线；查询常以物料编码、单号、客户/供应商 ID 作为筛选条件。
 
                 ## 行为准则
-                 - 始终以专业、简洁、友好的语气沟通，回答使用中文（除非用户使用其它语言）。
-                 - 优先基于 OriginERP 的业务规则与数据给出准确答复；若信息不足，明确告知并请求补充。
-                 - 不编造不存在的功能、单据或字段；涉及金额、库存、价格等敏感数据时务必谨慎核对。
-                 - 不执行任何破坏性操作（如删除、修改核心数据），此类操作仅提供步骤说明并提醒用户确认。
-                 - 涉及个人隐私或商业机密的内容，严格遵守合规要求，不外泄、不推测。
+                 - 始终用中文（除非用户使用其它语言），语气专业、简洁、友好。
+                 - 信息不足时主动澄清关键条件（如物料编码、时间范围、具体单据），不要臆测。
+                 - 涉及金额、库存、价格等敏感数据务必基于工具返回核对，并标注不确定项与风险提示。
+                 - 不泄露个人隐私或商业机密，不外推其他用户的数据。
+                 - 复杂内容用分点、表格或「前置条件 → 操作步骤 → 结果/注意事项」的结构组织。
 
-                ## 回答风格
-                 - 复杂内容使用分点、表格或步骤列表呈现，便于阅读与执行。
-                 - 涉及流程时，按「前置条件 → 操作步骤 → 结果/注意事项」的结构组织。
-                 - 当结果可能包含不确定性时，主动标注风险提示。
-
-                你现在就作为 OriginERP 的 AI 助手，随时准备协助用户处理企业资源管理的各类问题。
+                你现在就作为 OriginERP 的 AI 助手，随时协助用户处理企业资源管理相关的查询与咨询。
             """;
 
     public AiAssistantServiceImpl(
             ChatClient.Builder builder,
             InventoryTool inventoryTool,
+            SalesQueryTool salesQueryTool,
+            ProductionQueryTool productionQueryTool,
+            PurchaseQueryTool purchaseQueryTool,
+            NotificationQueryTool notificationQueryTool,
             CurrentUser currentUser,
             ChatMemory chatMemory,
             AiMessageService aiMessageService
@@ -67,6 +90,10 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                         .build()
                 ).build();
         this.inventoryTool = inventoryTool;
+        this.salesQueryTool = salesQueryTool;
+        this.productionQueryTool = productionQueryTool;
+        this.purchaseQueryTool = purchaseQueryTool;
+        this.notificationQueryTool = notificationQueryTool;
         this.currentUser = currentUser;
         this.aiMessageService = aiMessageService;
     }
@@ -76,6 +103,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         if (request.conversationId() != null) {
             aiMessageService.addMessage(request.conversationId(),"user",request.message());
             AiAssistantResult aiAssistantResult = new AiAssistantResult(
+                    // Capture the authenticated context before the model can dispatch a tool.
+                    // Tool implementations restore it on their worker thread.
                     chatClient
                         .prompt()
                         .user(request.message())
@@ -83,8 +112,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                                 ChatMemory.CONVERSATION_ID,
                                 request.conversationId().toString()
                         ))
-                        .tools(inventoryTool)
-                        .toolContext(Map.of("userId",currentUser.getUserId()))
+                        .tools(inventoryTool, salesQueryTool, productionQueryTool,
+                                purchaseQueryTool, notificationQueryTool)
+                        .toolContext(toolContext(SecurityContextHolder.getContext(), currentUser.getUserId()))
                         .call()
                         .content()
             );
@@ -104,6 +134,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         // 在请求线程上捕获 SecurityContext（含 Authentication）。弹性线程默认没有该 ThreadLocal，
         // 而 addMessage 内部会做归属校验（读 SecurityContext），需在弹性线程上还原上下文，否则 NPE。
         SecurityContext secCtx = SecurityContextHolder.getContext();
+        Long userId = currentUser.getUserId();
 
         // 用户消息先持久化；addMessage 是阻塞 JDBC 调用，放到弹性线程避免阻塞 Tomcat 请求线程
         Mono.fromRunnable(() -> runWithContext(secCtx,
@@ -111,30 +142,43 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe();
 
-        StringBuilder assistantBuffer = new StringBuilder();
-        return chatClient
-                .prompt()
-                .user(request.message())
-                .advisors(a -> a.param(
-                        ChatMemory.CONVERSATION_ID,
-                        conversationId.toString()
-                ))
-                .tools(inventoryTool)
-                .toolContext(Map.of("userId", currentUser.getUserId()))
-                .stream()
-                .content()
-                .doOnNext(assistantBuffer::append)                       // 仅累积，不落库
-                .doOnComplete(() -> Mono.fromRunnable(() -> {
-                            runWithContext(secCtx,
-                                    () -> aiMessageService.addMessage(
-                                            conversationId,
-                                            "assistant",
-                                            assistantBuffer.toString())
-                            );
-                        })
-                        .subscribeOn(Schedulers.boundedElastic())
-                        .subscribe())
-                .map(AiAssistantResult::new);
+        return Flux.defer(() -> {
+                    StringBuilder assistantBuffer = new StringBuilder();
+                    return chatClient
+                            .prompt()
+                            .user(request.message())
+                            .advisors(a -> a.param(
+                                    ChatMemory.CONVERSATION_ID,
+                                    conversationId.toString()
+                            ))
+                            .tools(inventoryTool, salesQueryTool, productionQueryTool,
+                                    purchaseQueryTool, notificationQueryTool)
+                            .toolContext(toolContext(secCtx, userId))
+                            .stream()
+                            .content()
+                            .doOnNext(assistantBuffer::append) // 仅累积，不落库
+                            .doOnComplete(() -> Mono.fromRunnable(() -> {
+                                        runWithContext(secCtx,
+                                                () -> aiMessageService.addMessage(
+                                                        conversationId,
+                                                        "assistant",
+                                                        assistantBuffer.toString())
+                                        );
+                                    })
+                                    .subscribeOn(Schedulers.boundedElastic())
+                                    .subscribe())
+                            .map(AiAssistantResult::new);
+                });
+    }
+
+    private Map<String, Object> toolContext(SecurityContext securityContext, Long userId) {
+        if (securityContext == null || securityContext.getAuthentication() == null) {
+            throw new SecurityException("Missing security context for tool execution");
+        }
+        return Map.of(
+                "userId", userId,
+                "securityContext", securityContext
+        );
     }
 
     private static void runWithContext(SecurityContext context, Runnable task) {

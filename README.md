@@ -417,7 +417,7 @@ AI 助手基于 Spring AI 2.0（OpenAI 兼容协议，当前接入 DeepSeek 大�
 ### 能力概览
 
 - **多轮对话**：基于 JDBC 持久化的对话记忆（`ai_conversation` / `ai_message` 表），通过 `ChatMemory` 按 `conversationId` 维护上下文窗口，支持连续追问与历史回溯。
-- **工具调用（Tool Calling）**：模型可在生成过程中调用业务工具查询真实数据。当前已接入 `InventoryTool`，根据物料编码聚合各仓库的在库量、预留量与可用量，并给出业务提示。
+- **工具调用（Tool Calling）**：模型可在生成过程中调用业务工具查询真实数据。已接入库存（`get_material_stock` 按物料编码聚合各仓库在库/预留/可用量）、销售（`query_sales_orders` / `query_sales_deliveries`）、生产（`query_production_orders` / `query_production_demands`）、采购（`query_purchase_demands` / `query_purchase_orders`）与通知（`query_my_notifications`）等只读查询工具，并以当前登录用户身份受 RBAC 约束。
 - **流式与非流式**：提供一次性返回与 SSE 逐字流式返回两种模式，前端可边生成边渲染。
 - **对话与消息管理**：创建、查看、归档对话与拉取历史消息，均按当前用户归属隔离。
 

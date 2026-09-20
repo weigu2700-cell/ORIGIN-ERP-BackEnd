@@ -6,7 +6,9 @@ import org.smart.erp.ai.dto.toolResult.WarehouseStockResult;
 import org.smart.erp.inventory.dto.MaterialStockPageDto;
 import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.inventory.vo.MaterialStockVo;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -20,13 +22,16 @@ public class InventoryTool {
     private final MaterialStockService materialStockService;
 
     @Tool(name = "get_material_stock", description = "根据物料编码获取物料在各仓库的库存明细与合计（在库、预留、可用量）")
-    public MaterialStockToolResult getMaterialStock(String materialCode) {
+    public MaterialStockToolResult getMaterialStock(
+            @ToolParam(description = "物料编码") String materialCode,
+            ToolContext toolContext) {
         MaterialStockPageDto dto = new MaterialStockPageDto();
         dto.setMaterialCode(materialCode);
         dto.setPageNum(1);
         dto.setPageSize(Integer.MAX_VALUE);
 
-        List<MaterialStockVo> stocks = materialStockService.pageMaterialStock(dto).getRecords();
+        List<MaterialStockVo> stocks = ToolExecutionSupport.withSecurityContext(
+                toolContext, () -> materialStockService.pageMaterialStock(dto).getRecords());
         if (stocks.isEmpty()) {
             return new MaterialStockToolResult(materialCode, null, null, null, null, List.of());
         }
