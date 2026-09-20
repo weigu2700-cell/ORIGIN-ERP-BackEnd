@@ -71,13 +71,14 @@ class SystemNotificationServiceImplTests {
 		dto.setContent("产线暂停，请及时处理");
 		dto.setRecipients(recipients);
 		when(recipientResolver.resolve(recipients)).thenReturn(Set.of(7L));
+		when(currentUser.getUserId()).thenReturn(9L);
 
 		assertThat(service.publish(dto)).isEqualTo("manual-001");
 
 		ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
 		verify(publisher).publish(captor.capture());
 		assertThat(captor.getValue().getRequestId()).isEqualTo("manual-001");
-		assertThat(captor.getValue().getRecipients().getUserIds()).containsExactly(7L);
+		assertThat(captor.getValue().getRecipients().getUserIds()).containsExactlyInAnyOrder(7L, 9L);
 	}
 
 }

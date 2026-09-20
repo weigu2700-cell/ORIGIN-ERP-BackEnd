@@ -12,6 +12,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -46,24 +48,33 @@ class ServiceMethodSecurityProxyTests {
 		SystemNotificationService service = context.getBean(SystemNotificationService.class);
 		assertThatThrownBy(() -> service.publish(new SystemNotificationPublishDTO()))
 				.isInstanceOf(AccessDeniedException.class);
-		assertThat(context.getBean(TestNotificationService.class).invocations).isZero();
+		assertThat(context.getBean(AtomicInteger.class).get()).isZero();
 	}
 
 	@Configuration(proxyBeanMethods = false)
 	@EnableMethodSecurity
 	static class TestConfig {
 		@Bean
-		TestNotificationService notificationService() {
-			return new TestNotificationService();
+		AtomicInteger invocations() {
+			return new AtomicInteger();
+		}
+
+		@Bean
+		SystemNotificationService notificationService(AtomicInteger invocations) {
+			return new TestNotificationService(invocations);
 		}
 	}
 
 	static class TestNotificationService implements SystemNotificationService {
-		int invocations;
+		private final AtomicInteger invocations;
+
+		TestNotificationService(AtomicInteger invocations) {
+			this.invocations = invocations;
+		}
 
 		@Override
 		public String publish(SystemNotificationPublishDTO dto) {
-			invocations++;
+			invocations.incrementAndGet();
 			return "published";
 		}
 	}
