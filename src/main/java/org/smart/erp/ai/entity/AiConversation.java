@@ -20,11 +20,11 @@ public class AiConversation {
 
     private ConversationStatus status;
 
-    @JsonFormat(pattern = "yyy-mm-dd HH:mm:ss")
+    @JsonFormat(pattern = "yyy-MM-dd HH:mm:ss")
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
-    @JsonFormat(pattern = "yyy-mm-dd HH:mm:ss")
+    @JsonFormat(pattern = "yyy-MM-dd HH:mm:ss")
     @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
