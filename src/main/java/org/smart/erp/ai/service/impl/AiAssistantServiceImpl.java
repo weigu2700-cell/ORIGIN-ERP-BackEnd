@@ -72,6 +72,10 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             return new AiAssistantResult(chatClient
                     .prompt()
                     .user(request.message())
+                    .advisors(a -> a.param(
+                            ChatMemory.CONVERSATION_ID,
+                            request.conversationId()
+                    ))
                     .tools(inventoryTool)
                     .toolContext(Map.of("userId",currentUser.getUserId()))
                     .call()
