@@ -12,6 +12,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.boot.web.server.autoconfigure.ServerProperties;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -99,9 +101,13 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             throw new BusinessException(400, "找不到对话");
         }
         Long conversationId = request.conversationId();
+        // 在请求线程上捕获 SecurityContext（含 Authentication）。弹性线程默认没有该 ThreadLocal，
+        // 而 addMessage 内部会做归属校验（读 SecurityContext），需在弹性线程上还原上下文，否则 NPE。
+        SecurityContext secCtx = SecurityContextHolder.getContext();
 
-        // 用户消息先持久化；addMessage 是阻塞 JDBC 调用，放到弹性线程避免阻塞事件循环
-        Mono.fromRunnable(() -> aiMessageService.addMessage(conversationId, "user", request.message()))
+        // 用户消息先持久化；addMessage 是阻塞 JDBC 调用，放到弹性线程避免阻塞 Tomcat 请求线程
+        Mono.fromRunnable(() -> runWithContext(secCtx,
+                        () -> aiMessageService.addMessage(conversationId, "user", request.message())))
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe();
 
@@ -118,10 +124,25 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 .stream()
                 .content()
                 .doOnNext(assistantBuffer::append)                       // 仅累积，不落库
-                .doOnComplete(() -> Mono.fromRunnable(() ->             // 流式结束后整条存一次
-                            aiMessageService.addMessage(conversationId, "assistant", assistantBuffer.toString()))
+                .doOnComplete(() -> Mono.fromRunnable(() -> {
+                            runWithContext(secCtx,
+                                    () -> aiMessageService.addMessage(
+                                            conversationId,
+                                            "assistant",
+                                            assistantBuffer.toString())
+                            );
+                        })
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe())
                 .map(AiAssistantResult::new);
+    }
+
+    private static void runWithContext(SecurityContext context, Runnable task) {
+        SecurityContextHolder.setContext(context);
+        try {
+            task.run();
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 }
