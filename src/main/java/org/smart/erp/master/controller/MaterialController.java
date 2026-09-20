@@ -11,7 +11,7 @@ import org.smart.erp.master.dto.MaterialDto.MaterialUpdateDto;
 import org.smart.erp.master.enums.MaterialStatus;
 import org.smart.erp.master.service.MaterialService;
 import org.smart.erp.master.vo.MaterialVo;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,7 +28,6 @@ public class MaterialController {
     }
 
     @Operation(summary = "新增物料")
-    @PreAuthorize("hasAnyAuthority('master:material:create')")
     @PostMapping
     public Result<Void> add(@RequestBody MaterialAddDto dto) {
         materialService.addMaterial(dto);
@@ -36,21 +35,18 @@ public class MaterialController {
     }
 
     @Operation(summary = "物料分页列表")
-    @PreAuthorize("hasAnyAuthority('master:material:list')")
     @GetMapping
     public Result<Page<MaterialVo>> list(MaterialPageDto dto) {
         return Result.success(materialService.pageMaterial(dto));
     }
 
     @Operation(summary = "物料详情")
-    @PreAuthorize("hasAnyAuthority('master:material:get')")
     @GetMapping("/{id}")
     public Result<MaterialVo> detailMaterial(@PathVariable Long id) {
         return Result.success(materialService.detailMaterial(id));
     }
 
     @Operation(summary = "更新物料")
-    @PreAuthorize("hasAnyAuthority('master:material:update')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody MaterialUpdateDto dto) {
         materialService.updateMaterial(id, dto);
@@ -58,7 +54,6 @@ public class MaterialController {
     }
 
     @Operation(summary = "变更物料状态")
-    @PreAuthorize("hasAnyAuthority('master:material:status')")
     @PutMapping("/{id}/status")
     public Result<Void> changeMaterialStatus(@PathVariable Long id, @RequestBody MaterialStatus status) {
         materialService.changeMaterialStatus(id, status);
@@ -67,20 +62,13 @@ public class MaterialController {
 
     @Operation(summary = "切换物料状态（启用/停用互转）",
             description = "调用一次在启用与停用之间切换，便于在前端用同一个按钮恢复启用被停用的物料")
-    @PreAuthorize("hasAnyAuthority('master:material:status')")
     @PutMapping("/{id}/toggle-status")
     public Result<Void> toggleMaterialStatus(@PathVariable Long id) {
         materialService.toggleMaterialStatus(id);
         return Result.success();
     }
 
-    /**
-     * 物料导出
-     * @param ids 物料ID列表
-     * @param response 响应对象
-     */
     @Operation(summary = "物料导出")
-    @PreAuthorize("hasAnyAuthority('master:material:export')")
     @GetMapping("/export")
     public void export(List<Long> ids, HttpServletResponse response) {
         materialService.exportMaterial(ids, response);

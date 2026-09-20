@@ -12,7 +12,6 @@ import org.smart.erp.master.entity.ProductionLine;
 import org.smart.erp.master.enums.ProductionLineStatus;
 import org.smart.erp.master.service.ProductionLineService;
 import org.smart.erp.master.vo.ProductionLineVo;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,7 +28,6 @@ public class ProductionLineController {
     }
 
     @Operation(summary = "新增生产线")
-    @PreAuthorize("hasAnyAuthority('master:production_line:create')")
     @PostMapping
     public Result<Void> addProductionLine(@RequestBody ProductionLineAddDto dto) {
         productionLineService.addProductionLine(dto);
@@ -37,21 +35,18 @@ public class ProductionLineController {
     }
 
     @Operation(summary = "生产线分页列表")
-    @PreAuthorize("hasAnyAuthority('master:production_line:list')")
     @GetMapping
     public Result<Page<ProductionLineVo>> pageProductionLine(ProductionLinePageDto dto) {
         return Result.success(productionLineService.pageProductionLine(dto));
     }
 
     @Operation(summary = "生产线详情")
-    @PreAuthorize("hasAnyAuthority('master:production_line:get')")
     @GetMapping("/{id}")
     public Result<ProductionLineVo> detailProductionLine(@PathVariable Long id) {
         return Result.success(productionLineService.getProductionLine(id));
     }
 
     @Operation(summary = "更新生产线")
-    @PreAuthorize("hasAnyAuthority('master:production_line:update')")
     @PutMapping("/{id}")
     public Result<Void> updateProductionLine(@PathVariable Long id, @RequestBody ProductionLineUpdateDto dto) {
         productionLineService.updateProductionLine(id, dto);
@@ -59,7 +54,6 @@ public class ProductionLineController {
     }
 
     @Operation(summary = "变更生产线状态")
-    @PreAuthorize("hasAnyAuthority('master:production_line:status')")
     @PutMapping("/{id}/status")
     public Result<Void> updateProductionLineStatus(@PathVariable Long id, ProductionLineStatus status) {
         productionLineService.updateProductionLineStatus(id, status);
@@ -67,7 +61,6 @@ public class ProductionLineController {
     }
 
     @Operation(summary = "导出生产线")
-    @PreAuthorize("hasAnyAuthority('master:production_line:export')")
     @GetMapping("/export")
     public void exportProductionLine(@RequestParam(required = false) List<Long> ids, HttpServletResponse response) {
         productionLineService.exportProductionLine(ids, response);

@@ -10,6 +10,8 @@ public class UserDetailVo {
 
     private Long id;
 
+    private Long deptId;
+
     private String username;
 
     private String realName;
@@ -19,4 +21,6 @@ public class UserDetailVo {
     private String deptName;
 
     private List<Map<String,Object>> roles;
+
+    private List<Long> roleIds;
 }

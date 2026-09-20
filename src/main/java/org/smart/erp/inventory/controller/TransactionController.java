@@ -9,7 +9,6 @@ import org.smart.erp.common.result.Result;
 import org.smart.erp.inventory.dto.TransactionPageDto;
 import org.smart.erp.inventory.service.TransactionService;
 import org.smart.erp.inventory.vo.TransactionVo;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,7 +26,6 @@ public class TransactionController {
     @Operation(summary = "分页查询库存流水",
             description = "支持按仓库、物料、业务类型、业务单号过滤")
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('inventory:transaction:list')")
     public Result<Page<TransactionVo>> list(TransactionPageDto listDto) {
         return Result.success(transactionService.pageTransaction(listDto));
     }
@@ -35,7 +33,6 @@ public class TransactionController {
     @Operation(summary = "导出库存流水",
             description = "以 Excel 文件流形式下载全部库存流水")
     @GetMapping("/export")
-    @PreAuthorize("hasAnyAuthority('inventory:transaction:export')")
     public void export(HttpServletResponse response) {
         transactionService.export(response);
     }
@@ -44,7 +41,6 @@ public class TransactionController {
             description = "上传 .xlsx 文件批量导入流水；会按物料编码、仓库名称反查并同步更新库存，"
                     + "整表校验通过后才按批提交，失败会提示具体行号")
     @PostMapping("/import")
-    @PreAuthorize("hasAnyAuthority('inventory:transaction:import')")
     public Result<Void> importExcel(
             @Parameter(description = "Excel 文件（.xlsx）", required = true)
             @RequestParam("file") MultipartFile file) {
