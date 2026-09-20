@@ -87,11 +87,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             Map<String, Object> roleMap = new HashMap<>();
             RoleInfo roleInfo = roleMapById.get(userRole.getRoleId());
             if (roleInfo != null) {
+                roleMap.put("roleId", roleInfo.getId());
                 roleMap.put("roleName", roleInfo.getName());
                 roleMap.put("roleCode", roleInfo.getCode());
+                roleMap.put("roleKey", roleInfo.getCode());
             }
             return roleMap;
-        }).toList();
+        }).filter(roleMap -> !roleMap.isEmpty()).toList();
     }
 
     /**
@@ -158,6 +160,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         BeanUtils.copyProperties(user, vo);
         vo.setDeptName(resolveDeptName(user.getDeptId()));
         vo.setRoles(buildUserRoles(id));
+        vo.setRoleIds(vo.getRoles().stream().map(role -> (Long) role.get("roleId")).toList());
         return vo;
     }
 
@@ -273,6 +276,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         BeanUtils.copyProperties(user, vo);
         vo.setDeptName(resolveDeptName(user.getDeptId()));
         vo.setRoles(buildUserRoles(user.getId()));
+        vo.setRoleIds(vo.getRoles().stream().map(role -> (Long) role.get("roleId")).toList());
         return vo;
     }
 

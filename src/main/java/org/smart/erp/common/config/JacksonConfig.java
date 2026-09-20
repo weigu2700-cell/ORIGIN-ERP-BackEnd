@@ -23,9 +23,8 @@ import java.time.format.DateTimeParseException;
 /**
  * Jackson 全局配置。
  *
- * <p>当前依赖的 {@code spring-boot-autoconfigure} 构件未提供 {@code JacksonAutoConfiguration}，
- * 不会自动创建 {@code ObjectMapper} Bean，因此这里显式创建，并复刻 Spring Boot 默认的 Jackson 行为，
- * 供 {@link org.smart.erp.common.config.RedisConfig} 与 Spring MVC 的 JSON 消息转换共用。</p>
+ * <p>这里配置 Jackson 2 的 {@code ObjectMapper}，供 Redis 等仍使用 Jackson 2 的组件使用。
+ * Spring MVC 在 Spring Boot 4 中使用 Jackson 3，其 ID 与日期时间配置见 {@link ApiJacksonConfig}。</p>
  *
  * <p>将 Long / long 类型序列化为字符串，避免雪花 ID（超过 JS 安全整数范围 2^53）传给前端时精度丢失，
  * 导致前端回传 id 后后端查不到数据。序列化（后端 -> 前端）统一 LocalDateTime 为 yyyy-MM-dd HH:mm:ss；

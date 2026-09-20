@@ -10,7 +10,6 @@ import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierPageDto;
 import org.smart.erp.master.dto.MaterialSupplierDto.MaterialSupplierUpdateDto;
 import org.smart.erp.master.service.MaterialSupplierService;
 import org.smart.erp.master.vo.MaterialSupplierVo;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,7 +26,6 @@ public class MaterialSupplierController {
     }
 
     @Operation(summary = "新增物料供应商关联")
-    @PreAuthorize("hasAnyAuthority('master:material-supplier:create')")
     @PostMapping
     public Result<Void> add(@RequestBody MaterialSupplierAddDto dto) {
         materialSupplierService.addMaterialSupplier(dto);
@@ -47,7 +45,6 @@ public class MaterialSupplierController {
     }
 
     @Operation(summary = "更新物料供应商关联")
-    @PreAuthorize("hasAnyAuthority('master:material-supplier:update')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody MaterialSupplierUpdateDto dto) {
         materialSupplierService.updateMaterialSupplier(id, dto);
@@ -55,7 +52,6 @@ public class MaterialSupplierController {
     }
 
     @Operation(summary = "变更物料供应商关联状态")
-    @PreAuthorize("hasAnyAuthority('master:material-supplier:status')")
     @PutMapping("/{id}/status")
     public Result<Void> changeMaterialSupplierStatus(@PathVariable Long id) {
         materialSupplierService.changeMaterialSupplierStatus(id);
@@ -75,5 +71,4 @@ public class MaterialSupplierController {
         materialSupplierService.exportMaterialSupplier(ids, response);
         return Result.success();
     }
-
 }

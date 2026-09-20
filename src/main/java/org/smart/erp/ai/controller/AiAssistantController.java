@@ -1,12 +1,17 @@
 package org.smart.erp.ai.controller;
 
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import org.smart.erp.ai.dto.request.AiAssistantRequest;
+import org.smart.erp.ai.dto.request.ConversationResult;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
 import org.smart.erp.ai.service.AiAssistantService;
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/ai/assistant")
@@ -21,5 +26,10 @@ public class AiAssistantController {
     @PostMapping("/chat")
     public AiAssistantResult chat(@RequestBody AiAssistantRequest request) {
         return aiAssistantService.chat(request);
+    }
+
+    @PostMapping("/conversation")
+    public ConversationResult createConversation(@RequestBody AiAssistantRequest request) {
+        return aiAssistantService.createConversation(request);
     }
 }

@@ -1,17 +1,25 @@
 package org.smart.erp.ai.service.impl;
 
 import org.smart.erp.ai.dto.request.AiAssistantRequest;
+import org.smart.erp.ai.dto.request.ConversationResult;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.smart.erp.ai.tool.InventoryTool;
+import org.smart.erp.common.security.CurrentUser;
+import org.smart.erp.common.utils.SnowflakeIdGenerator;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Service;
+
+import java.util.Map;
 
 @Service
 public class AiAssistantServiceImpl implements AiAssistantService {
 
     private final ChatClient chatClient;
     private final InventoryTool inventoryTool;
+    private final CurrentUser currentUser;
 
     private final String systemPrompt =
             """
@@ -38,9 +46,20 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 你现在就作为 OriginERP 的 AI 助手，随时准备协助用户处理企业资源管理的各类问题。
             """;
 
-    public AiAssistantServiceImpl(ChatClient.Builder builder, InventoryTool inventoryTool) {
-        this.chatClient = builder.defaultSystem(systemPrompt).build();
+    public AiAssistantServiceImpl(
+            ChatClient.Builder builder,
+            InventoryTool inventoryTool,
+            CurrentUser currentUser,
+            ChatMemory chatMemory
+    ) {
+        this.chatClient = builder
+                .defaultSystem(systemPrompt)
+                .defaultAdvisors(MessageChatMemoryAdvisor
+                        .builder(chatMemory)
+                        .build()
+                ).build();
         this.inventoryTool = inventoryTool;
+        this.currentUser = currentUser;
     }
 
     @Override
@@ -48,9 +67,22 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         return new AiAssistantResult(chatClient
                 .prompt()
                 .user(request.message())
+                .advisors(advisorSpec -> {
+                    advisorSpec.param(
+                            ChatMemory.CONVERSATION_ID,
+                            request.conversationId().toString()
+                    );
+                })
                 .tools(inventoryTool)
+                .toolContext(Map.of("userId",currentUser.getUserId()))
                 .call()
                 .content()
         );
+    }
+
+    @Override
+    public ConversationResult createConversation(AiAssistantRequest request) {
+        Long conversationId = new SnowflakeIdGenerator(1, 1).nextId();
+        return new ConversationResult(conversationId);
     }
 }

@@ -13,7 +13,6 @@ import org.smart.erp.master.dto.SupplierDto.SupplierUpdateDto;
 import org.smart.erp.master.enums.SupplierStatus;
 import org.smart.erp.master.service.SupplierService;
 import org.smart.erp.master.vo.SupplierVo;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,7 +27,6 @@ public class SupplierController {
 
     @Operation(summary = "新增供应商")
     @PostMapping
-    @PreAuthorize("hasAuthority('master:supplier:create')")
     public Result<Void> add(@Valid @RequestBody SupplierAddDto dto) {
         supplierService.addSupplier(dto);
         return Result.success();
@@ -36,21 +34,18 @@ public class SupplierController {
 
     @Operation(summary = "供应商分页列表")
     @GetMapping("/list")
-    @PreAuthorize("hasAuthority('master:supplier:list')")
     public Result<Page<SupplierVo>> pageSupplier(SupplierPageDto dto) {
         return Result.success(supplierService.pageSupplier(dto));
     }
 
     @Operation(summary = "供应商详情")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('master:supplier:get')")
     public Result<SupplierVo> detailSupplier(@PathVariable Long id) {
         return Result.success(supplierService.detailSupplier(id));
     }
 
     @Operation(summary = "更新供应商")
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('master:supplier:update')")
     public Result<Void> update(@PathVariable Long id,
                                @Valid @RequestBody SupplierUpdateDto dto) {
         supplierService.updateSupplier(id, dto);
@@ -59,7 +54,6 @@ public class SupplierController {
 
     @Operation(summary = "更改供应商状态")
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('master:supplier:status')")
     public Result<Void> changeStatus(@PathVariable Long id,
                                      @Valid @RequestBody SupplierStatus status) {
         supplierService.changeSupplierStatus(id, status);
@@ -68,7 +62,6 @@ public class SupplierController {
 
     @Operation(summary = "导出供应商")
     @GetMapping("/export")
-    @PreAuthorize("hasAuthority('master:supplier:export')")
     public void export(@RequestParam(required = false) List<Long> ids, HttpServletResponse response) {
         supplierService.exportSupplier(ids, response);
     }

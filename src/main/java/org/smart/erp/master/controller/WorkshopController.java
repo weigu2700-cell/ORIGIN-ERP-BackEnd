@@ -10,7 +10,6 @@ import org.smart.erp.master.dto.WorkshopDto.WorkshopStatusChangeDto;
 import org.smart.erp.master.dto.WorkshopDto.WorkshopUpdateDto;
 import org.smart.erp.master.service.WorkshopService;
 import org.smart.erp.master.vo.WorkshopVo;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,7 +24,6 @@ public class WorkshopController {
     }
 
     @Operation(summary = "新增车间")
-    @PreAuthorize("hasAnyAuthority('master:workshop:create')")
     @PostMapping
     public Result<Void> addWorkshop(@RequestBody WorkshopAddDto dto) {
         workshopService.addWorkshop(dto);
@@ -33,21 +31,18 @@ public class WorkshopController {
     }
 
     @Operation(summary = "车间分页列表")
-    @PreAuthorize("hasAnyAuthority('master:workshop:list')")
     @GetMapping
     public Result<Page<WorkshopVo>> pageWorkshop(WorkshopPageDto dto) {
         return Result.success(workshopService.pageWorkshop(dto));
     }
 
     @Operation(summary = "车间详情")
-    @PreAuthorize("hasAnyAuthority('master:workshop:get')")
     @GetMapping("/{id}")
     public Result<WorkshopVo> detailWorkshop(@PathVariable Long id) {
         return Result.success(workshopService.detailWorkshop(id));
     }
 
     @Operation(summary = "更新车间")
-    @PreAuthorize("hasAnyAuthority('master:workshop:update')")
     @PutMapping("/{id}")
     public Result<Void> updateWorkshop(@PathVariable Long id, @RequestBody WorkshopUpdateDto dto) {
         workshopService.updateWorkshop(id, dto);
@@ -55,7 +50,6 @@ public class WorkshopController {
     }
 
     @Operation(summary = "变更车间状态")
-    @PreAuthorize("hasAnyAuthority('master:workshop:status')")
     @PutMapping("/{id}/status")
     public Result<Void> changeStatus(@PathVariable Long id, @RequestBody WorkshopStatusChangeDto dto) {
         workshopService.changeStatus(id, dto.getStatus());
