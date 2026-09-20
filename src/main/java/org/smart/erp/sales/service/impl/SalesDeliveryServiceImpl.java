@@ -445,6 +445,12 @@ public class SalesDeliveryServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo confirmSalesDeliveryById(Long id) {
+        return confirmSalesDeliveryInternally(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SalesDeliveryVo confirmSalesDeliveryInternally(Long id) {
         // 确认即预占库存（由出货单决定）；实际扣减延迟至“完成出库”时执行
         SalesDeliveryVo result = changeStatus(id,
                 SalesDeliveryStatus.DRAFT,
@@ -505,6 +511,12 @@ public class SalesDeliveryServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo cancelSalesDeliveryById(Long id) {
+        return cancelSalesDeliveryInternally(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SalesDeliveryVo cancelSalesDeliveryInternally(Long id) {
         SalesDelivery delivery = salesDeliveryMapper.selectById(id);
         if (delivery == null) {
             throw new BusinessException(404, "发货单不存在");

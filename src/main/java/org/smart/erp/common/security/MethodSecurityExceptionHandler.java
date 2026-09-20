@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * 处理 Controller 方法上的 @PreAuthorize 拒绝。
+ * 处理 Controller 调用的受保护 Service 方法上的 @PreAuthorize 拒绝。
  *
  * <p>方法安全异常由 MVC 异常解析器接管，不能依赖过滤链的 AccessDeniedHandler。</p>
  */

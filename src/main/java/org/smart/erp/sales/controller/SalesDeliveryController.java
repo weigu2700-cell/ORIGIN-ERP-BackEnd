@@ -9,7 +9,6 @@ import org.smart.erp.sales.dto.salesDeliveryDto.SalesDeliveryAddDto;
 import org.smart.erp.sales.dto.salesDeliveryDto.SalesDeliveryPageDto;
 import org.smart.erp.sales.service.SalesDeliveryService;
 import org.smart.erp.sales.vo.SalesDeliveryVo;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,21 +25,18 @@ public class SalesDeliveryController {
 
     @Operation(summary = "新增销售出库单",
             description = "基于已确认的销售订单创建草稿态发货单；明细必须归属该订单，客户与订单号自动带出")
-    @PreAuthorize("hasAnyAuthority('sales:delivery:create')")
     @PostMapping
     public Result<SalesDeliveryVo> add(@RequestBody @Validated SalesDeliveryAddDto dto) {
         return Result.success(salesDeliveryService.addSalesDeliveryVo(dto));
     }
 
     @Operation(summary = "销售出库单列表", description = "销售出库单列表")
-    @PreAuthorize("hasAnyAuthority('sales:delivery:list')")
     @GetMapping
     public Result<Page<SalesDeliveryVo>> list(@Parameter(description = "销售出库单列表") SalesDeliveryPageDto dto) {
         return Result.success(salesDeliveryService.getPageSalesDeliveryVo(dto));
     }
 
     @Operation(summary = "销售出库单详情", description = "返回发货单主体及全部明细行")
-    @PreAuthorize("hasAnyAuthority('sales:delivery:get')")
     @GetMapping("/{id}")
     public Result<SalesDeliveryVo> get(
             @Parameter(description = "发货单id", required = true)
@@ -50,7 +46,6 @@ public class SalesDeliveryController {
 
     @Operation(summary = "确认销售出库单",
             description = "仅草稿态发货单可确认；确认仅变更状态，实际库存扣减延迟至“完成出库”时执行")
-    @PreAuthorize("hasAnyAuthority('sales:delivery:confirm')")
     @PutMapping("/{id}/confirm")
     public Result<SalesDeliveryVo> confirm(
             @Parameter(description = "发货单id", required = true)
@@ -60,7 +55,6 @@ public class SalesDeliveryController {
 
     @Operation(summary = "完成销售出库单",
             description = "仅已确认发货单可完成出库；完成时逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚")
-    @PreAuthorize("hasAnyAuthority('sales:delivery:complete')")
     @PutMapping("/{id}/complete")
     public Result<SalesDeliveryVo> complete(
             @Parameter(description = "发货单id", required = true)
@@ -69,7 +63,6 @@ public class SalesDeliveryController {
     }
 
     @Operation(summary = "取消销售出库单", description = "仅草稿态发货单可取消")
-    @PreAuthorize("hasAnyAuthority('sales:delivery:cancel')")
     @PutMapping("/{id}/cancel")
     public Result<SalesDeliveryVo> cancel(
             @Parameter(description = "发货单id", required = true)

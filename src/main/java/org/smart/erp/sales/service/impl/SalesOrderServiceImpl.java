@@ -370,7 +370,7 @@ public class SalesOrderServiceImpl
                             .sorted(java.util.Comparator.comparing(SalesDelivery::getId))
                             .toList()) {
                         if (d.getStatus() == SalesDeliveryStatus.DRAFT) {
-                            salesDeliveryService.confirmSalesDeliveryById(d.getId());
+                            salesDeliveryService.confirmSalesDeliveryInternally(d.getId());
                         }
                     }
                 }
@@ -406,7 +406,7 @@ public class SalesOrderServiceImpl
                         }
                         if (d.getStatus() == SalesDeliveryStatus.DRAFT
                                 || d.getStatus() == SalesDeliveryStatus.CONFIRMED) {
-                            salesDeliveryService.cancelSalesDeliveryById(d.getId());
+                            salesDeliveryService.cancelSalesDeliveryInternally(d.getId());
                         }
                     }
                     SalesOrder current = salesOrderMapper.selectById(id);
