@@ -1,12 +1,12 @@
 package org.smart.erp.ai.service.impl;
 
 import org.smart.erp.ai.dto.request.AiAssistantRequest;
-import org.smart.erp.ai.dto.request.ConversationResult;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
 import org.smart.erp.ai.service.AiAssistantService;
+import org.smart.erp.ai.service.AiMessageService;
 import org.smart.erp.ai.tool.InventoryTool;
+import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
-import org.smart.erp.common.utils.SnowflakeIdGenerator;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -20,6 +20,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final ChatClient chatClient;
     private final InventoryTool inventoryTool;
     private final CurrentUser currentUser;
+    private final AiMessageService aiMessageService;
 
     private final String systemPrompt =
             """
@@ -50,7 +51,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             ChatClient.Builder builder,
             InventoryTool inventoryTool,
             CurrentUser currentUser,
-            ChatMemory chatMemory
+            ChatMemory chatMemory,
+            AiMessageService aiMessageService
     ) {
         this.chatClient = builder
                 .defaultSystem(systemPrompt)
@@ -60,29 +62,30 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 ).build();
         this.inventoryTool = inventoryTool;
         this.currentUser = currentUser;
+        this.aiMessageService = aiMessageService;
     }
 
     @Override
     public AiAssistantResult chat(AiAssistantRequest request) {
-        return new AiAssistantResult(chatClient
-                .prompt()
-                .user(request.message())
-                .advisors(advisorSpec -> {
-                    advisorSpec.param(
+        if (request.conversationId() != null) {
+            aiMessageService.addMessage(request.conversationId(),"user",request.message());
+            AiAssistantResult aiAssistantResult = new AiAssistantResult(chatClient
+                    .prompt()
+                    .user(request.message())
+                    .advisors(a -> a.param(
                             ChatMemory.CONVERSATION_ID,
                             request.conversationId().toString()
-                    );
-                })
-                .tools(inventoryTool)
-                .toolContext(Map.of("userId",currentUser.getUserId()))
-                .call()
-                .content()
-        );
+                    ))
+                    .tools(inventoryTool)
+                    .toolContext(Map.of("userId",currentUser.getUserId()))
+                    .call()
+                    .content()
+            );
+
+            aiMessageService.addMessage(request.conversationId(),"assistant",aiAssistantResult.content());
+            return aiAssistantResult;
+        }
+        throw new BusinessException(400,"找不到对话");
     }
 
-    @Override
-    public ConversationResult createConversation(AiAssistantRequest request) {
-        Long conversationId = new SnowflakeIdGenerator(1, 1).nextId();
-        return new ConversationResult(conversationId);
-    }
 }

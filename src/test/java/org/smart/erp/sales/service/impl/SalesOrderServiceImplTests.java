@@ -96,8 +96,8 @@ class SalesOrderServiceImplTests {
 
 		assertThat(result.getStatus()).isEqualTo(SalesOrderStatus.CONFIRMED);
 		verify(salesDeliveryService).addDeliveriesForOrder(51L);
-		verify(salesDeliveryService).confirmSalesDeliveryById(101L);
-		verify(salesDeliveryService, never()).confirmSalesDeliveryById(102L);
+		verify(salesDeliveryService).confirmSalesDeliveryInternally(101L);
+		verify(salesDeliveryService, never()).confirmSalesDeliveryInternally(102L);
 		verify(salesOrderMapper).updateById(order);
 	}
 
@@ -115,8 +115,8 @@ class SalesOrderServiceImplTests {
 		SalesOrderVo result = service.cancelSalesOrderById(51L, null);
 
 		assertThat(result.getStatus()).isEqualTo(SalesOrderStatus.CANCELLED);
-		verify(salesDeliveryService).cancelSalesDeliveryById(101L);
-		verify(salesDeliveryService).cancelSalesDeliveryById(102L);
+		verify(salesDeliveryService).cancelSalesDeliveryInternally(101L);
+		verify(salesDeliveryService).cancelSalesDeliveryInternally(102L);
 		verify(productionDemandService).cancelBySalesOrder("SO-001");
 		verify(salesOrderMapper).updateById(order);
 	}
