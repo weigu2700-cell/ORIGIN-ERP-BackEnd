@@ -89,6 +89,11 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
   </tr>
 </table>
 
+<div align="center">
+  <img src="docs/screenshots/ai-assistant.png" alt="AI 助手查询物料库存" width="90%" />
+  <p><em>AI 助手 — 自然语言查询物料库存并展示库存明细与业务提示</em></p>
+</div>
+
 ## 技术栈
 
 | 分类       | 技术                           |
