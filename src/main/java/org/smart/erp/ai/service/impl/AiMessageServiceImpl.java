@@ -1,11 +1,14 @@
 package org.smart.erp.ai.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import org.smart.erp.ai.entity.AiMessage;
 import org.smart.erp.ai.mapper.AiMessageMapper;
 import org.smart.erp.ai.service.AiConversationService;
 import org.smart.erp.ai.service.AiMessageService;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class AiMessageServiceImpl
@@ -27,5 +30,16 @@ public class AiMessageServiceImpl
         aiMessage.setRole(role);
         aiMessage.setContent(message);
         save(aiMessage);
+    }
+
+    @Override
+    public List<AiMessage> listMessage(Long conversationId) {
+        Long checkedConversationId =  aiConversationService.getOwnedConversation(conversationId).getId();
+        return this.list(
+                new LambdaQueryWrapper<AiMessage>()
+                        .eq(AiMessage::getConversationId, checkedConversationId)
+                        .orderByAsc(AiMessage::getCreateTime)
+                        .orderByAsc(AiMessage::getId)
+        );
     }
 }

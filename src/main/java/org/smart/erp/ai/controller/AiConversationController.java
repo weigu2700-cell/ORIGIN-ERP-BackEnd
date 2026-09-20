@@ -1,6 +1,5 @@
 package org.smart.erp.ai.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,7 +9,6 @@ import org.smart.erp.ai.service.AiConversationService;
 import org.smart.erp.common.result.Result;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.Serializable;
 import java.util.List;
 
 @RestController
@@ -36,11 +34,7 @@ public class AiConversationController {
     @Operation(description = "获取AI对话")
     public Result<AiConversation> get(
             @PathVariable @Parameter(description = "对话ID") Long conversationId) {
-        return Result.success(aiConversationService.getById(
-                    aiConversationService
-                            .getOwnedConversation(conversationId)
-                            .getId()
-        ));
+        return Result.success(aiConversationService.getOwnedConversation(conversationId));
     }
 
     @GetMapping
@@ -49,7 +43,7 @@ public class AiConversationController {
         return Result.success(aiConversationService.listConversation());
     }
 
-    @PutMapping
+    @PutMapping("/{conversationId}/archive")
     @Operation(description = "归档AI对话")
     public Result<ConversationResult> archive(
             @RequestBody @Parameter(description = "对话ID") Long conversationId) {

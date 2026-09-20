@@ -69,17 +69,18 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     public AiAssistantResult chat(AiAssistantRequest request) {
         if (request.conversationId() != null) {
             aiMessageService.addMessage(request.conversationId(),"user",request.message());
-            AiAssistantResult aiAssistantResult = new AiAssistantResult(chatClient
-                    .prompt()
-                    .user(request.message())
-                    .advisors(a -> a.param(
-                            ChatMemory.CONVERSATION_ID,
-                            request.conversationId().toString()
-                    ))
-                    .tools(inventoryTool)
-                    .toolContext(Map.of("userId",currentUser.getUserId()))
-                    .call()
-                    .content()
+            AiAssistantResult aiAssistantResult = new AiAssistantResult(
+                    chatClient
+                        .prompt()
+                        .user(request.message())
+                        .advisors(a -> a.param(
+                                ChatMemory.CONVERSATION_ID,
+                                request.conversationId().toString()
+                        ))
+                        .tools(inventoryTool)
+                        .toolContext(Map.of("userId",currentUser.getUserId()))
+                        .call()
+                        .content()
             );
 
             aiMessageService.addMessage(request.conversationId(),"assistant",aiAssistantResult.content());

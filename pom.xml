@@ -152,6 +152,10 @@
             <classifier>osx-aarch_64</classifier> <!-- Apple 芯片；Intel 用 osx-x86_64 -->
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-chat-memory-repository-jdbc</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

@@ -11,6 +11,7 @@ import org.smart.erp.eip.enums.NotificationType;
 import org.smart.erp.eip.mapper.NotificationTemplateMapper;
 import org.smart.erp.eip.mapper.NotificationTemplateRecipientMapper;
 import org.smart.erp.eip.service.NotificationTemplateService;
+import org.smart.erp.eip.service.NotificationTemplateInternalService;
 import org.smart.erp.system.Enum.Status;
 import org.springframework.beans.BeanUtils;
 import org.springframework.dao.DuplicateKeyException;
@@ -21,7 +22,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Service
-public class NotificationTemplateServiceImpl implements NotificationTemplateService {
+public class NotificationTemplateServiceImpl implements NotificationTemplateService, NotificationTemplateInternalService {
 
 	private final NotificationTemplateMapper templateMapper;
 
@@ -51,6 +52,11 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
 		if (template == null)
 			throw new BusinessException(404, "通知模板不存在");
 		return toDto(template);
+	}
+
+	@Override
+	public NotificationTemplateDTO getInternally(Long id) {
+		return get(id);
 	}
 
 	@Override
