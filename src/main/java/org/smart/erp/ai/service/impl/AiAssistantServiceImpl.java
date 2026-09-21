@@ -26,6 +26,8 @@ import java.util.Map;
 @Service
 public class AiAssistantServiceImpl implements AiAssistantService {
 
+    private static final Logger log = LoggerFactory.getLogger(AiAssistantServiceImpl.class);
+
     private final ChatClient chatClient;
     private final InventoryTool inventoryTool;
     private final SalesQueryTool salesQueryTool;
@@ -96,8 +98,6 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         this.aiMessageService = aiMessageService;
     }
 
-    private static final Logger log = LoggerFactory.getLogger(AiAssistantServiceImpl.class);
-
     @Override
     public AiAssistantResult chat(AiAssistantRequest request) {
         if (request.conversationId() == null) {
@@ -113,8 +113,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                             ChatMemory.CONVERSATION_ID,
                             conversationId.toString()
                     ))
-                    .tools(inventoryTool, salesQueryTool, productionQueryTool,
-                            purchaseQueryTool, notificationQueryTool)
+                    .tools(aiTools())
                     .toolContext(Map.of("userId", currentUser.getUserId()))
                     .call()
                     .content();
@@ -131,29 +130,21 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         if (request.conversationId() == null) {
             throw new BusinessException(404, "找不到对话");
         }
-
-        StringBuilder contentBuilder = new StringBuilder();
-        Flux<AiAssistantResult> chatStream;
-        try {
-            chatStream = chatClient
-                            .prompt()
-                            .user(request.message())
-                            .advisors(a -> a.param(
-                                    ChatMemory.CONVERSATION_ID,
-                                    request.conversationId().toString()
-                            ))
-                            .tools(
-                                    inventoryTool,
-                                    salesQueryTool,
-                                    productionQueryTool,
-                                    purchaseQueryTool,
-                                    notificationQueryTool
-                            )
-                            .toolContext(Map.of("userId", currentUser.getUserId()))
-                            .stream()
-                            .content()
-                            .doOnNext(contentBuilder::append)
-                            .map(AiAssistantResult::new);
+        return Flux.defer(() -> {
+            StringBuilder contentBuilder = new StringBuilder();
+            Flux<AiAssistantResult> chatStream = chatClient
+                    .prompt()
+                    .user(request.message())
+                    .advisors(a -> a.param(
+                            ChatMemory.CONVERSATION_ID,
+                            request.conversationId().toString()
+                    ))
+                    .tools(aiTools())
+                    .toolContext(Map.of("userId", currentUser.getUserId()))
+                    .stream()
+                    .content()
+                    .doOnNext(contentBuilder::append)
+                    .map(AiAssistantResult::new);
             return Flux.concat(
                     Mono.fromRunnable(
                             () -> aiMessageService.addMessage(
@@ -162,7 +153,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                                     request.message()
                             ))
                             .subscribeOn(Schedulers.boundedElastic()).then(Mono.empty()),
-                            chatStream
+                    chatStream
             ).concatWith(
                     Mono.fromRunnable(
                             () -> aiMessageService.addMessage(
@@ -175,10 +166,16 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                     t -> Flux.just(
                             new AiAssistantResult("AI 服务暂时不可用，请稍后重试")
                     ));
+        });
+    }
 
-        } catch (Exception e) {
-            log.warn("AI 对话调用失败 conversationId={}", request.conversationId(), e);
-            throw new BusinessException(500, "AI 服务暂时不可用，请稍后重试");
-        }
+    private Object[] aiTools() {
+        return new Object[]{
+                inventoryTool,
+                salesQueryTool,
+                productionQueryTool,
+                purchaseQueryTool,
+                notificationQueryTool
+        };
     }
 }
