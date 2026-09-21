@@ -47,13 +47,13 @@ public final class ToolExecutionSupport {
 
     public static <T> T withSecurityContext(ToolContext toolContext, Supplier<T> action) {
         if (toolContext == null || action == null) {
-            throw new IllegalArgumentException("toolContext and action are required");
+            throw new IllegalArgumentException("toolContext 和 action 不能为空");
         }
 
         Object value = toolContext.getContext().get(SECURITY_CONTEXT_KEY);
         if (!(value instanceof SecurityContext securityContext)
                 || securityContext.getAuthentication() == null) {
-            throw new SecurityException("Missing security context for tool execution");
+            throw new SecurityException("缺少安全上下文，无法执行工具调用");
         }
 
         SecurityContext previous = SecurityContextHolder.getContext();

@@ -2,7 +2,6 @@ package org.smart.erp.ai.service.impl;
 
 import org.smart.erp.ai.dto.request.AiAssistantRequest;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
-import org.smart.erp.ai.entity.AiMessage;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.smart.erp.ai.service.AiMessageService;
 import org.smart.erp.ai.tool.InventoryTool;
@@ -15,9 +14,8 @@ import org.smart.erp.common.security.CurrentUser;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.boot.web.server.autoconfigure.ServerProperties;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -98,95 +96,89 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         this.aiMessageService = aiMessageService;
     }
 
+    private static final Logger log = LoggerFactory.getLogger(AiAssistantServiceImpl.class);
+
     @Override
     public AiAssistantResult chat(AiAssistantRequest request) {
-        if (request.conversationId() != null) {
-            aiMessageService.addMessage(request.conversationId(),"user",request.message());
-            AiAssistantResult aiAssistantResult = new AiAssistantResult(
-                    // Capture the authenticated context before the model can dispatch a tool.
-                    // Tool implementations restore it on their worker thread.
-                    chatClient
-                        .prompt()
-                        .user(request.message())
-                        .advisors(a -> a.param(
-                                ChatMemory.CONVERSATION_ID,
-                                request.conversationId().toString()
-                        ))
-                        .tools(inventoryTool, salesQueryTool, productionQueryTool,
-                                purchaseQueryTool, notificationQueryTool)
-                        .toolContext(toolContext(SecurityContextHolder.getContext(), currentUser.getUserId()))
-                        .call()
-                        .content()
-            );
-
-            aiMessageService.addMessage(request.conversationId(),"assistant",aiAssistantResult.content());
-            return aiAssistantResult;
+        if (request.conversationId() == null) {
+            throw new BusinessException(400, "找不到对话");
         }
-        throw new BusinessException(400,"找不到对话");
+        Long conversationId = request.conversationId();
+        aiMessageService.addMessage(conversationId, "user", request.message());
+        try {
+            String content = chatClient
+                    .prompt()
+                    .user(request.message())
+                    .advisors(a -> a.param(
+                            ChatMemory.CONVERSATION_ID,
+                            conversationId.toString()
+                    ))
+                    .tools(inventoryTool, salesQueryTool, productionQueryTool,
+                            purchaseQueryTool, notificationQueryTool)
+                    .toolContext(Map.of("userId", currentUser.getUserId()))
+                    .call()
+                    .content();
+            aiMessageService.addMessage(conversationId, "assistant", content);
+            return new AiAssistantResult(content);
+        } catch (Exception e) {
+            log.warn("AI 对话调用失败 conversationId={}", conversationId, e);
+            throw new BusinessException(500, "AI 服务暂时不可用，请稍后重试");
+        }
     }
 
     @Override
     public Flux<AiAssistantResult> chatStream(AiAssistantRequest request) {
         if (request.conversationId() == null) {
-            throw new BusinessException(400, "找不到对话");
+            throw new BusinessException(404, "找不到对话");
         }
-        Long conversationId = request.conversationId();
-        // 在请求线程上捕获 SecurityContext（含 Authentication）。弹性线程默认没有该 ThreadLocal，
-        // 而 addMessage 内部会做归属校验（读 SecurityContext），需在弹性线程上还原上下文，否则 NPE。
-        SecurityContext secCtx = SecurityContextHolder.getContext();
-        Long userId = currentUser.getUserId();
 
-        // 用户消息先持久化；addMessage 是阻塞 JDBC 调用，放到弹性线程避免阻塞 Tomcat 请求线程
-        Mono.fromRunnable(() -> runWithContext(secCtx,
-                        () -> aiMessageService.addMessage(conversationId, "user", request.message())))
-                .subscribeOn(Schedulers.boundedElastic())
-                .subscribe();
-
-        return Flux.defer(() -> {
-                    StringBuilder assistantBuffer = new StringBuilder();
-                    return chatClient
+        StringBuilder contentBuilder = new StringBuilder();
+        Flux<AiAssistantResult> chatStream;
+        try {
+            chatStream = chatClient
                             .prompt()
                             .user(request.message())
                             .advisors(a -> a.param(
                                     ChatMemory.CONVERSATION_ID,
-                                    conversationId.toString()
+                                    request.conversationId().toString()
                             ))
-                            .tools(inventoryTool, salesQueryTool, productionQueryTool,
-                                    purchaseQueryTool, notificationQueryTool)
-                            .toolContext(toolContext(secCtx, userId))
+                            .tools(
+                                    inventoryTool,
+                                    salesQueryTool,
+                                    productionQueryTool,
+                                    purchaseQueryTool,
+                                    notificationQueryTool
+                            )
+                            .toolContext(Map.of("userId", currentUser.getUserId()))
                             .stream()
                             .content()
-                            .doOnNext(assistantBuffer::append) // 仅累积，不落库
-                            .doOnComplete(() -> Mono.fromRunnable(() -> {
-                                        runWithContext(secCtx,
-                                                () -> aiMessageService.addMessage(
-                                                        conversationId,
-                                                        "assistant",
-                                                        assistantBuffer.toString())
-                                        );
-                                    })
-                                    .subscribeOn(Schedulers.boundedElastic())
-                                    .subscribe())
+                            .doOnNext(contentBuilder::append)
                             .map(AiAssistantResult::new);
-                });
-    }
+            return Flux.concat(
+                    Mono.fromRunnable(
+                            () -> aiMessageService.addMessage(
+                                    request.conversationId(),
+                                    "user",
+                                    request.message()
+                            ))
+                            .subscribeOn(Schedulers.boundedElastic()).then(Mono.empty()),
+                            chatStream
+            ).concatWith(
+                    Mono.fromRunnable(
+                            () -> aiMessageService.addMessage(
+                                    request.conversationId(),
+                                    "assistant",
+                                    contentBuilder.toString()
+                            )
+                    ).subscribeOn(Schedulers.boundedElastic()).then(Mono.empty())
+            ).onErrorResume(
+                    t -> Flux.just(
+                            new AiAssistantResult("AI 服务暂时不可用，请稍后重试")
+                    ));
 
-    private Map<String, Object> toolContext(SecurityContext securityContext, Long userId) {
-        if (securityContext == null || securityContext.getAuthentication() == null) {
-            throw new SecurityException("Missing security context for tool execution");
-        }
-        return Map.of(
-                "userId", userId,
-                "securityContext", securityContext
-        );
-    }
-
-    private static void runWithContext(SecurityContext context, Runnable task) {
-        SecurityContextHolder.setContext(context);
-        try {
-            task.run();
-        } finally {
-            SecurityContextHolder.clearContext();
+        } catch (Exception e) {
+            log.warn("AI 对话调用失败 conversationId={}", request.conversationId(), e);
+            throw new BusinessException(500, "AI 服务暂时不可用，请稍后重试");
         }
     }
 }
