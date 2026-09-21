@@ -19,6 +19,7 @@ import org.smart.erp.production.enums.ProductionOrderStatus;
 import org.smart.erp.production.enums.ProductionPickingStatus;
 import org.smart.erp.production.mapper.ProductionOrderMapper;
 import org.smart.erp.production.mapper.ProductionPickingMapper;
+import org.smart.erp.production.service.BOMInternalService;
 import org.smart.erp.production.service.BOMService;
 import org.smart.erp.production.service.ProductionPickingService;
 import org.smart.erp.production.vo.BOMExplosionVo;
@@ -32,6 +33,7 @@ import org.smart.erp.eip.dto.RecipientSelectorDTO;
 import org.smart.erp.eip.enums.NotificationType;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,10 +62,11 @@ public class ProductionPickingServiceImpl
     private final MaterialMapper materialMapper;
     private final WarehouseMapper warehouseMapper;
     private final PurchaseDemandMapper purchaseDemandMapper;
-    private final BOMService bomService;
+    private final BOMInternalService bomService;
     private final MaterialStockService materialStockService;
     private final NotificationPublisher notificationPublisher;
 
+    @Autowired
     public ProductionPickingServiceImpl(
             BusinessNoGenerator businessNoGenerator,
             ProductionPickingMapper productionPickingMapper,
@@ -71,7 +74,7 @@ public class ProductionPickingServiceImpl
             MaterialMapper materialMapper,
             WarehouseMapper warehouseMapper,
             PurchaseDemandMapper purchaseDemandMapper,
-            BOMService bomService,
+            BOMInternalService bomService,
             MaterialStockService materialStockService,
             NotificationPublisher notificationPublisher)
     {
@@ -84,6 +87,28 @@ public class ProductionPickingServiceImpl
         this.bomService = bomService;
         this.materialStockService = materialStockService;
         this.notificationPublisher = notificationPublisher;
+    }
+
+    /** Compatibility constructor for unit tests and existing embedders. */
+    public ProductionPickingServiceImpl(
+            BusinessNoGenerator businessNoGenerator,
+            ProductionPickingMapper productionPickingMapper,
+            ProductionOrderMapper productionOrderMapper,
+            MaterialMapper materialMapper,
+            WarehouseMapper warehouseMapper,
+            PurchaseDemandMapper purchaseDemandMapper,
+            BOMService bomService,
+            MaterialStockService materialStockService,
+            NotificationPublisher notificationPublisher) {
+        this(businessNoGenerator, productionPickingMapper, productionOrderMapper, materialMapper, warehouseMapper,
+                purchaseDemandMapper, new BOMInternalService() {
+                    @Override public List<BOMExplosionVo> getBOMExplosionInternally(Long materialId, BigDecimal quantity) {
+                        return bomService.getBOMExplosion(materialId, quantity);
+                    }
+                    @Override public List<MaterialRequirementVo> calculateMaterialRequirementInternally(Long materialId, BigDecimal quantity) {
+                        return bomService.calculateMaterialRequirement(materialId, quantity);
+                    }
+                }, materialStockService, notificationPublisher);
     }
 
     /**
@@ -189,7 +214,7 @@ public class ProductionPickingServiceImpl
 
         // 4. 物料必须是该生产订单产品 BOM 的组成物料
         Set<Long> componentIds = new HashSet<>();
-        List<BOMExplosionVo> explosion = bomService.getBOMExplosion(
+        List<BOMExplosionVo> explosion = bomService.getBOMExplosionInternally(
                 order.getMaterialId(), order.getPlannedQuantity());
         for (BOMExplosionVo vo : explosion) {
             collectComponentMaterialIds(vo, componentIds);

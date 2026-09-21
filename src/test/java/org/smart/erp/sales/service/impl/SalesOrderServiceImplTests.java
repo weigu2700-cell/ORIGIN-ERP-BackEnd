@@ -21,6 +21,7 @@ import org.smart.erp.sales.mapper.SalesDeliveryMapper;
 import org.smart.erp.sales.mapper.SalesOrderItemMapper;
 import org.smart.erp.sales.mapper.SalesOrderMapper;
 import org.smart.erp.sales.service.SalesDeliveryService;
+import org.smart.erp.sales.service.SalesDeliveryInternalService;
 import org.smart.erp.sales.service.SalesOrderItemService;
 import org.smart.erp.sales.vo.SalesOrderVo;
 
@@ -66,6 +67,9 @@ class SalesOrderServiceImplTests {
 	private SalesDeliveryService salesDeliveryService;
 
 	@Mock
+	private SalesDeliveryInternalService salesDeliveryInternalService;
+
+	@Mock
 	private ProductionDemandService productionDemandService;
 
 	@Mock
@@ -78,7 +82,7 @@ class SalesOrderServiceImplTests {
 		lenient().when(salesOrderMapper.updateById(any(SalesOrder.class))).thenReturn(1);
 		service = new SalesOrderServiceImpl(salesOrderMapper, salesOrderItemMapper, customerMapper,
 				salesOrderItemService, businessNoGenerator, materialMapper, warehouseMapper, salesDeliveryMapper,
-				salesDeliveryService, productionDemandService, notificationPublisher);
+				salesDeliveryService, salesDeliveryInternalService, productionDemandService, notificationPublisher);
 	}
 
 	@Test
@@ -96,8 +100,8 @@ class SalesOrderServiceImplTests {
 
 		assertThat(result.getStatus()).isEqualTo(SalesOrderStatus.CONFIRMED);
 		verify(salesDeliveryService).addDeliveriesForOrder(51L);
-		verify(salesDeliveryService).confirmSalesDeliveryInternally(101L);
-		verify(salesDeliveryService, never()).confirmSalesDeliveryInternally(102L);
+		verify(salesDeliveryInternalService).confirmSalesDeliveryInternally(101L);
+		verify(salesDeliveryInternalService, never()).confirmSalesDeliveryInternally(102L);
 		verify(salesOrderMapper).updateById(order);
 	}
 
@@ -115,8 +119,8 @@ class SalesOrderServiceImplTests {
 		SalesOrderVo result = service.cancelSalesOrderById(51L, null);
 
 		assertThat(result.getStatus()).isEqualTo(SalesOrderStatus.CANCELLED);
-		verify(salesDeliveryService).cancelSalesDeliveryInternally(101L);
-		verify(salesDeliveryService).cancelSalesDeliveryInternally(102L);
+		verify(salesDeliveryInternalService).cancelSalesDeliveryInternally(101L);
+		verify(salesDeliveryInternalService).cancelSalesDeliveryInternally(102L);
 		verify(productionDemandService).cancelBySalesOrder("SO-001");
 		verify(salesOrderMapper).updateById(order);
 	}

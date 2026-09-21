@@ -9,7 +9,6 @@ import org.smart.erp.production.dto.ProductionReportAddDto;
 import org.smart.erp.production.dto.ProductionReportPageDto;
 import org.smart.erp.production.service.ProductionReportService;
 import org.smart.erp.production.vo.ProductionReportVo;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,7 +24,6 @@ public class ProductionReportController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('prd:report:add')")
     @Operation(summary = "新增报工单")
     public Result<Void> add(
             @RequestBody @Validated @Parameter(description = "新增报工单请求参数") ProductionReportAddDto dto) {
@@ -34,7 +32,6 @@ public class ProductionReportController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('prd:report:page')")
     @Operation(summary = "分页查询报工单")
     public Result<Page<ProductionReportVo>> page(
             @Parameter(description = "分页查询报工单请求参数") ProductionReportPageDto dto
@@ -43,7 +40,6 @@ public class ProductionReportController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('prd:report:get')")
     @Operation(summary = "获取报工单详情")
     public Result<ProductionReportVo> detail(
             @PathVariable @Parameter(description = "报工单ID") Long id
@@ -52,7 +48,6 @@ public class ProductionReportController {
     }
 
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAnyAuthority('prd:report:approve')")
     @Operation(summary = "审批报工单")
     public Result<Void> approve(@PathVariable @Parameter(description = "报工单ID") Long id) {
         productionReportService.approveProductionReport(id);
@@ -60,7 +55,6 @@ public class ProductionReportController {
     }
 
     @PutMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyAuthority('prd:report:cancel')")
     @Operation(summary = "取消报工单")
     public Result<Void> cancel(@PathVariable @Parameter(description = "报工单ID") Long id) {
         productionReportService.cancelProductionReport(id);
@@ -68,7 +62,6 @@ public class ProductionReportController {
     }
 
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAnyAuthority('prd:report:reject')")
     @Operation(summary = "驳回报工单")
     public Result<Void> reject(@PathVariable @Parameter(description = "报工单ID") Long id) {
         productionReportService.rejectProductionReport(id);
@@ -76,7 +69,6 @@ public class ProductionReportController {
     }
 
     @PutMapping("/{id}/finish")
-    @PreAuthorize("hasAnyAuthority('prd:report:finish')")
     @Operation(summary = "完成报工单")
     public Result<Void> finish(@PathVariable @Parameter(description = "报工单ID") Long id) {
         productionReportService.finishProductionReport(id);

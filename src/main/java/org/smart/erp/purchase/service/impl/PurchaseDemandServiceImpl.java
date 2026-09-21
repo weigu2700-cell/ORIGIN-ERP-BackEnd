@@ -16,6 +16,7 @@ import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.enums.PurchaseDemandStatus;
 import org.smart.erp.purchase.mapper.PurchaseDemandMapper;
 import org.smart.erp.purchase.service.PurchaseDemandService;
+import org.smart.erp.purchase.service.PurchaseDemandInternalService;
 import org.smart.erp.purchase.vo.PurchaseDemandVo;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,7 @@ import java.util.Set;
 @Service
 public class PurchaseDemandServiceImpl
         extends ServiceImpl<PurchaseDemandMapper, PurchaseDemand>
-        implements PurchaseDemandService {
+        implements PurchaseDemandService, PurchaseDemandInternalService {
 
     private final PurchaseDemandMapper purchaseDemandMapper;
     private final BusinessNoGenerator businessNoGenerator;
@@ -87,6 +88,16 @@ public class PurchaseDemandServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PurchaseDemand addPurchaseDemand(PurchaseDemandAddDto dto) {
+        return createPurchaseDemand(dto);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PurchaseDemand addPurchaseDemandInternally(PurchaseDemandAddDto dto) {
+        return createPurchaseDemand(dto);
+    }
+
+    private PurchaseDemand createPurchaseDemand(PurchaseDemandAddDto dto) {
         require(dto.getMaterialId(), "物料ID不能为空");
         require(dto.getPurchaseQuantity(), "采购数量不能为空");
         require(dto.getSourceNo(), "来源单号不能为空");

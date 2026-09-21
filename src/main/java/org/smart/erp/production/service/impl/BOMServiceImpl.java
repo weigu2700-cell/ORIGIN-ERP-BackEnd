@@ -19,6 +19,7 @@ import org.smart.erp.production.mapper.BOMItemMapper;
 import org.smart.erp.production.mapper.BOMMapper;
 import org.smart.erp.production.service.BOMItemService;
 import org.smart.erp.production.service.BOMService;
+import org.smart.erp.production.service.BOMInternalService;
 import org.smart.erp.production.vo.BOMExplosionVo;
 import org.smart.erp.production.vo.BOMItemVo;
 import org.smart.erp.production.vo.BOMVo;
@@ -36,7 +37,7 @@ import java.util.stream.Collectors;
 @Service
 public class BOMServiceImpl
         extends ServiceImpl<BOMMapper, BOM>
-        implements BOMService
+        implements BOMService, BOMInternalService
 {
 
     private final MaterialMapper materialMapper;
@@ -269,6 +270,11 @@ public class BOMServiceImpl
         return List.of(root);
     }
 
+    @Override
+    public List<BOMExplosionVo> getBOMExplosionInternally(Long materialId, BigDecimal quantity) {
+        return getBOMExplosion(materialId, quantity);
+    }
+
     /**
      * 将 BOM 明细按父子关系递归构造成树，并在每条路径上检测循环引用。
      * 每个节点的 BOM 及其明细优先走 Redis 旁路缓存（getActiveBomWithCache）。
@@ -341,6 +347,11 @@ public class BOMServiceImpl
         // 第四阶段：批量补物料编码/名称
         enrichMaterialRequirement(result);
         return result;
+    }
+
+    @Override
+    public List<MaterialRequirementVo> calculateMaterialRequirementInternally(Long materialId, BigDecimal quantity) {
+        return calculateMaterialRequirement(materialId, quantity);
     }
 
     /**

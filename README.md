@@ -34,6 +34,7 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 - **移动作业复用同一后端**：Web 与移动端共享账户、权限、业务数据和统一响应协议。
 - **持久化实时通知**：通知先写入数据库，再通过带 JWT 握手认证的 WebSocket 推送；离线用户重新登录后仍可查询未读消息。
 - **开箱即用的接口文档**：通过 Springdoc OpenAPI 提供 Swagger UI，便于联调和接口验收。
+- **AI 业务助手**：基于 Spring AI 接入 DeepSeek，支持多轮对话与工具调用（如按物料编码聚合各仓库库存），并以当前登录用户身份受 RBAC 约束。
 
 ## 业务能力
 
@@ -88,6 +89,11 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
     <td align="center"><b>发布通知</b>：按用户/角色/部门定向推送通知</td>
   </tr>
 </table>
+
+<div align="center">
+  <img src="docs/screenshots/ai-assistant.png" alt="AI 助手查询物料库存" width="90%" />
+  <p><em>AI 助手 — 自然语言查询物料库存并展示库存明细与业务提示</em></p>
+</div>
 
 ## 技术栈
 
@@ -404,6 +410,59 @@ notificationPublisher.publish(publish);
 业务模块不应直接操作 `NotificationPersistenceService` 或 `WebSocketSessionManager`，统一通过单参数
 `NotificationPublisher#publish` 保持“业务提交、通知落库、实时推送”的顺序和故障隔离。
 
+## AI 助手
+
+AI 助手基于 Spring AI 2.0（OpenAI 兼容协议，当前接入 DeepSeek 大模型）构建，以对话方式帮助业务人员查询库存、解读单据与经营指标。它不是一个独立账号，而是**以当前登录用户的身份**调用后端业务方法，因此受与前端完全一致的 RBAC 约束。
+
+### 能力概览
+
+- **多轮对话**：基于 JDBC 持久化的对话记忆（`ai_conversation` / `ai_message` 表），通过 `ChatMemory` 按 `conversationId` 维护上下文窗口，支持连续追问与历史回溯。
+- **工具调用（Tool Calling）**：模型可在生成过程中调用业务工具查询真实数据。已接入库存（`get_material_stock` 按物料编码聚合各仓库在库/预留/可用量）、销售（`query_sales_orders` / `query_sales_deliveries`）、生产（`query_production_orders` / `query_production_demands`）、采购（`query_purchase_demands` / `query_purchase_orders`）与通知（`query_my_notifications`）等只读查询工具，并以当前登录用户身份受 RBAC 约束。
+- **流式与非流式**：提供一次性返回与 SSE 逐字流式返回两种模式，前端可边生成边渲染。
+- **对话与消息管理**：创建、查看、归档对话与拉取历史消息，均按当前用户归属隔离。
+
+### 接口
+
+| 方法    | 地址                                    | 说明                                    |
+| ------- | --------------------------------------- | --------------------------------------- |
+| `POST`  | `/ai/assistant/chat`                    | 非流式对话                              |
+| `POST`  | `/ai/assistant/chat/stream`             | 流式对话（SSE，响应 `text/event-stream`）|
+| `POST`  | `/ai/conversation`                      | 创建对话，返回 `conversationId`         |
+| `GET`   | `/ai/conversation`                      | 当前用户的对话列表                      |
+| `GET`   | `/ai/conversation/{conversationId}`     | 获取指定对话（归属校验）                |
+| `PUT`   | `/ai/conversation/{conversationId}/archive` | 归档对话                            |
+| `GET`   | `/ai/message/{conversationId}`          | 拉取某对话的历史消息                    |
+
+对话入参 `AiAssistantRequest`：
+
+```json
+{
+  "conversationId": 10001,
+  "message": "查一下物料 A-1001 在各仓库的库存情况"
+}
+```
+
+流式接口返回 `Flux<AiAssistantResult>`（每个 token 一个事件）；非流式返回 `Result<AiAssistantResult>`。
+
+### 鉴权模型
+
+- 所有 AI 接口同样需要 `Authorization: Bearer <token>`。
+- 助手以当前登录用户身份执行。工具调用走的是 `MaterialStockService.pageMaterialStock()`，该方法带有 `@PreAuthorize("hasAnyAuthority('inventory:material-stock:list')")`，因此用户必须拥有相应权限工具才会成功，否则返回无权限错误。
+- 对话与消息按 `userId` 归属隔离：`getOwnedConversation` 会校验对话所属用户与当前用户一致，越权访问返回 403，确保用户之间无法互看或篡改对话。
+
+### 配置
+
+AI 配置位于 `application.yaml` 的 `spring.ai` 段，敏感项建议用环境变量覆盖：
+
+| 配置                                        | 环境变量                        | 说明                                                  |
+| ------------------------------------------- | ------------------------------- | ----------------------------------------------------- |
+| `spring.ai.openai.api-key`                  | `AI_API_KEY`                    | 大模型 API Key（当前为 DeepSeek）                     |
+| `spring.ai.openai.base-url`                 | —                               | 服务地址，当前 `https://api.deepseek.com`             |
+| `spring.ai.chat.options.model`              | `SPRING_AI_CHAT_OPTIONS_MODEL`  | 模型名，须为服务支持的值（如 `deepseek-flash`、`deepseek-v4-pro`）|
+| `spring.ai.chat.memory.repository.jdbc.initialize-schema` | —                | `always` 时自动建对话记忆表                           |
+
+> 模型名必须以大模型服务实际支持的值为准。若启动或调用时返回 “supported API model names are ...” 之类错误，说明传入的模型名不被支持，改为 `deepseek-flash` 或 `deepseek-v4-pro` 等受支持的值即可。
+
 ## 项目结构
 
 ```text
@@ -480,7 +539,7 @@ controller → dto → service → mapper → entity / vo
 以下能力处于规划阶段，尚未落地：
 
 - **通知能力扩展**：增加自动重连、心跳、多设备会话、消息模板和更多业务事件接入。
-- **AI 智能问答助手**：基于企业业务数据（库存、订单、生产进度、采购等）的自然语言问答与辅助决策，支持以对话方式查询经营指标、定位异常单据，并逐步接入流程建议与自动化工单（计划基于 Spring AI 2.0 实现）。
+- **AI 能力扩展**：多轮对话助手与库存查询工具已基于 Spring AI 2.0 落地。后续计划接入更多业务工具（订单、生产、采购查询）、RAG 企业知识库，以及流程建议与自动化工单。
 - **零代码表单建设**：提供可视化表单设计器，支持动态字段、校验与联动规则配置，并能基于业务单据自动生成录入页与列表页，为 DIY/低代码场景预留扩展能力。
 
 ## 参与贡献

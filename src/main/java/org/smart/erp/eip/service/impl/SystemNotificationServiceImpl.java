@@ -17,10 +17,12 @@ import org.smart.erp.eip.enums.RecipientSelectorType;
 import org.smart.erp.eip.mapper.NotificationTemplateMapper;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.smart.erp.eip.service.NotificationRecipientResolver;
+import org.smart.erp.eip.service.NotificationTemplateInternalService;
 import org.smart.erp.eip.service.NotificationTemplateService;
 import org.smart.erp.eip.service.SystemNotificationService;
 import org.smart.erp.system.Enum.Status;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -36,7 +38,7 @@ public class SystemNotificationServiceImpl implements SystemNotificationService 
 
 	private final NotificationTemplateMapper templateMapper;
 
-	private final NotificationTemplateService templateService;
+	private final NotificationTemplateInternalService templateService;
 
 	private final NotificationRecipientResolver resolver;
 
@@ -44,8 +46,9 @@ public class SystemNotificationServiceImpl implements SystemNotificationService 
 
 	private final CurrentUser currentUser;
 
+	@Autowired
 	public SystemNotificationServiceImpl(NotificationTemplateMapper templateMapper,
-			NotificationTemplateService templateService, NotificationRecipientResolver resolver,
+			NotificationTemplateInternalService templateService, NotificationRecipientResolver resolver,
 			NotificationPublisher publisher, CurrentUser currentUser) {
 		this.templateMapper = templateMapper;
 		this.templateService = templateService;
@@ -54,10 +57,22 @@ public class SystemNotificationServiceImpl implements SystemNotificationService 
 		this.currentUser = currentUser;
 	}
 
+	/** Compatibility constructor for existing unit tests and embedders. */
+	public SystemNotificationServiceImpl(NotificationTemplateMapper templateMapper,
+			NotificationTemplateService templateService, NotificationRecipientResolver resolver,
+			NotificationPublisher publisher, CurrentUser currentUser) {
+		this(templateMapper, new NotificationTemplateInternalService() {
+			@Override
+			public NotificationTemplateDTO getInternally(Long id) {
+				return templateService.get(id);
+			}
+		}, resolver, publisher, currentUser);
+	}
+
 	@Override
 	public String publish(SystemNotificationPublishDTO dto) {
 		NotificationTemplate template = findTemplate(dto);
-		NotificationTemplateDTO templateDto = template == null ? null : templateService.get(template.getId());
+		NotificationTemplateDTO templateDto = template == null ? null : templateService.getInternally(template.getId());
 		String title = render(dto.getTitle() != null ? dto.getTitle() : required(templateDto, true),
 				dto.getVariables());
 		String content = render(dto.getContent() != null ? dto.getContent() : required(templateDto, false),

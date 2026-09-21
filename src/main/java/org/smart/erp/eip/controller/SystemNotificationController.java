@@ -6,7 +6,6 @@ import jakarta.validation.Valid;
 import org.smart.erp.common.result.Result;
 import org.smart.erp.eip.dto.SystemNotificationPublishDTO;
 import org.smart.erp.eip.service.SystemNotificationService;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,7 +24,6 @@ public class SystemNotificationController {
 
 	@PostMapping("/publish")
 	@Operation(summary = "发布系统通知")
-	@PreAuthorize("hasAuthority('eip:notification:publish')")
 	public Result<String> publish(@RequestBody @Valid SystemNotificationPublishDTO dto) {
 		return Result.success(service.publish(dto));
 	}

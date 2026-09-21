@@ -21,6 +21,10 @@ spring:
         options:
           model: deepseek-flash
           temperature: 0.2
+        memory:
+          repository:
+            jdbc:
+              initialize-schema: always
 mybatis-plus:
   mapper-locations: classpath*:mapper/*.xml
   type-aliases-package: org.smart.erp.entity
@@ -42,6 +46,5 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
-    # 界面上显示的标题
     doc-expansion: none
     operations-sorter: method

@@ -11,14 +11,17 @@ import org.smart.erp.production.vo.ProductionPickingVo;
 
 import java.util.List;
 import java.util.Map;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 public interface ProductionPickingService extends IService<ProductionPicking> {
     void addProductionPicking(ProductionPickingAddDto dto);
 
     /** 按条件分页查询领料单（返回展示 Vo） */
+    @PreAuthorize("hasAnyAuthority('production:picking:list')")
     Page<ProductionPickingVo> pageProductionPicking(ProductionPickingPageDto dto);
 
     /** 获取领料单详情（返回与分页列表一致的展示 Vo）。 */
+    @PreAuthorize("hasAnyAuthority('production:picking:get')")
     ProductionPickingVo getProductionPicking(Long id);
 
     /**
@@ -36,10 +39,12 @@ public interface ProductionPickingService extends IService<ProductionPicking> {
             Map<Long, Long> demandIdByMaterial);
 
     /** 领料确认：库存出库、状态置“已领料”，若同订单全部领完则下达生产 */
+    @PreAuthorize("hasAnyAuthority('production:picking:confirm')")
     void confirmPicking(Long id);
 
     /** 采购入库上架后，通知对应缺料领料单可领料（指定入库仓库并预留） */
     void notifyPickingForInStock(Long materialId, Long warehouseId);
 
+    @PreAuthorize("hasAnyAuthority('production:picking:approve')")
     void approvePicking(Long id);
 }
