@@ -91,6 +91,7 @@ class PurchaseInStockServiceImplTests {
 		}).when(service).save(any(PurchaseInStock.class));
 		PurchaseInStockAddDto dto = new PurchaseInStockAddDto();
 		dto.setPurchaseOrderId(2L);
+		dto.setPurchaseOrderNo("PO-002");
 		dto.setMaterialId(11L);
 		dto.setInType(PurchaseInStockType.PURCHASE_NORMAL);
 		dto.setInQuantity(new BigDecimal("3"));
@@ -98,6 +99,12 @@ class PurchaseInStockServiceImplTests {
 		when(validator.validate(dto)).thenReturn(Set.of());
 
 		service.addPurchaseInStock(dto);
+
+		ArgumentCaptor<PurchaseInStock> stockCaptor = ArgumentCaptor.forClass(PurchaseInStock.class);
+		verify(service).save(stockCaptor.capture());
+		assertThat(stockCaptor.getValue().getPurchaseOrderNo()).isEqualTo("PO-002");
+		assertThat(stockCaptor.getValue().getInType()).isEqualTo(PurchaseInStockType.PURCHASE_NORMAL);
+		assertThat(stockCaptor.getValue().getInDate()).isNull();
 
 		ArgumentCaptor<NotificationPublishDTO> captor = ArgumentCaptor.forClass(NotificationPublishDTO.class);
 		verify(notificationPublisher).publish(captor.capture());

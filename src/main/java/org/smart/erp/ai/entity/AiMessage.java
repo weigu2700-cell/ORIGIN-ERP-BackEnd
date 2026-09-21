@@ -3,7 +3,6 @@ package org.smart.erp.ai.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
-import org.apache.ibatis.annotations.Insert;
 
 import java.time.LocalDateTime;
 

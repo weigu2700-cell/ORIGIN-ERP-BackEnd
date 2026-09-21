@@ -9,5 +9,7 @@ public interface AiMessageService extends IService<AiMessage> {
 
     void addMessage(Long conversationId,String role, String message);
 
+    void saveMessage(Long conversationId,String role,String message);
+
     List<AiMessage> listMessage(Long conversationId);
 }

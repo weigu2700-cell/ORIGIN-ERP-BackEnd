@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.inventory.service.MaterialStockService;
@@ -26,6 +27,7 @@ import org.smart.erp.production.mapper.ProductionOrderMapper;
 import org.smart.erp.production.mapper.ProductionPickingMapper;
 import org.smart.erp.production.service.BOMService;
 import org.smart.erp.production.vo.ProductionPickingVo;
+import org.smart.erp.production.vo.MaterialRequirementVo;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.mapper.PurchaseDemandMapper;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
@@ -33,12 +35,15 @@ import org.smart.erp.eip.enums.NotificationType;
 import org.smart.erp.eip.service.NotificationPublisher;
 
 import java.util.List;
+import java.util.Map;
+import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -81,6 +86,7 @@ class ProductionPickingServiceImplTests {
 		service = new ProductionPickingServiceImpl(businessNoGenerator, productionPickingMapper, productionOrderMapper,
 				materialMapper, warehouseMapper, purchaseDemandMapper, bomService, materialStockService,
 				notificationPublisher);
+		ReflectionTestUtils.setField(service, "baseMapper", productionPickingMapper);
 	}
 
 	@Test
@@ -159,6 +165,45 @@ class ProductionPickingServiceImplTests {
 		assertThat(captor.getValue().getRecipients().getPermissionCodes())
 			.containsExactly("production:picking:confirm");
 		assertThat(captor.getValue().getRecipients().isIncludeAdministrators()).isTrue();
+	}
+
+	@Test
+	void approvingShortageDraftWithoutWarehouseDoesNotChangeStatusOrNotify() {
+		ProductionPicking picking = picking();
+		picking.setStatus(ProductionPickingStatus.DRAFT);
+		picking.setWarehouseId(null);
+		when(productionPickingMapper.selectById(1L)).thenReturn(picking);
+
+		assertThatThrownBy(() -> service.approvePicking(1L)).isInstanceOfSatisfying(BusinessException.class,
+			exception -> {
+				assertThat(exception.getCode()).isEqualTo(400);
+				assertThat(exception.getMessage()).contains("仓库未指定");
+			});
+
+		assertThat(picking.getStatus()).isEqualTo(ProductionPickingStatus.DRAFT);
+		verify(productionPickingMapper, never()).updateById(any(ProductionPicking.class));
+		verify(notificationPublisher, never()).publish(any(NotificationPublishDTO.class));
+	}
+
+	@Test
+	void generatingShortagePickingKeepsWarehouseUnsetUntilPurchaseInStock() {
+		ProductionOrder order = order();
+		MaterialRequirementVo requirement = new MaterialRequirementVo();
+		requirement.setMaterialId(11L);
+		requirement.setGrossQuantity(new BigDecimal("5"));
+		requirement.setStockUsedAvailableQuantity(BigDecimal.ZERO);
+		requirement.setShortageQuantity(new BigDecimal("5"));
+		when(businessNoGenerator.generateNo(any(String.class), any(String.class))).thenReturn("PICK-002");
+		when(productionPickingMapper.insert(any(ProductionPicking.class))).thenReturn(1);
+
+		service.generatePickingFromOrder(order, List.of(requirement), Map.of());
+
+		ArgumentCaptor<ProductionPicking> captor = ArgumentCaptor.forClass(ProductionPicking.class);
+		verify(productionPickingMapper).insert(captor.capture());
+		ProductionPicking saved = captor.getValue();
+		assertThat(saved.getWarehouseId()).isNull();
+		assertThat(saved.getStatus()).isEqualTo(ProductionPickingStatus.DRAFT);
+		assertThat(saved.getPlannedQuantity()).isEqualByComparingTo("5");
 	}
 
 	private ProductionPicking picking() {

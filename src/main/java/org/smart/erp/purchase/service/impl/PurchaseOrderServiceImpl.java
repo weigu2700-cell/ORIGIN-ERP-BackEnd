@@ -16,6 +16,7 @@ import org.smart.erp.purchase.dto.PurchaseInStockAddDto;
 import org.smart.erp.purchase.entity.PurchaseDemand;
 import org.smart.erp.purchase.entity.PurchaseOrder;
 import org.smart.erp.purchase.enums.PurchaseDemandStatus;
+import org.smart.erp.purchase.enums.PurchaseInStockType;
 import org.smart.erp.purchase.enums.PurchaseOrderStatus;
 import org.smart.erp.purchase.mapper.PurchaseDemandMapper;
 import org.smart.erp.purchase.mapper.PurchaseOrderMapper;
@@ -314,8 +315,10 @@ public class PurchaseOrderServiceImpl
     private void createInStockForOrder(PurchaseOrder order) {
         PurchaseInStockAddDto dto = new PurchaseInStockAddDto();
         dto.setPurchaseOrderId(order.getId());
+        dto.setPurchaseOrderNo(order.getPurchaseOrderNo());
         dto.setSupplierId(order.getSupplierId());
         dto.setMaterialId(order.getMaterialId());
+        dto.setInType(PurchaseInStockType.PURCHASE_NORMAL);
         dto.setInQuantity(order.getPlannedQuantity());
         dto.setUnitPrice(order.getUnitPrice());
         dto.setTotalAmount(order.getTotalAmount());
