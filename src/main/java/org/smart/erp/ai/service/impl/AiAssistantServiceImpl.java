@@ -88,6 +88,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             AiMessageService aiMessageService,
             AiConversationService aiConversationService
     ) {
+        this.chatClientTitle = builder.build();
         this.chatClient = builder
                 .defaultSystem(systemPrompt)
                 .defaultAdvisors(MessageChatMemoryAdvisor
@@ -101,7 +102,6 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         this.notificationQueryTool = notificationQueryTool;
         this.currentUser = currentUser;
         this.aiMessageService = aiMessageService;
-        this.chatClientTitle = builder.build();
         this.aiConversationService = aiConversationService;
     }
 
@@ -121,7 +121,10 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                             conversationId.toString()
                     ))
                     .tools(aiTools())
-                    .toolContext(Map.of("userId", currentUser.getUserId()))
+                    .toolContext(Map.of(
+                            "userId", currentUser.getUserId(),
+                            ToolExecutionSupport.SECURITY_CONTEXT_KEY, SecurityContextHolder.getContext()
+                    ))
                     .call()
                     .content();
             aiMessageService.addMessage(conversationId, "assistant", content);
@@ -135,26 +138,31 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     @Override
     public Flux<AiAssistantResult> chatStream(AiAssistantRequest request) {
         if (request.conversationId() == null) {
-            throw new BusinessException(404, "找不到对话");
+            return Flux.just(new AiAssistantResult("⚠️ 找不到对话"));
         }
-
-        updateChat(request);
 
         Long conversationId = request.conversationId();
 
         // ===== 当前仍然在 HTTP 请求线程 =====
 
-        Long userId = currentUser.getUserId();
+        final Long userId;
+        final SecurityContext securityContext;
+        try {
+            userId = currentUser.getUserId();
 
-        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
-        securityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
+            securityContext = SecurityContextHolder.createEmptyContext();
+            securityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
 
-        // 这里完成权限检查 + 保存 USER
-        aiMessageService.addMessage(
-                conversationId,
-                "user",
-                request.message()
-        );
+            try {
+                updateChat(request);
+            } catch (Exception e) {
+                log.warn("生成对话标题失败（不影响对话） conversationId={}", conversationId, e);
+            }
+            // 这里完成权限检查 + 保存 USER；异常必须转换为 SSE 数据，不能逃逸成 HTTP 500。
+            aiMessageService.addMessage(conversationId, "user", request.message());
+        } catch (Exception t) {
+            return Flux.just(errorResult("准备 AI 对话失败", t));
+        }
 
         Map<String, Object> toolContext = Map.of(
                 "userId", userId,
@@ -191,8 +199,19 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             return aiFlux
                     .concatWith(saveAssistant.then(Mono.empty()))
                     .doOnError(t -> log.warn("AI 流式对话失败 conversationId={}", conversationId, t))
-                    .onErrorResume(t -> Flux.just(new AiAssistantResult("⚠️ AI 服务暂时不可用，请稍后重试")));
+                    .onErrorResume(t -> Flux.just(errorResult("AI 服务暂时不可用，请稍后重试", t)));
         });
+    }
+
+    private AiAssistantResult errorResult(String fallback, Throwable throwable) {
+        if (throwable instanceof BusinessException businessException
+                && businessException.getMessage() != null
+                && !businessException.getMessage().isBlank()) {
+            log.warn("AI 流式请求失败 code={} message={}", businessException.getCode(), businessException.getMessage());
+            return new AiAssistantResult("⚠️ " + businessException.getMessage());
+        }
+        log.warn("{}", fallback, throwable);
+        return new AiAssistantResult("⚠️ " + fallback);
     }
 
 
@@ -201,12 +220,12 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         if (request.conversationId() == null) {
             throw new BusinessException(400, "找不到对话");
         }
-        AiMessage existMessage = aiMessageService.getOne(
+        long messageCount = aiMessageService.count(
                 new LambdaQueryWrapper<AiMessage>()
                         .eq(AiMessage::getConversationId, request.conversationId())
         );
-        if (existMessage != null) {
-           return null;
+        if (messageCount > 0) {
+            return null;
         }
 
         ConversationTitleResult conversationTitleResult =
@@ -217,10 +236,6 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                                 请根据用户的首条消息，生成一句简洁、准确的中文标题（不超过 20 字），
                                 并以 JSON 形式返回，例如 {"title":"xxx"}，不要输出任何多余解释或标点。
                                 """)
-                        .advisors(a -> a.param(
-                                ChatMemory.CONVERSATION_ID,
-                                request.conversationId().toString()
-                        ))
                         .user(request.message())
                         .call()
                         .entity(ConversationTitleResult.class);

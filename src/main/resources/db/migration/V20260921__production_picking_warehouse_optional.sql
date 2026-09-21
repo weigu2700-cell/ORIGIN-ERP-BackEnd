@@ -1,5 +1,6 @@
 -- 缺料自动生成的生产领料草稿暂未分配仓库，采购上架后再回填。
 -- 人工新增及审批/确认领料的业务校验仍要求仓库，不删除或改写已有业务数据。
+-- 该脚本幂等：仅当 warehouse_id 当前为 NOT NULL 时才改为可空；表或列不存在时自动跳过。
 SET @prd_picking_warehouse_nullable = IF(
     (SELECT COUNT(*)
        FROM information_schema.columns
