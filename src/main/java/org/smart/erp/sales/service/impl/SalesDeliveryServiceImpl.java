@@ -4,7 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.smart.erp.common.exception.BusinessException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.master.entity.Customer;
@@ -51,6 +54,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -71,6 +76,7 @@ public class SalesDeliveryServiceImpl
     @Lazy
     private final SalesOrderService salesOrderService;
     private final NotificationPublisher notificationPublisher;
+    private final RedissonClient redissonClient ;
 
     public SalesDeliveryServiceImpl(
             SalesDeliveryMapper salesDeliveryMapper,
@@ -82,7 +88,8 @@ public class SalesDeliveryServiceImpl
             SalesOrderMapper salesOrderMapper,
             SalesOrderItemMapper salesOrderItemMapper,
             @Lazy SalesOrderService salesOrderService,
-            NotificationPublisher notificationPublisher
+            NotificationPublisher notificationPublisher,
+            RedissonClient redissonClient
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
@@ -95,8 +102,12 @@ public class SalesDeliveryServiceImpl
         this.salesOrderItemMapper = salesOrderItemMapper;
         this.salesOrderService = salesOrderService;
         this.notificationPublisher = notificationPublisher;
+        this.redissonClient = redissonClient;
     }
 
+    @Lazy
+    @Autowired
+    private  SalesDeliveryServiceImpl self;
     //业务方法:--------------------------------------------------
 
     /**
@@ -141,6 +152,31 @@ public class SalesDeliveryServiceImpl
         }
         return detailSalesDeliveryVo(id);
     }
+
+    private static final String LOCK_PREFIX = "erp:sales:delivery:lock:";
+    private <T> T withDeliveryLock(Long id, Supplier<T> action){
+        RLock rLock = redissonClient.getLock(LOCK_PREFIX + id);
+        boolean locked;
+        try{
+            locked = rLock.tryLock(5, TimeUnit.SECONDS);
+        }catch(InterruptedException e){
+            Thread.currentThread().interrupt();
+            throw new BusinessException(500,"锁中断");
+        }
+        if(!locked){
+            throw  new BusinessException(409,"正常情况正在处理，请稍后");
+        }
+        try {
+            return action.get();
+        }   finally {
+            if(rLock.isHeldByCurrentThread()){
+                rLock.unlock();
+            }
+        }
+
+
+    }
+
 
     /**
      * 完成出库：先按本单已预占量补齐差额（生产补货后应已可用），再逐行扣减实际库存
@@ -444,9 +480,8 @@ public class SalesDeliveryServiceImpl
 
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo confirmSalesDeliveryById(Long id) {
-        return confirmSalesDeliveryInternally(id);
+        return withDeliveryLock(id,()-> self.confirmSalesDeliveryInternally(id));
     }
 
     @Override
@@ -469,8 +504,13 @@ public class SalesDeliveryServiceImpl
     }
 
     @Override
+    public SalesDeliveryVo completeSalesDeliveryById(Long id){
+        return withDeliveryLock(id,()->self.doCompleteSalesDelivery(id));
+    }
+
+
     @Transactional(rollbackFor = Exception.class)
-    public SalesDeliveryVo completeSalesDeliveryById(Long id) {
+    public SalesDeliveryVo doCompleteSalesDelivery(Long id) {
         try {
             // 完成出库：逐行扣减实际库存（在库与预占同步减少），任一行不足则整体回滚
             SalesDeliveryVo vo = changeStatus(id,
@@ -510,9 +550,8 @@ public class SalesDeliveryServiceImpl
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public SalesDeliveryVo cancelSalesDeliveryById(Long id) {
-        return cancelSalesDeliveryInternally(id);
+        return withDeliveryLock(id,()->self.cancelSalesDeliveryInternally(id));
     }
 
     @Override

@@ -4,9 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.platform.commons.util.ReflectionUtils;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.sequence.BusinessNoGenerator;
 import org.smart.erp.inventory.entity.MaterialStock;
@@ -31,11 +34,13 @@ import org.smart.erp.sales.vo.SalesDeliveryVo;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.enums.NotificationType;
 import org.smart.erp.eip.service.NotificationPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,6 +53,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
+import org.springframework.test.util.ReflectionTestUtils;
+import java.util.concurrent.TimeUnit;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyLong;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyLong;
 
 @ExtendWith(MockitoExtension.class)
 class SalesDeliveryServiceImplTests {
@@ -84,12 +96,21 @@ class SalesDeliveryServiceImplTests {
 
 	private SalesDeliveryServiceImpl service;
 
+	@Mock
+	private RedissonClient redissonClient;
+
+	@Mock
+	private RLock rLock;
+
 	@BeforeEach
 	void setUp() throws Exception {
 		lenient().when(salesDeliveryMapper.updateById(any(SalesDelivery.class))).thenReturn(1);
 		service = new SalesDeliveryServiceImpl(salesDeliveryMapper, salesDeliveryItemService, materialStockService,
 				productionDemandService, businessNoGenerator, customerMapper, salesOrderMapper, salesOrderItemMapper,
-				salesOrderService, notificationPublisher);
+				salesOrderService, notificationPublisher,redissonClient);
+		ReflectionTestUtils.setField(service,"self",service);
+		lenient().when(redissonClient.getLock(anyString())).thenReturn(rLock);
+		lenient().when(rLock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(true);
 	}
 
 	@Test
