@@ -18,7 +18,7 @@ create table `smart-erp`.pur_in_stock
     status            tinyint default 0 not null comment '状态（0-草稿，1-已审核，2-已上架）',
     remark            varchar(500)      null comment '备注',
     operator          varchar(100)      null comment '操作人',
-    in_date           datetime          not null comment '实际入库日期',
+    in_date           datetime          null comment '实际入库日期（上架时填写）',
     create_time       datetime          not null comment '创建时间',
     update_time       datetime          null comment '更新时间',
     constraint uk_in_stock_no
@@ -46,4 +46,3 @@ create index idx_status
 
 create index idx_warehouse
     on `smart-erp`.pur_in_stock (warehouse_id);
-

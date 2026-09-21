@@ -1,5 +1,6 @@
 package org.smart.erp.purchase.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -14,6 +15,9 @@ public class PurchaseInStockAddDto {
 
     @NotNull(message = "采购订单不能为空")
     private Long purchaseOrderId;
+
+    @NotBlank(message = "采购订单号不能为空")
+    private String purchaseOrderNo;
 
     /** 供应商可由采购订单带出，非必填 */
     private Long supplierId;

@@ -28,7 +28,8 @@ public class AiMessageServiceImpl
         saveMessage(conversationId,role,message);
     }
 
-    private void saveMessage(Long conversationId,String role, String message) {
+    @Override
+    public void saveMessage(Long conversationId,String role, String message) {
         AiMessage aiMessage = new AiMessage();
         aiMessage.setConversationId(conversationId);
         aiMessage.setRole(role);

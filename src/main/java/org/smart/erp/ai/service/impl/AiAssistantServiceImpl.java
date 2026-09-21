@@ -4,11 +4,7 @@ import org.smart.erp.ai.dto.request.AiAssistantRequest;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.smart.erp.ai.service.AiMessageService;
-import org.smart.erp.ai.tool.InventoryTool;
-import org.smart.erp.ai.tool.NotificationQueryTool;
-import org.smart.erp.ai.tool.ProductionQueryTool;
-import org.smart.erp.ai.tool.PurchaseQueryTool;
-import org.smart.erp.ai.tool.SalesQueryTool;
+import org.smart.erp.ai.tool.*;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.springframework.ai.chat.client.ChatClient;
@@ -16,6 +12,8 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -130,42 +128,59 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         if (request.conversationId() == null) {
             throw new BusinessException(404, "找不到对话");
         }
+
+        Long conversationId = request.conversationId();
+
+        // ===== 当前仍然在 HTTP 请求线程 =====
+
+        Long userId = currentUser.getUserId();
+
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
+
+        // 这里完成权限检查 + 保存 USER
+        aiMessageService.addMessage(
+                conversationId,
+                "user",
+                request.message()
+        );
+
+        Map<String, Object> toolContext = Map.of(
+                "userId", userId,
+                ToolExecutionSupport.SECURITY_CONTEXT_KEY, securityContext
+        );
+
+        // ===== 从这里开始不再依赖 CurrentUser =====
+
         return Flux.defer(() -> {
             StringBuilder contentBuilder = new StringBuilder();
-            Flux<AiAssistantResult> chatStream = chatClient
-                    .prompt()
-                    .user(request.message())
-                    .advisors(a -> a.param(
-                            ChatMemory.CONVERSATION_ID,
-                            request.conversationId().toString()
-                    ))
-                    .tools(aiTools())
-                    .toolContext(Map.of("userId", currentUser.getUserId()))
-                    .stream()
-                    .content()
-                    .doOnNext(contentBuilder::append)
-                    .map(AiAssistantResult::new);
-            return Flux.concat(
-                    Mono.fromRunnable(
-                            () -> aiMessageService.addMessage(
-                                    request.conversationId(),
-                                    "user",
-                                    request.message()
+
+            Flux<AiAssistantResult> aiFlux = chatClient
+                            .prompt()
+                            .user(request.message())
+                            .advisors(a -> a.param(
+                                    ChatMemory.CONVERSATION_ID,
+                                    conversationId.toString()
                             ))
-                            .subscribeOn(Schedulers.boundedElastic()).then(Mono.empty()),
-                    chatStream
-            ).concatWith(
-                    Mono.fromRunnable(
-                            () -> aiMessageService.addMessage(
-                                    request.conversationId(),
-                                    "assistant",
-                                    contentBuilder.toString()
-                            )
-                    ).subscribeOn(Schedulers.boundedElastic()).then(Mono.empty())
-            ).onErrorResume(
-                    t -> Flux.just(
-                            new AiAssistantResult("AI 服务暂时不可用，请稍后重试")
-                    ));
+                            .tools(aiTools())
+                            .toolContext(toolContext)
+                            .stream()
+                            .content()
+                            .doOnNext(contentBuilder::append)
+                            .map(AiAssistantResult::new);
+
+            Mono<Void> saveAssistant = Mono.fromRunnable(() -> aiMessageService.saveMessage(
+                            conversationId,
+                            "assistant",
+                            contentBuilder.toString()
+                    ))
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .then();
+
+            return aiFlux
+                    .concatWith(saveAssistant.then(Mono.empty()))
+                    .doOnError(t -> log.warn("AI 流式对话失败 conversationId={}", conversationId, t))
+                    .onErrorResume(t -> Flux.just(new AiAssistantResult("⚠️ AI 服务暂时不可用，请稍后重试")));
         });
     }
 

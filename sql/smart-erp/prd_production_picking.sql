@@ -5,14 +5,14 @@ create table `smart-erp`.prd_production_picking
     picking_no          varchar(100)                  not null comment '领料单号',
     production_order_id bigint                        not null comment '生产订单id',
     material_id         bigint                        not null comment '物料id',
-    warehouse_id        bigint                        not null comment '仓库id',
+    warehouse_id        bigint                        null comment '仓库id；缺料草稿待采购上架后回填，人工新增和确认领料前仍需指定',
     planned_quantity    decimal(18, 4) default 0.0000 not null comment '计划领料数量',
     actual_quantity     decimal(18, 4) default 0.0000 not null comment '实际领料数量',
     status              tinyint        default 0      not null comment '领料单状态',
     picking_time        datetime                      null comment '领料时间',
     create_time         datetime                      not null comment '创建时间',
     update_time         datetime                      null comment '修改时间',
-    purchaseDemandId    bigint                        null comment '采购需求id',
+    purchase_demand_id  bigint                        null comment '采购需求id',
     constraint uk_picking_no
         unique (picking_no)
 )
@@ -26,4 +26,3 @@ create index idx_production_order_id
 
 create index idx_warehouse_id
     on `smart-erp`.prd_production_picking (warehouse_id);
-

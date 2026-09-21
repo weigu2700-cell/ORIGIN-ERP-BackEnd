@@ -7,6 +7,7 @@ import org.smart.erp.ai.dto.request.AiAssistantRequest;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.smart.erp.common.result.Result;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,7 +34,7 @@ public class AiAssistantController {
         return Result.success(aiAssistantService.chat(request));
     }
 
-    @PostMapping("/chat/stream")
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(description = "AI助手对话流式接口")
     public Flux<AiAssistantResult> chatStream(
             @RequestBody @Parameter(description = "AI助手请求参数") AiAssistantRequest request) {
