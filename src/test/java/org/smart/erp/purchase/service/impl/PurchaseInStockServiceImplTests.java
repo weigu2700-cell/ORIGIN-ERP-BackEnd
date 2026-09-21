@@ -1,5 +1,6 @@
 package org.smart.erp.purchase.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,10 +17,12 @@ import org.smart.erp.master.mapper.WarehouseMapper;
 import org.smart.erp.production.service.ProductionPickingService;
 import org.smart.erp.purchase.dto.PurchaseInStockUploadDto;
 import org.smart.erp.purchase.dto.PurchaseInStockAddDto;
+import org.smart.erp.purchase.dto.PurchaseInStockPageDto;
 import org.smart.erp.purchase.entity.PurchaseInStock;
 import org.smart.erp.purchase.enums.PurchaseInStockStatus;
 import org.smart.erp.purchase.enums.PurchaseInStockType;
 import org.smart.erp.purchase.mapper.PurchaseOrderMapper;
+import org.smart.erp.purchase.vo.PurchaseInStockVo;
 import org.smart.erp.eip.dto.NotificationPublishDTO;
 import org.smart.erp.eip.enums.NotificationType;
 import org.smart.erp.eip.service.NotificationPublisher;
@@ -32,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -166,6 +170,28 @@ class PurchaseInStockServiceImplTests {
 		verify(service, never()).updateById(any(PurchaseInStock.class));
 		verify(productionPickingService, never()).notifyPickingForInStock(any(), any());
 		assertThat(stock.getStatus()).isEqualTo(PurchaseInStockStatus.APPROVED);
+	}
+
+	@Test
+	void pageKeepsDraftWithNullWarehouseIdAndLeavesWarehouseFieldsEmpty() {
+		PurchaseInStock stock = new PurchaseInStock();
+		stock.setId(1L);
+		stock.setInStockNo("PI-001");
+		stock.setPurchaseOrderNo("PO-001");
+		stock.setStatus(PurchaseInStockStatus.DRAFT);
+		Page<PurchaseInStock> page = new Page<>(1, 10, 1);
+		page.setRecords(java.util.List.of(stock));
+		doReturn(page).when(service).page(any(Page.class), any());
+
+		Page<PurchaseInStockVo> result = service.getPagePurchaseInStock(new PurchaseInStockPageDto());
+
+		assertThat(result.getRecords()).hasSize(1);
+		PurchaseInStockVo vo = result.getRecords().getFirst();
+		assertThat(vo.getId()).isEqualTo(1L);
+		assertThat(vo.getWarehouseId()).isNull();
+		assertThat(vo.getWarehouseName()).isNull();
+		assertThat(vo.getWarehouseCode()).isNull();
+		verify(warehouseMapper, never()).selectByIds(anyCollection());
 	}
 
 	private PurchaseInStock approvedStock() {

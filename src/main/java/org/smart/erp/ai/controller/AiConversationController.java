@@ -49,4 +49,5 @@ public class AiConversationController {
             @PathVariable @Parameter(description = "对话ID") Long conversationId) {
         return Result.success(aiConversationService.archiveConversation(conversationId));
     }
+
 }

@@ -1,8 +1,12 @@
 package org.smart.erp.ai.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.smart.erp.ai.dto.request.AiAssistantRequest;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
+import org.smart.erp.ai.dto.result.ConversationTitleResult;
+import org.smart.erp.ai.entity.AiMessage;
 import org.smart.erp.ai.service.AiAssistantService;
+import org.smart.erp.ai.service.AiConversationService;
 import org.smart.erp.ai.service.AiMessageService;
 import org.smart.erp.ai.tool.*;
 import org.smart.erp.common.exception.BusinessException;
@@ -27,6 +31,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private static final Logger log = LoggerFactory.getLogger(AiAssistantServiceImpl.class);
 
     private final ChatClient chatClient;
+    private final ChatClient chatClientTitle;
     private final InventoryTool inventoryTool;
     private final SalesQueryTool salesQueryTool;
     private final ProductionQueryTool productionQueryTool;
@@ -34,6 +39,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final NotificationQueryTool notificationQueryTool;
     private final CurrentUser currentUser;
     private final AiMessageService aiMessageService;
+    private final AiConversationService aiConversationService;
     private final String systemPrompt =
             """
                 你是 OriginERP 企业资源管理系统的智能 AI 助手，帮助企业的管理者与业务人员用自然语言查询和分析 ERP 业务数据、理解流程规则。
@@ -79,7 +85,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             NotificationQueryTool notificationQueryTool,
             CurrentUser currentUser,
             ChatMemory chatMemory,
-            AiMessageService aiMessageService
+            AiMessageService aiMessageService,
+            AiConversationService aiConversationService
     ) {
         this.chatClient = builder
                 .defaultSystem(systemPrompt)
@@ -94,6 +101,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         this.notificationQueryTool = notificationQueryTool;
         this.currentUser = currentUser;
         this.aiMessageService = aiMessageService;
+        this.chatClientTitle = builder.build();
+        this.aiConversationService = aiConversationService;
     }
 
     @Override
@@ -128,6 +137,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         if (request.conversationId() == null) {
             throw new BusinessException(404, "找不到对话");
         }
+
+        updateChat(request);
 
         Long conversationId = request.conversationId();
 
@@ -184,6 +195,42 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         });
     }
 
+
+    @Override
+    public ConversationTitleResult updateChat(AiAssistantRequest request) {
+        if (request.conversationId() == null) {
+            throw new BusinessException(400, "找不到对话");
+        }
+        AiMessage existMessage = aiMessageService.getOne(
+                new LambdaQueryWrapper<AiMessage>()
+                        .eq(AiMessage::getConversationId, request.conversationId())
+        );
+        if (existMessage != null) {
+           return null;
+        }
+
+        ConversationTitleResult conversationTitleResult =
+                chatClientTitle
+                        .prompt()
+                        .system("""
+                                你是 OriginERP 企业资源管理系统的对话标题生成助手。
+                                请根据用户的首条消息，生成一句简洁、准确的中文标题（不超过 20 字），
+                                并以 JSON 形式返回，例如 {"title":"xxx"}，不要输出任何多余解释或标点。
+                                """)
+                        .advisors(a -> a.param(
+                                ChatMemory.CONVERSATION_ID,
+                                request.conversationId().toString()
+                        ))
+                        .user(request.message())
+                        .call()
+                        .entity(ConversationTitleResult.class);
+
+        if (conversationTitleResult != null) {
+            aiConversationService.updateTitle(request.conversationId(), conversationTitleResult.title());
+        }
+        return conversationTitleResult;
+    }
+
     private Object[] aiTools() {
         return new Object[]{
                 inventoryTool,
@@ -193,4 +240,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 notificationQueryTool
         };
     }
+
+
+
 }

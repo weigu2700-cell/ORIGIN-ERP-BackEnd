@@ -14,4 +14,6 @@ public interface AiConversationService extends IService<AiConversation> {
     List<AiConversation> listConversation();
 
     ConversationResult archiveConversation(Long conversationId);
+
+    ConversationResult updateTitle(Long conversationId, String title);
 }

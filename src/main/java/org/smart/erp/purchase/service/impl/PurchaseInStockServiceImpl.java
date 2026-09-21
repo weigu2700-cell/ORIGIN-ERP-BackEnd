@@ -205,17 +205,17 @@ public class PurchaseInStockServiceImpl
             BeanUtils.copyProperties(item, vo);
             vo.setPurchaseInStockNo(item.getInStockNo());
 
-            Material material = materialMap.get(item.getMaterialId());
+            Material material = item.getMaterialId() == null ? null : materialMap.get(item.getMaterialId());
             if (material != null) {
                 vo.setMaterialName(material.getName());
                 vo.setMaterialCode(material.getCode());
             }
-            Warehouse warehouse = warehouseMap.get(item.getWarehouseId());
+            Warehouse warehouse = item.getWarehouseId() == null ? null : warehouseMap.get(item.getWarehouseId());
             if (warehouse != null) {
                 vo.setWarehouseName(warehouse.getName());
                 vo.setWarehouseCode(warehouse.getCode());
             }
-            Long supplierId = orderSupplierMap.get(item.getPurchaseOrderId());
+            Long supplierId = item.getPurchaseOrderId() == null ? null : orderSupplierMap.get(item.getPurchaseOrderId());
             vo.setSupplierId(supplierId);
             if (supplierId != null) {
                 Supplier supplier = supplierMap.get(supplierId);

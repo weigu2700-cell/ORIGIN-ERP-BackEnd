@@ -14,8 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/ai/assistant")
 @Tag(name = "AI助手接口",description = "AI助手接口")
