@@ -47,4 +47,7 @@ public class PurchaseOrderVo {
 
     private PurchaseOrderStatus status;
 
+    // 乐观锁版本号，供 AI 审批等动作执行时做并发控制
+    private Integer version;
+
 }

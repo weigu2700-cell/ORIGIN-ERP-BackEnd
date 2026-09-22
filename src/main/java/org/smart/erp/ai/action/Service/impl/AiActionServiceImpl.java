@@ -2,7 +2,7 @@ package org.smart.erp.ai.action.Service.impl;
 
 import org.smart.erp.ai.action.Service.AiActionService;
 import org.smart.erp.ai.action.model.AiActionProposal;
-import org.smart.erp.purchase.entity.PurchaseOrder;
+import org.smart.erp.ai.enums.AiActionType;
 import org.smart.erp.purchase.service.PurchaseOrderService;
 import org.smart.erp.purchase.vo.PurchaseOrderVo;
 
