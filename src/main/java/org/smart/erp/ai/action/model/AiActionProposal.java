@@ -1,9 +1,9 @@
-package org.smart.erp.ai.dto.request;
+package org.smart.erp.ai.action.model;
 
 import org.smart.erp.ai.enums.AiActionType;
 
 public record AiActionProposal(
-        AiActionType type,
+        AiActionType actionType,
         Long bizId,
         String bizNo,
         Integer version,

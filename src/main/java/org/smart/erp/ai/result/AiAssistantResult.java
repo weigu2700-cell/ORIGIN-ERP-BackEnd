@@ -1,4 +1,4 @@
-package org.smart.erp.ai.dto.result;
+package org.smart.erp.ai.result;
 
 public record AiAssistantResult(
         String content

@@ -1,4 +1,4 @@
-package org.smart.erp.ai.dto.result;
+package org.smart.erp.ai.result;
 
 import org.smart.erp.ai.enums.AiStreamType;
 

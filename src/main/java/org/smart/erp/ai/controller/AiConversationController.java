@@ -3,7 +3,7 @@ package org.smart.erp.ai.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.smart.erp.ai.dto.request.ConversationResult;
+import org.smart.erp.ai.request.ConversationResult;
 import org.smart.erp.ai.entity.AiConversation;
 import org.smart.erp.ai.service.AiConversationService;
 import org.smart.erp.common.result.Result;

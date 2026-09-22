@@ -252,7 +252,7 @@ public class PurchaseOrderServiceImpl
     @Override
     public PurchaseOrderVo detailPurchaseOrder(Long id) {
         PurchaseOrder order = getOrderOrThrow(id);
-        return toVoList(List.of(order)).get(0);
+        return toVoList(List.of(order)).getFirst();
     }
 
     @Override
@@ -369,5 +369,17 @@ public class PurchaseOrderServiceImpl
                 NotificationBusinessRefDTO.of(
                         "PURCHASE_ORDER_CLOSED", order.getId(), order.getPurchaseOrderNo()),
                 RecipientSelectorDTO.permissions(Set.of("purchase:order:create"), true)));
+    }
+
+    @Override
+    public boolean checkPurchaseOrder(Long id) {
+        PurchaseOrder order = getOrderOrThrow(id);
+        // 业务上不允许为空的必填字段：采购需求、物料、供应商、计划数量、单价、预计交货日期
+        return order.getPurchaseDemandId() != null
+                && order.getMaterialId() != null
+                && order.getSupplierId() != null
+                && order.getPlannedQuantity() != null
+                && order.getUnitPrice() != null
+                && order.getExpectedDeliveryDate() != null;
     }
 }

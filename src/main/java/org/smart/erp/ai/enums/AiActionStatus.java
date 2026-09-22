@@ -4,8 +4,9 @@ import lombok.Getter;
 
 @Getter
 public enum AiActionStatus {
-    PROPOSAL,
     PENDING,
-    ACTION,
-    COMPLETE
+    EXECUTING,
+    SUCCESS,
+    FAILED,
+    EXPIRED
 }

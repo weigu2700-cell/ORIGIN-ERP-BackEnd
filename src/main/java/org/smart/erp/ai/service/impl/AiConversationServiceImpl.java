@@ -2,7 +2,7 @@ package org.smart.erp.ai.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
-import org.smart.erp.ai.dto.request.ConversationResult;
+import org.smart.erp.ai.request.ConversationResult;
 import org.smart.erp.ai.entity.AiConversation;
 import org.smart.erp.ai.enums.ConversationStatus;
 import org.smart.erp.ai.mapper.AiConversationMapper;

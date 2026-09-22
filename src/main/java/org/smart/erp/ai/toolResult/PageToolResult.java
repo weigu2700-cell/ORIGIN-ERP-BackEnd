@@ -1,4 +1,4 @@
-package org.smart.erp.ai.dto.toolResult;
+package org.smart.erp.ai.toolResult;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 

@@ -30,7 +30,7 @@ build/
 !**/src/test/**/build/
 
 ### config ###
-application.yml
+application.yaml
 application-dev.yml
 
 ### VS Code ###

@@ -1,9 +1,8 @@
 package org.smart.erp.ai.service;
 
-import org.smart.erp.ai.dto.request.AiAssistantRequest;
-import org.smart.erp.ai.dto.result.AiAssistantResult;
-import org.smart.erp.ai.dto.result.AiAssistantStreamResult;
-import org.smart.erp.ai.dto.result.ConversationTitleResult;
+import org.smart.erp.ai.request.AiAssistantRequest;
+import org.smart.erp.ai.result.AiAssistantResult;
+import org.smart.erp.ai.result.AiAssistantStreamResult;
 import reactor.core.publisher.Flux;
 
 public interface AiAssistantService {

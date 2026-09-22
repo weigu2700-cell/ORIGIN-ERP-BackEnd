@@ -36,4 +36,6 @@ public interface PurchaseOrderService extends IService<PurchaseOrder> {
 
     @PreAuthorize("hasAnyAuthority('purchase:order:close')")
     void closePurchaseOrder(Long id);
+
+    boolean checkPurchaseOrder(Long id);
 }

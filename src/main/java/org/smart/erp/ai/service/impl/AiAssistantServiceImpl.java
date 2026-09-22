@@ -1,12 +1,11 @@
 package org.smart.erp.ai.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import org.smart.erp.ai.dto.request.AiAssistantRequest;
-import org.smart.erp.ai.dto.result.AiAssistantResult;
-import org.smart.erp.ai.dto.result.AiAssistantStreamResult;
-import org.smart.erp.ai.dto.result.ConversationTitleResult;
+import org.smart.erp.ai.action.collector.AiActionCollector;
+import org.smart.erp.ai.request.AiAssistantRequest;
+import org.smart.erp.ai.result.AiAssistantResult;
+import org.smart.erp.ai.result.AiAssistantStreamResult;
+import org.smart.erp.ai.result.ConversationTitleResult;
 import org.smart.erp.ai.entity.AiConversation;
-import org.smart.erp.ai.entity.AiMessage;
 import org.smart.erp.ai.enums.AiStreamType;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.smart.erp.ai.service.AiConversationService;
@@ -44,6 +43,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final CurrentUser currentUser;
     private final AiMessageService aiMessageService;
     private final AiConversationService aiConversationService;
+    private final AiActionCollector aiActionCollector;
+    private final String ACTION_COLLECTOR_KEY = "aiActionCollector";
     private final String systemPrompt =
             """
                 你是 OriginERP 企业资源管理系统的智能 AI 助手，帮助企业的管理者与业务人员用自然语言查询和分析 ERP 业务数据、理解流程规则。
@@ -90,7 +91,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             CurrentUser currentUser,
             ChatMemory chatMemory,
             AiMessageService aiMessageService,
-            AiConversationService aiConversationService
+            AiConversationService aiConversationService,
+            AiActionCollector aiActionCollector
     ) {
         this.chatClientTitle = builder.clone().build();
         this.chatClient = builder
@@ -108,6 +110,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         this.currentUser = currentUser;
         this.aiMessageService = aiMessageService;
         this.aiConversationService = aiConversationService;
+        this.aiActionCollector = aiActionCollector;
     }
 
     @Override
@@ -156,7 +159,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         try {
             toolContext = Map.of(
                     "userId", currentUser.getUserId(),
-                    ToolExecutionSupport.SECURITY_CONTEXT_KEY, securityContext
+                    ToolExecutionSupport.SECURITY_CONTEXT_KEY, securityContext,
+                    ACTION_COLLECTOR_KEY, aiActionCollector
             );
             // 归属校验和写入仍在请求线程完成；失败时返回 SSE 错误，避免响应类型冲突。
             aiMessageService.addMessage(conversationId, "user", request.message());

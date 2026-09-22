@@ -1,4 +1,4 @@
-package org.smart.erp.ai.dto.toolResult;
+package org.smart.erp.ai.toolResult;
 
 import java.math.BigDecimal;
 import java.util.List;

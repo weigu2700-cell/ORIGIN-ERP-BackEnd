@@ -1,11 +1,9 @@
 package org.smart.erp.ai.tool;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
-import org.smart.erp.ai.dto.toolResult.PageToolResult;
+import org.smart.erp.ai.toolResult.PageToolResult;
 import org.smart.erp.purchase.dto.PurchaseDemandPageDto;
 import org.smart.erp.purchase.dto.PurchaseOrderPageDto;
-import org.smart.erp.purchase.entity.PurchaseOrder;
 import org.smart.erp.purchase.enums.PurchaseDemandSourceType;
 import org.smart.erp.purchase.enums.PurchaseDemandStatus;
 import org.smart.erp.purchase.enums.PurchaseOrderStatus;
@@ -17,7 +15,6 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -50,7 +47,10 @@ public class PurchaseQueryTool {
             @ToolParam(required = false, description = "采购订单号，支持按单号查询") String purchaseOrderNo,
             @ToolParam(required = false, description = "物料ID") Long materialId,
             @ToolParam(required = false, description = "供应商ID") Long supplierId,
-            @ToolParam(required = false, description = "采购订单状态枚举：DRAFT（0，草稿）、APPROVED（1，已审批）、SHIPPED（2，已发货）、RECEIVED（3，已收货）或 CLOSED（4，已关闭）") PurchaseOrderStatus status,
+            @ToolParam(
+                    required = false,
+                    description = "采购订单状态枚举：DRAFT（0，草稿）、APPROVED（1，已审批）、SHIPPED（2，已发货）、RECEIVED（3，已收货）或 CLOSED（4，已关闭）"
+            ) PurchaseOrderStatus status,
             @ToolParam(required = false, description = "页码，从1开始，默认1") Integer pageNum,
             @ToolParam(required = false, description = "每页条数，默认10，最大100") Integer pageSize,
             ToolContext toolContext) {

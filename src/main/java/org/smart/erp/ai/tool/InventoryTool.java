@@ -1,8 +1,8 @@
 package org.smart.erp.ai.tool;
 
 import lombok.RequiredArgsConstructor;
-import org.smart.erp.ai.dto.toolResult.MaterialStockToolResult;
-import org.smart.erp.ai.dto.toolResult.WarehouseStockResult;
+import org.smart.erp.ai.toolResult.MaterialStockToolResult;
+import org.smart.erp.ai.toolResult.WarehouseStockResult;
 import org.smart.erp.inventory.dto.MaterialStockPageDto;
 import org.smart.erp.inventory.service.MaterialStockService;
 import org.smart.erp.inventory.vo.MaterialStockVo;
