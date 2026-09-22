@@ -4,7 +4,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/smart-erp?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: MySQL6636
+    password: 1234
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
@@ -35,6 +35,18 @@ spring:
           repository:
             jdbc:
               initialize-schema: always
+
+      embedding: # ← 向量化指向另一家
+        base-url: https://ws-7f32tp7l65ra67nu.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+        api-key: sk-ws-H.PIYRIED.ZtZQ.MEYCIQDecBlsvfJF_qm5FtfHUaWtd0yMfKD0fNH1kBNSxbrBHwIhAPsg0EaUbI2pNwyQRFCkJPVcGdHLSlvX0r35nR09935B
+        options: # ← ① model 必须挂在 options 下，直接写 model 是无效属性
+          model: qwen3.7-text-embedding
+    # ② retrieve 不是 spring.ai 的属性，放在 openai 下会被静默忽略，必须挪到顶层自定义命名空间
+rag:
+  retrieve:
+    top-k: 4
+    min-score: 0.5
+
 mybatis-plus:
   mapper-locations: classpath*:mapper/*.xml
   type-aliases-package: org.smart.erp.entity
