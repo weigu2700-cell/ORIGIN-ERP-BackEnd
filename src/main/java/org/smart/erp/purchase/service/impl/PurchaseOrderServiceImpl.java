@@ -291,9 +291,11 @@ public class PurchaseOrderServiceImpl
             );
         }
         order.setStatus(PurchaseOrderStatus.APPROVED);
-        purchaseOrderMapper.updateById(order);
+        int rows = purchaseOrderMapper.updateById(order);
 
-        // 审批通过后自动生成采购入库单（草稿，仓库等信息待实际收货时补充）
+        if (rows == 0) {
+            throw new BusinessException(409, "采购订单已被其他用户修改，请刷新后重试");
+        }
         createInStockForOrder(order);
 
         notificationPublisher.publish(NotificationPublishDTO.business(
