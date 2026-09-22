@@ -1,5 +1,6 @@
 package org.smart.erp.ai.assistant.service.impl;
 
+import org.smart.erp.ai.action.collector.AiActionCollector;
 import org.smart.erp.ai.assistant.dto.AiAssistantRequest;
 import org.smart.erp.ai.assistant.dto.AiAssistantResult;
 import org.smart.erp.ai.assistant.dto.AiAssistantStreamResult;
@@ -104,11 +105,14 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
         securityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
 
+        AiActionCollector aiActionCollector = new AiActionCollector();
+
         final Map<String, Object> toolContext;
         try {
             toolContext = Map.of(
                     "userId", currentUser.getUserId(),
-                    ToolExecutionSupport.SECURITY_CONTEXT_KEY, securityContext
+                    ToolExecutionSupport.SECURITY_CONTEXT_KEY, securityContext,
+                    AiActionCollector.ACTION_COLLECTOR_KEY, aiActionCollector
             );
             // 归属校验和写入仍在请求线程完成；失败时返回 SSE 错误，避免响应类型冲突。
             aiMessageService.addMessage(conversationId, "user", request.message());

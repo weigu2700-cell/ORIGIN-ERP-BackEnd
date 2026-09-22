@@ -1,8 +1,10 @@
 package org.smart.erp.ai.action.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.smart.erp.ai.action.service.AiActionService;
 import org.smart.erp.ai.action.model.AiActionProposal;
 import org.smart.erp.ai.action.model.AiActionType;
+import org.smart.erp.purchase.entity.PurchaseOrder;
 import org.smart.erp.purchase.service.PurchaseOrderService;
 import org.smart.erp.purchase.vo.PurchaseOrderVo;
 
@@ -15,9 +17,12 @@ public class AiActionServiceImpl implements AiActionService {
     }
 
     @Override
-    public AiActionProposal prepareApprovePurchaseOrder4Ai(Long id) {
-        PurchaseOrderVo purchaseOrder = purchaseOrderService.detailPurchaseOrder(id);
-        boolean ready = purchaseOrderService.checkPurchaseOrder(id);
+    public AiActionProposal prepareApprovePurchaseOrder4Ai(String purchaseOrderNo) {
+        PurchaseOrder purchaseOrder = purchaseOrderService.getOne(
+                new LambdaQueryWrapper<PurchaseOrder>()
+                        .eq(PurchaseOrder::getPurchaseOrderNo,purchaseOrderNo)
+        );
+        boolean ready = purchaseOrderService.checkPurchaseOrder(purchaseOrder.getId());
         return new AiActionProposal(
                 AiActionType.APPROVE_PURCHASE_ORDER,
                 purchaseOrder.getId(),

@@ -1,5 +1,6 @@
 package org.smart.erp.ai.tool;
 
+import org.smart.erp.ai.action.collector.AiActionCollector;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -63,5 +64,16 @@ public final class ToolExecutionSupport {
         } finally {
             SecurityContextHolder.setContext(previous);
         }
+    }
+
+    public static AiActionCollector getActionCollector(ToolContext toolContext) {
+        Object value = toolContext.getContext()
+                .get(AiActionCollector.ACTION_COLLECTOR_KEY);
+
+        if (!(value instanceof AiActionCollector collector)) {
+            throw new IllegalStateException("AiActionCollector not found in ToolContext");
+        }
+
+        return collector;
     }
 }
