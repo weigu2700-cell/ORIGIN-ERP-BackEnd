@@ -10,5 +10,5 @@ public interface AiAssistantService {
 
     Flux<AiAssistantResult> chatStream(AiAssistantRequest request);
 
-    ConversationTitleResult updateChat(AiAssistantRequest request);
+    void generateTitleIfNeeded(AiAssistantRequest request);
 }

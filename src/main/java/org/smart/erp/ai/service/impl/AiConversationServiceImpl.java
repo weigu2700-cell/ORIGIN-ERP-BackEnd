@@ -64,12 +64,11 @@ public class AiConversationServiceImpl
     }
 
     @Override
-    public ConversationResult updateTitle(Long conversationId, String title) {
+    public void writeTitle(Long conversationId, String title) {
         AiConversation conversation = getOwnedConversation(conversationId);
         conversation.setTitle(title);
         updateById(conversation);
 
-        return new ConversationResult(conversation.getId());
     }
 
     @Override

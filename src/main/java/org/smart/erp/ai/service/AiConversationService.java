@@ -15,5 +15,5 @@ public interface AiConversationService extends IService<AiConversation> {
 
     ConversationResult archiveConversation(Long conversationId);
 
-    ConversationResult updateTitle(Long conversationId, String title);
+    void writeTitle(Long conversationId, String title);
 }

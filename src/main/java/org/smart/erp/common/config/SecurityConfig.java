@@ -2,6 +2,7 @@ package org.smart.erp.common.config;
 
 
 import jakarta.annotation.Resource;
+import jakarta.servlet.DispatcherType;
 import org.smart.erp.common.security.JwtAuthenticationFilter;
 import org.smart.erp.common.security.RestAccessDeniedHandler;
 import org.smart.erp.common.security.RestAuthenticationEntryPoint;
@@ -47,6 +48,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                     // CORS 预检请求放行
                     .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                    // SSE 的初始 REQUEST 已鉴权；异步完成时的再次分派不应在响应提交后重新鉴权。
+                    .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                     .requestMatchers("/auth/login", "/error", "/ws/**").permitAll()
                     // Swagger / OpenAPI 相关路径放行
                     .requestMatchers(

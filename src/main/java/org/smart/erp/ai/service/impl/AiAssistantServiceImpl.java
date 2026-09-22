@@ -88,8 +88,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             AiMessageService aiMessageService,
             AiConversationService aiConversationService
     ) {
-        this.chatClientTitle = builder.build();
+        this.chatClientTitle = builder.clone().build();
         this.chatClient = builder
+                .clone()
                 .defaultSystem(systemPrompt)
                 .defaultAdvisors(MessageChatMemoryAdvisor
                         .builder(chatMemory)
@@ -135,46 +136,36 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         }
     }
 
+
     @Override
     public Flux<AiAssistantResult> chatStream(AiAssistantRequest request) {
+
         if (request.conversationId() == null) {
             return Flux.just(new AiAssistantResult("⚠️ 找不到对话"));
         }
 
         Long conversationId = request.conversationId();
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
 
-        // ===== 当前仍然在 HTTP 请求线程 =====
-
-        final Long userId;
-        final SecurityContext securityContext;
+        final Map<String, Object> toolContext;
         try {
-            userId = currentUser.getUserId();
-
-            securityContext = SecurityContextHolder.createEmptyContext();
-            securityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
-
-            try {
-                updateChat(request);
-            } catch (Exception e) {
-                log.warn("生成对话标题失败（不影响对话） conversationId={}", conversationId, e);
-            }
-            // 这里完成权限检查 + 保存 USER；异常必须转换为 SSE 数据，不能逃逸成 HTTP 500。
+            toolContext = Map.of(
+                    "userId", currentUser.getUserId(),
+                    ToolExecutionSupport.SECURITY_CONTEXT_KEY, securityContext
+            );
+            // 归属校验和写入仍在请求线程完成；失败时返回 SSE 错误，避免响应类型冲突。
             aiMessageService.addMessage(conversationId, "user", request.message());
-        } catch (Exception t) {
-            return Flux.just(errorResult("准备 AI 对话失败", t));
+        } catch (Exception e) {
+            log.warn("准备 AI 流式对话失败 conversationId={}", conversationId, e);
+            String message = e instanceof BusinessException ? e.getMessage() : "AI 服务暂时不可用，请稍后重试";
+            return Flux.just(new AiAssistantResult("⚠️ " + message));
         }
 
-        Map<String, Object> toolContext = Map.of(
-                "userId", userId,
-                ToolExecutionSupport.SECURITY_CONTEXT_KEY, securityContext
-        );
-
-        // ===== 从这里开始不再依赖 CurrentUser =====
-
         return Flux.defer(() -> {
-            StringBuilder contentBuilder = new StringBuilder();
-
-            Flux<AiAssistantResult> aiFlux = chatClient
+            StringBuilder stringBuilder = new StringBuilder();
+            Flux<AiAssistantResult> streamResult =
+                    chatClient
                             .prompt()
                             .user(request.message())
                             .advisors(a -> a.param(
@@ -185,66 +176,74 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                             .toolContext(toolContext)
                             .stream()
                             .content()
-                            .doOnNext(contentBuilder::append)
+                            .doOnNext(stringBuilder::append)
                             .map(AiAssistantResult::new);
 
             Mono<Void> saveAssistant = Mono.fromRunnable(() -> aiMessageService.saveMessage(
                             conversationId,
                             "assistant",
-                            contentBuilder.toString()
+                            stringBuilder.toString()
                     ))
                     .subscribeOn(Schedulers.boundedElastic())
                     .then();
 
-            return aiFlux
-                    .concatWith(saveAssistant.then(Mono.empty()))
-                    .doOnError(t -> log.warn("AI 流式对话失败 conversationId={}", conversationId, t))
-                    .onErrorResume(t -> Flux.just(errorResult("AI 服务暂时不可用，请稍后重试", t)));
-        });
-    }
+            Mono<Void> generateTitle = Mono.fromRunnable(() -> {
+                        SecurityContext previous = SecurityContextHolder.getContext();
+                        SecurityContextHolder.setContext(securityContext);
+                        try {
+                            generateTitleIfNeeded(request);
+                        } finally {
+                            SecurityContextHolder.setContext(previous);
+                        }
+                    })
+                    .subscribeOn(Schedulers.boundedElastic())
+                    // 标题只是附加功能，不应把已经成功的回答变成错误消息。
+                    .onErrorResume(error -> {
+                        log.warn("AI 对话标题生成失败 conversationId={}", conversationId, error);
+                        return Mono.empty();
+                    })
+                    .then();
 
-    private AiAssistantResult errorResult(String fallback, Throwable throwable) {
-        if (throwable instanceof BusinessException businessException
-                && businessException.getMessage() != null
-                && !businessException.getMessage().isBlank()) {
-            log.warn("AI 流式请求失败 code={} message={}", businessException.getCode(), businessException.getMessage());
-            return new AiAssistantResult("⚠️ " + businessException.getMessage());
-        }
-        log.warn("{}", fallback, throwable);
-        return new AiAssistantResult("⚠️ " + fallback);
+            return streamResult
+                    .concatWith(saveAssistant.then(Mono.empty()))
+                    .concatWith(generateTitle.then(Mono.empty()));
+        })
+                .doOnError(error -> log.warn("AI 流式对话失败 conversationId={}", conversationId, error))
+                .onErrorResume(error -> Flux.just(new AiAssistantResult("⚠️ AI 服务暂时不可用，请稍后重试")));
     }
 
 
     @Override
-    public ConversationTitleResult updateChat(AiAssistantRequest request) {
-        if (request.conversationId() == null) {
-            throw new BusinessException(400, "找不到对话");
-        }
-        long messageCount = aiMessageService.count(
+    public void generateTitleIfNeeded(AiAssistantRequest request) {
+
+        long aiMessageCount = aiMessageService.count(
                 new LambdaQueryWrapper<AiMessage>()
                         .eq(AiMessage::getConversationId, request.conversationId())
+                        .eq(AiMessage::getRole, "user")
         );
-        if (messageCount > 0) {
-            return null;
-        }
 
-        ConversationTitleResult conversationTitleResult =
-                chatClientTitle
-                        .prompt()
-                        .system("""
-                                你是 OriginERP 企业资源管理系统的对话标题生成助手。
-                                请根据用户的首条消息，生成一句简洁、准确的中文标题（不超过 20 字），
-                                并以 JSON 形式返回，例如 {"title":"xxx"}，不要输出任何多余解释或标点。
-                                """)
-                        .user(request.message())
-                        .call()
-                        .entity(ConversationTitleResult.class);
+        // 用户消息已在 chatStream 中保存，首条消息此时计数为 1。
+        if (aiMessageCount == 1) {
 
-        if (conversationTitleResult != null) {
-            aiConversationService.updateTitle(request.conversationId(), conversationTitleResult.title());
+            ConversationTitleResult conversationTitleResult =
+                    chatClientTitle
+                            .prompt()
+                            .system("请根据用户的对话生成不超过 20 字的中文标题，仅返回 JSON，例如 {\"title\":\"库存查询\"}。")
+                            .user(request.message())
+                            .call()
+                            .entity(ConversationTitleResult.class);
+
+            if (conversationTitleResult != null) {
+                aiConversationService.writeTitle(
+                        request.conversationId(),
+                        conversationTitleResult.title()
+                );
+            }
+
         }
-        return conversationTitleResult;
     }
+
+
 
     private Object[] aiTools() {
         return new Object[]{
@@ -255,7 +254,4 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 notificationQueryTool
         };
     }
-
-
-
 }
