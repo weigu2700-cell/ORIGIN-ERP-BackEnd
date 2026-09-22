@@ -6,17 +6,9 @@ import lombok.Getter;
 
 @Getter
 public enum AiStreamType {
-    CONTENT(0,"内容"),
-    ERROR(1,"失败"),
-    TITLE(2,"生成标题");
+    CONTENT,
+    ERROR,
+    TITLE,
+    ACTION
 
-    @EnumValue
-    private final Integer code;
-    @JsonValue
-    private final String desc;
-
-    AiStreamType(Integer code, String desc) {
-        this.code = code;
-        this.desc = desc;
-    }
 }

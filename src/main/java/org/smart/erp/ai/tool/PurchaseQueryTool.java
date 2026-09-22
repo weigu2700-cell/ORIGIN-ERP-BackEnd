@@ -1,9 +1,11 @@
 package org.smart.erp.ai.tool;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.smart.erp.ai.dto.toolResult.PageToolResult;
 import org.smart.erp.purchase.dto.PurchaseDemandPageDto;
 import org.smart.erp.purchase.dto.PurchaseOrderPageDto;
+import org.smart.erp.purchase.entity.PurchaseOrder;
 import org.smart.erp.purchase.enums.PurchaseDemandSourceType;
 import org.smart.erp.purchase.enums.PurchaseDemandStatus;
 import org.smart.erp.purchase.enums.PurchaseOrderStatus;
@@ -15,6 +17,7 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor

@@ -145,7 +145,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     public Flux<AiAssistantStreamResult> chatStream(AiAssistantRequest request) {
 
         if (request.conversationId() == null) {
-            return Flux.just(new AiAssistantStreamResult(AiStreamType.ERROR,"⚠️ 找不到对话"));
+            return Flux.just(new AiAssistantStreamResult(AiStreamType.ERROR,"找不到对话"));
         }
 
         Long conversationId = request.conversationId();
@@ -163,7 +163,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         } catch (Exception e) {
             log.warn("准备 AI 流式对话失败 conversationId={}", conversationId, e);
             String message = e instanceof BusinessException ? e.getMessage() : "AI 服务暂时不可用，请稍后重试";
-            return Flux.just(new AiAssistantStreamResult(AiStreamType.ERROR,"⚠️ " + message));
+            return Flux.just(new AiAssistantStreamResult(AiStreamType.ERROR, message));
         }
 
         return Flux.defer(() -> {
@@ -250,7 +250,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                         }
 
                         return Flux.just(
-                                new AiAssistantStreamResult(AiStreamType.ERROR,"⚠️ AI 服务暂时不可用，请稍后重试")
+                                new AiAssistantStreamResult(AiStreamType.ERROR,"AI 服务暂时不可用，请稍后重试")
                         );
                     });
         });
@@ -259,7 +259,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
     private ConversationTitleResult generateTitleIfNeeded(AiAssistantRequest request) {
 
-        AiConversation aiConversation = aiConversationService.getById(request.conversationId());
+        AiConversation aiConversation = aiConversationService.getOwnedConversation(request.conversationId());
 
         if ( "新对话".equals(aiConversation.getTitle())) {
 
