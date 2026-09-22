@@ -1,6 +1,7 @@
 package org.smart.erp.ai.action.tool;
 
 
+import lombok.RequiredArgsConstructor;
 import org.smart.erp.ai.action.collector.AiActionCollector;
 import org.smart.erp.ai.action.service.AiActionService;
 import org.smart.erp.ai.action.model.AiActionProposal;
@@ -8,14 +9,13 @@ import org.smart.erp.ai.tool.ToolExecutionSupport;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
 
+@Component
+@RequiredArgsConstructor
 public class PurchaseWriteTool {
 
     private final AiActionService aiActionService;
-
-    public PurchaseWriteTool(AiActionService aiActionService) {
-        this.aiActionService = aiActionService;
-    }
 
     public AiActionProposal collectPurchaseOrderProposal(String purchaseOrderNo) {
         return aiActionService.prepareApprovePurchaseOrder4Ai(purchaseOrderNo);
@@ -27,18 +27,17 @@ public class PurchaseWriteTool {
             description = "根据采购订单编号准备采购订单审核操作，不会直接执行审核"
     )
     public AiActionProposal prepareApprovePurchaseOrder(
-            @ToolParam(
-                    description = "采购订单编号，例如 PUR_ORD202609220001"
-            ) String purchaseOrderNo,
+            @ToolParam(required = true, description = "采购订单编号") String purchaseOrderNo,
             ToolContext toolContext
     ) {
-        AiActionProposal aiActionProposal =   aiActionService.prepareApprovePurchaseOrder4Ai(purchaseOrderNo);
+        AiActionProposal proposal =
+                aiActionService.prepareApprovePurchaseOrder4Ai(purchaseOrderNo);
 
-        ToolExecutionSupport
-                .getActionCollector(toolContext)
-                .add(aiActionProposal);
+        AiActionCollector collector = ToolExecutionSupport.getActionCollector(toolContext);
 
-        return aiActionProposal;
+        collector.add(proposal);
+
+        return proposal;
     }
 
 }

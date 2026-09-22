@@ -380,6 +380,7 @@ public class PurchaseOrderServiceImpl
                 && order.getSupplierId() != null
                 && order.getPlannedQuantity() != null
                 && order.getUnitPrice() != null
-                && order.getExpectedDeliveryDate() != null;
+                && order.getExpectedDeliveryDate() != null
+                && order.getStatus().equals(PurchaseOrderStatus.DRAFT);
     }
 }
