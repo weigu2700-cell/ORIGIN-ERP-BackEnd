@@ -3,8 +3,10 @@ package org.smart.erp.ai.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.smart.erp.ai.dto.request.AiAssistantRequest;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
+import org.smart.erp.ai.dto.result.AiAssistantStreamResult;
 import org.smart.erp.ai.dto.result.ConversationTitleResult;
 import org.smart.erp.ai.entity.AiMessage;
+import org.smart.erp.ai.enums.AiStreamType;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.smart.erp.ai.service.AiConversationService;
 import org.smart.erp.ai.service.AiMessageService;
@@ -21,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
@@ -138,10 +141,10 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
 
     @Override
-    public Flux<AiAssistantResult> chatStream(AiAssistantRequest request) {
+    public Flux<AiAssistantStreamResult> chatStream(AiAssistantRequest request) {
 
         if (request.conversationId() == null) {
-            return Flux.just(new AiAssistantResult("⚠️ 找不到对话"));
+            return Flux.just(new AiAssistantStreamResult(AiStreamType.ERROR,"⚠️ 找不到对话"));
         }
 
         Long conversationId = request.conversationId();
@@ -159,12 +162,12 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         } catch (Exception e) {
             log.warn("准备 AI 流式对话失败 conversationId={}", conversationId, e);
             String message = e instanceof BusinessException ? e.getMessage() : "AI 服务暂时不可用，请稍后重试";
-            return Flux.just(new AiAssistantResult("⚠️ " + message));
+            return Flux.just(new AiAssistantStreamResult(AiStreamType.ERROR,"⚠️ " + message));
         }
 
         return Flux.defer(() -> {
             StringBuilder stringBuilder = new StringBuilder();
-            Flux<AiAssistantResult> streamResult =
+            Flux<AiAssistantStreamResult> streamResult =
                     chatClient
                             .prompt()
                             .user(request.message())
@@ -177,44 +180,71 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                             .stream()
                             .content()
                             .doOnNext(stringBuilder::append)
-                            .map(AiAssistantResult::new);
-
+                            .map(content ->
+                                    new AiAssistantStreamResult(AiStreamType.COMPLETE, content)
+                            );
             Mono<Void> saveAssistant = Mono.fromRunnable(() -> aiMessageService.saveMessage(
                             conversationId,
                             "assistant",
                             stringBuilder.toString()
                     ))
                     .subscribeOn(Schedulers.boundedElastic())
+                    .doOnError(error -> log.warn("AI 对话保存失败 conversationId={}", conversationId, error))
+                    .onErrorResume(error -> Mono.empty())
                     .then();
 
-            Mono<Void> generateTitle = Mono.fromRunnable(() -> {
-                        SecurityContext previous = SecurityContextHolder.getContext();
-                        SecurityContextHolder.setContext(securityContext);
-                        try {
-                            generateTitleIfNeeded(request);
-                        } finally {
-                            SecurityContextHolder.setContext(previous);
-                        }
-                    })
-                    .subscribeOn(Schedulers.boundedElastic())
-                    // 标题只是附加功能，不应把已经成功的回答变成错误消息。
-                    .onErrorResume(error -> {
-                        log.warn("AI 对话标题生成失败 conversationId={}", conversationId, error);
-                        return Mono.empty();
-                    })
-                    .then();
+            Mono<AiAssistantStreamResult> generateTitle =
+                    Mono.fromCallable(() -> generateTitleIfNeeded(request))
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .flatMap(result -> {
+                                if (result.title() == null) {
+                                    return Mono.empty();
+                                }
+
+                                return Mono.just(
+                                        new AiAssistantStreamResult(
+                                                AiStreamType.TITLE,
+                                                result.title()
+                                        )
+                                );
+                            }).doOnError(error ->
+                                    log.warn(
+                                            "AI 标题生成失败 conversationId={}",
+                                            conversationId, error
+                                    )
+                            )
+                            .onErrorResume(error -> Mono.empty());
 
             return streamResult
                     .concatWith(saveAssistant.then(Mono.empty()))
-                    .concatWith(generateTitle.then(Mono.empty()));
-        })
-                .doOnError(error -> log.warn("AI 流式对话失败 conversationId={}", conversationId, error))
-                .onErrorResume(error -> Flux.just(new AiAssistantResult("⚠️ AI 服务暂时不可用，请稍后重试")));
+                    .concatWith(generateTitle)
+                    .doFinally(signalType -> {
+                        if (signalType == SignalType.CANCEL) {
+                            log.info(
+                                    "用户主动停止 AI 生成 conversationId={}, partialLength={}",
+                                    conversationId,
+                                    stringBuilder.length()
+                            );
+                        }
+                    })
+                    .doOnError(error ->
+                            log.warn("AI 流式对话失败 conversationId={}", conversationId, error))
+                    .onErrorResume(error -> {
+                        if (!stringBuilder.isEmpty()) {
+                            return Flux.just(
+                                    new AiAssistantStreamResult(AiStreamType.ERROR,"\n\n ⚠️ AI回答中断，请重试")
+                            );
+                        }
+
+                        return Flux.just(
+                                new AiAssistantStreamResult(AiStreamType.ERROR,"⚠️ AI 服务暂时不可用，请稍后重试")
+                        );
+                    });
+        });
     }
 
 
-    @Override
-    public void generateTitleIfNeeded(AiAssistantRequest request) {
+    private ConversationTitleResult generateTitleIfNeeded(AiAssistantRequest request) {
 
         long aiMessageCount = aiMessageService.count(
                 new LambdaQueryWrapper<AiMessage>()
@@ -222,7 +252,6 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                         .eq(AiMessage::getRole, "user")
         );
 
-        // 用户消息已在 chatStream 中保存，首条消息此时计数为 1。
         if (aiMessageCount == 1) {
 
             ConversationTitleResult conversationTitleResult =
@@ -238,9 +267,12 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                         request.conversationId(),
                         conversationTitleResult.title()
                 );
+                return conversationTitleResult;
             }
 
         }
+
+        return null;
     }
 
 
