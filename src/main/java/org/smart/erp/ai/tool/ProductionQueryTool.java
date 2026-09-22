@@ -2,7 +2,7 @@ package org.smart.erp.ai.tool;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
-import org.smart.erp.ai.toolResult.PageToolResult;
+import org.smart.erp.ai.tool.result.PageToolResult;
 import org.smart.erp.production.dto.ProductionDemandPageDto;
 import org.smart.erp.production.dto.ProductionOrderPageDto;
 import org.smart.erp.production.enums.ProductionOrderStatus;

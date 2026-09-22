@@ -1,8 +1,8 @@
-package org.smart.erp.ai.action.Service.impl;
+package org.smart.erp.ai.action.service.impl;
 
-import org.smart.erp.ai.action.Service.AiActionService;
+import org.smart.erp.ai.action.service.AiActionService;
 import org.smart.erp.ai.action.model.AiActionProposal;
-import org.smart.erp.ai.enums.AiActionType;
+import org.smart.erp.ai.action.model.AiActionType;
 import org.smart.erp.purchase.service.PurchaseOrderService;
 import org.smart.erp.purchase.vo.PurchaseOrderVo;
 
@@ -10,9 +10,7 @@ public class AiActionServiceImpl implements AiActionService {
 
     private final PurchaseOrderService purchaseOrderService;
 
-    public AiActionServiceImpl(
-            PurchaseOrderService purchaseOrderService
-    ) {
+    public AiActionServiceImpl(PurchaseOrderService purchaseOrderService) {
         this.purchaseOrderService = purchaseOrderService;
     }
 
@@ -21,7 +19,7 @@ public class AiActionServiceImpl implements AiActionService {
         PurchaseOrderVo purchaseOrder = purchaseOrderService.detailPurchaseOrder(id);
         boolean ready = purchaseOrderService.checkPurchaseOrder(id);
         return new AiActionProposal(
-                AiActionType.ACTION_APPROVE_PURCHASE,
+                AiActionType.APPROVE_PURCHASE_ORDER,
                 purchaseOrder.getId(),
                 purchaseOrder.getPurchaseOrderNo(),
                 purchaseOrder.getVersion(),

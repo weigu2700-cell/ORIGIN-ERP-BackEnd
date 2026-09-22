@@ -1,7 +1,7 @@
 package org.smart.erp.ai.action.model;
 
-import org.smart.erp.ai.enums.AiActionStatus;
-import org.smart.erp.ai.enums.AiActionType;
+import org.smart.erp.ai.action.model.AiActionStatus;
+import org.smart.erp.ai.action.model.AiActionType;
 
 import java.time.LocalDateTime;
 

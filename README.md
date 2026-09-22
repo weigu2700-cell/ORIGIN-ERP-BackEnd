@@ -416,7 +416,7 @@ AI 助手基于 Spring AI 2.0（OpenAI 兼容协议，当前接入 DeepSeek 大�
 
 ### 能力概览
 
-- **多轮对话**：基于 JDBC 持久化的对话记忆（`ai_conversation` / `ai_message` 表），通过 `ChatMemory` 按 `conversationId` 维护上下文窗口，支持连续追问与历史回溯。
+- **多轮对话**：Spring AI 的 JDBC `ChatMemory` 按 `conversationId` 维护模型上下文；`ai_conversation` / `ai_message` 则保存前端可见的对话和消息历史（建表脚本见 `sql/migrations/V20260922__ai_conversation_history.sql`）。
 - **工具调用（Tool Calling）**：模型可在生成过程中调用业务工具查询真实数据。已接入库存（`get_material_stock` 按物料编码聚合各仓库在库/预留/可用量）、销售（`query_sales_orders` / `query_sales_deliveries`）、生产（`query_production_orders` / `query_production_demands`）、采购（`query_purchase_demands` / `query_purchase_orders`）与通知（`query_my_notifications`）等只读查询工具，并以当前登录用户身份受 RBAC 约束。
 - **流式与非流式**：提供一次性返回与 SSE 逐字流式返回两种模式，前端可边生成边渲染。
 - **对话与消息管理**：创建、查看、归档对话与拉取历史消息，均按当前用户归属隔离。
@@ -442,7 +442,9 @@ AI 助手基于 Spring AI 2.0（OpenAI 兼容协议，当前接入 DeepSeek 大�
 }
 ```
 
-流式接口返回 `Flux<AiAssistantResult>`（每个 token 一个事件）；非流式返回 `Result<AiAssistantResult>`。
+流式接口返回 `Flux<AiAssistantStreamResult>`（内容、标题或错误事件）；非流式返回 `Result<AiAssistantResult>`。
+
+模块包结构与依赖规则见 [AI 模块结构](docs/ai-architecture.md)。
 
 ### 鉴权模型
 
@@ -457,6 +459,8 @@ AI 配置位于 `application.yaml` 的 `spring.ai` 段，敏感项建议用环�
 | 配置                                        | 环境变量                        | 说明                                                  |
 | ------------------------------------------- | ------------------------------- | ----------------------------------------------------- |
 | `spring.ai.openai.api-key`                  | `AI_API_KEY`                    | 大模型 API Key（当前为 DeepSeek）                     |
+| `spring.ai.model.embedding`                  | `AI_EMBEDDING_MODEL`            | 默认 `none`；启用 RAG 时设为 `openai`                 |
+| `spring.ai.openai.embedding.api-key`        | `AI_EMBEDDING_API_KEY`          | 嵌入模型 API Key，启用 RAG 时提供                     |
 | `spring.ai.openai.base-url`                 | —                               | 服务地址，当前 `https://api.deepseek.com`             |
 | `spring.ai.chat.options.model`              | `SPRING_AI_CHAT_OPTIONS_MODEL`  | 模型名，须为服务支持的值（如 `deepseek-flash`、`deepseek-v4-pro`）|
 | `spring.ai.chat.memory.repository.jdbc.initialize-schema` | —                | `always` 时自动建对话记忆表                           |
@@ -468,7 +472,7 @@ AI 配置位于 `application.yaml` 的 `spring.ai` 段，敏感项建议用环�
 ```text
 src/main/java/org/smart/erp/
 ├── common/       # 响应、异常、安全、WebSocket、配置、序号、Excel 和通用工具
-├── ai/           # AI 助手：对话服务、Controller 与工具调用（Spring AI）
+├── ai/           # AI 助手：assistant、conversation、tool；action 和 rag 为预留能力
 ├── system/       # 用户、角色、部门、菜单、权限和认证
 ├── eip/          # 通知实体、DTO、收件人解析、持久化与 WebSocket 适配
 │   ├── entity/ dto/ mapper/ service/ (service/impl/)

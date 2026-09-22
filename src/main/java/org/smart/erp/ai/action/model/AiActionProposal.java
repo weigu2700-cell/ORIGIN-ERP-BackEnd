@@ -1,6 +1,6 @@
 package org.smart.erp.ai.action.model;
 
-import org.smart.erp.ai.enums.AiActionType;
+import org.smart.erp.ai.action.model.AiActionType;
 
 public record AiActionProposal(
         AiActionType actionType,

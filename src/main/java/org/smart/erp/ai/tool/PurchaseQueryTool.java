@@ -1,7 +1,7 @@
 package org.smart.erp.ai.tool;
 
 import lombok.RequiredArgsConstructor;
-import org.smart.erp.ai.toolResult.PageToolResult;
+import org.smart.erp.ai.tool.result.PageToolResult;
 import org.smart.erp.purchase.dto.PurchaseDemandPageDto;
 import org.smart.erp.purchase.dto.PurchaseOrderPageDto;
 import org.smart.erp.purchase.enums.PurchaseDemandSourceType;

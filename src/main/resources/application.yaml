@@ -24,6 +24,8 @@ spring:
     placeholder-replacement: false
 
   ai:
+    model:
+      embedding: ${AI_EMBEDDING_MODEL:none}
     openai:
       api-key: ${AI_API_KEY}
       base-url: https://api.deepseek.com
@@ -38,7 +40,7 @@ spring:
 
       embedding: # ← 向量化指向另一家
         base-url: https://ws-7f32tp7l65ra67nu.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
-        api-key: sk-ws-H.PIYRIED.ZtZQ.MEYCIQDecBlsvfJF_qm5FtfHUaWtd0yMfKD0fNH1kBNSxbrBHwIhAPsg0EaUbI2pNwyQRFCkJPVcGdHLSlvX0r35nR09935B
+        api-key: ${AI_EMBEDDING_API_KEY:}
         options: # ← ① model 必须挂在 options 下，直接写 model 是无效属性
           model: qwen3.7-text-embedding
     # ② retrieve 不是 spring.ai 的属性，放在 openai 下会被静默忽略，必须挪到顶层自定义命名空间

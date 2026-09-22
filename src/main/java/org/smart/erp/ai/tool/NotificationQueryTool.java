@@ -1,7 +1,7 @@
 package org.smart.erp.ai.tool;
 
 import lombok.RequiredArgsConstructor;
-import org.smart.erp.ai.toolResult.PageToolResult;
+import org.smart.erp.ai.tool.result.PageToolResult;
 import org.smart.erp.eip.dto.NotificationPageDto;
 import org.smart.erp.eip.service.NotificationInboxService;
 import org.smart.erp.eip.vo.NotificationVo;
