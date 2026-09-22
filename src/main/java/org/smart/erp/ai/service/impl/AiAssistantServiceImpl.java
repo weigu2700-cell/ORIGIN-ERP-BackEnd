@@ -5,6 +5,7 @@ import org.smart.erp.ai.dto.request.AiAssistantRequest;
 import org.smart.erp.ai.dto.result.AiAssistantResult;
 import org.smart.erp.ai.dto.result.AiAssistantStreamResult;
 import org.smart.erp.ai.dto.result.ConversationTitleResult;
+import org.smart.erp.ai.entity.AiConversation;
 import org.smart.erp.ai.entity.AiMessage;
 import org.smart.erp.ai.enums.AiStreamType;
 import org.smart.erp.ai.service.AiAssistantService;
@@ -181,7 +182,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                             .content()
                             .doOnNext(stringBuilder::append)
                             .map(content ->
-                                    new AiAssistantStreamResult(AiStreamType.COMPLETE, content)
+                                    new AiAssistantStreamResult(AiStreamType.CONTENT, content)
                             );
             Mono<Void> saveAssistant = Mono.fromRunnable(() -> aiMessageService.saveMessage(
                             conversationId,
@@ -194,7 +195,17 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                     .then();
 
             Mono<AiAssistantStreamResult> generateTitle =
-                    Mono.fromCallable(() -> generateTitleIfNeeded(request))
+                    Mono.fromCallable(() -> {
+
+                        SecurityContext previous = SecurityContextHolder.getContext();
+                        SecurityContextHolder.setContext(securityContext);
+
+                        try {
+                            return generateTitleIfNeeded(request);
+                        } finally {
+                            SecurityContextHolder.setContext(previous);
+                        }
+                    })
                             .subscribeOn(Schedulers.boundedElastic())
                             .flatMap(result -> {
                                 if (result.title() == null) {
@@ -232,7 +243,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                     .onErrorResume(error -> {
                         if (!stringBuilder.isEmpty()) {
                             return Flux.just(
-                                    new AiAssistantStreamResult(AiStreamType.ERROR,"\n\n ⚠️ AI回答中断，请重试")
+                                    new AiAssistantStreamResult(AiStreamType.ERROR,
+                                            "\n\n  AI回答中断，请重试"
+                                    )
                             );
                         }
 
@@ -246,13 +259,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
     private ConversationTitleResult generateTitleIfNeeded(AiAssistantRequest request) {
 
-        long aiMessageCount = aiMessageService.count(
-                new LambdaQueryWrapper<AiMessage>()
-                        .eq(AiMessage::getConversationId, request.conversationId())
-                        .eq(AiMessage::getRole, "user")
-        );
+        AiConversation aiConversation = aiConversationService.getById(request.conversationId());
 
-        if (aiMessageCount == 1) {
+        if ( "新对话".equals(aiConversation.getTitle())) {
 
             ConversationTitleResult conversationTitleResult =
                     chatClientTitle

@@ -6,7 +6,7 @@ import lombok.Getter;
 
 @Getter
 public enum AiStreamType {
-    COMPLETE(0,"完成"),
+    CONTENT(0,"内容"),
     ERROR(1,"失败"),
     TITLE(2,"生成标题");
 
