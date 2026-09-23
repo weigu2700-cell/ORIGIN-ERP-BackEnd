@@ -459,8 +459,8 @@ AI 配置位于 `application.yaml` 的 `spring.ai` 段，敏感项建议用环�
 | 配置                                        | 环境变量                        | 说明                                                  |
 | ------------------------------------------- | ------------------------------- | ----------------------------------------------------- |
 | `spring.ai.openai.api-key`                  | `AI_API_KEY`                    | 大模型 API Key（当前为 DeepSeek）                     |
-| `spring.ai.model.embedding`                  | `AI_EMBEDDING_MODEL`            | 默认 `none`；启用 RAG 时设为 `openai`                 |
-| `spring.ai.openai.embedding.api-key`        | `AI_EMBEDDING_API_KEY`          | 嵌入模型 API Key，启用 RAG 时提供                     |
+| `spring.ai.model.embedding`                 | `AI_EMBEDDING_MODEL`            | 默认 `none`，RAG 尚未接入聊天                          |
+| `spring.ai.openai.embedding.api-key`       | `AI_EMBEDDING_API_KEY`          | 预留的嵌入模型密钥                                    |
 | `spring.ai.openai.base-url`                 | —                               | 服务地址，当前 `https://api.deepseek.com`             |
 | `spring.ai.chat.options.model`              | `SPRING_AI_CHAT_OPTIONS_MODEL`  | 模型名，须为服务支持的值（如 `deepseek-flash`、`deepseek-v4-pro`）|
 | `spring.ai.chat.memory.repository.jdbc.initialize-schema` | —                | `always` 时自动建对话记忆表                           |
@@ -472,7 +472,7 @@ AI 配置位于 `application.yaml` 的 `spring.ai` 段，敏感项建议用环�
 ```text
 src/main/java/org/smart/erp/
 ├── common/       # 响应、异常、安全、WebSocket、配置、序号、Excel 和通用工具
-├── ai/           # AI 助手：assistant、conversation、tool；action 和 rag 为预留能力
+├── ai/           # AI 助手：controller、request、result、service、persistence、config、tool、rag
 ├── system/       # 用户、角色、部门、菜单、权限和认证
 ├── eip/          # 通知实体、DTO、收件人解析、持久化与 WebSocket 适配
 │   ├── entity/ dto/ mapper/ service/ (service/impl/)
@@ -543,7 +543,7 @@ controller → dto → service → mapper → entity / vo
 以下能力处于规划阶段，尚未落地：
 
 - **通知能力扩展**：增加自动重连、心跳、多设备会话、消息模板和更多业务事件接入。
-- **AI 能力扩展**：多轮对话助手与库存查询工具已基于 Spring AI 2.0 落地。后续计划接入更多业务工具（订单、生产、采购查询）、RAG 企业知识库，以及流程建议与自动化工单。
+- **AI 能力扩展**：多轮对话与只读业务查询已落地。后续可规划知识库与需用户确认的业务操作。
 - **零代码表单建设**：提供可视化表单设计器，支持动态字段、校验与联动规则配置，并能基于业务单据自动生成录入页与列表页，为 DIY/低代码场景预留扩展能力。
 
 ## 参与贡献

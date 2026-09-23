@@ -1,6 +1,6 @@
 package org.smart.erp.ai.tool;
 
-import org.smart.erp.ai.action.collector.AiActionCollector;
+import org.smart.erp.ai.tool.action.AiActionCollector;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;

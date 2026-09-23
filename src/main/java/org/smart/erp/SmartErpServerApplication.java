@@ -13,8 +13,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "org.smart.erp.production.mapper",
         "org.smart.erp.purchase.mapper",
         "org.smart.erp.eip.mapper",
-        "org.smart.erp.ai.conversation.mapper",
-        "org.smart.erp.ai.rag.mapper"
+        "org.smart.erp.ai.persistence",
+        "org.smart.erp.ai.rag"
 })
 public class SmartErpServerApplication {
 

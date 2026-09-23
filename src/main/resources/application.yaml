@@ -26,6 +26,11 @@ spring:
   ai:
     model:
       embedding: ${AI_EMBEDDING_MODEL:none}
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: always
     openai:
       api-key: ${AI_API_KEY}
       base-url: https://api.deepseek.com
@@ -33,17 +38,12 @@ spring:
         options:
           model: deepseek-flash
           temperature: 0.2
-        memory:
-          repository:
-            jdbc:
-              initialize-schema: always
-
-      embedding: # ← 向量化指向另一家
+      embedding:
         base-url: https://ws-7f32tp7l65ra67nu.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
         api-key: ${AI_EMBEDDING_API_KEY:}
-        options: # ← ① model 必须挂在 options 下，直接写 model 是无效属性
+        options:
           model: qwen3.7-text-embedding
-    # ② retrieve 不是 spring.ai 的属性，放在 openai 下会被静默忽略，必须挪到顶层自定义命名空间
+
 rag:
   retrieve:
     top-k: 4
