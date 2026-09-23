@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.smart.erp.ai.result.ConversationResult;
-import org.smart.erp.ai.persistence.AiConversation;
+import org.smart.erp.ai.persistence.impl.AiConversation;
 import org.smart.erp.ai.service.AiConversationService;
 import org.smart.erp.common.result.Result;
 import org.springframework.web.bind.annotation.*;

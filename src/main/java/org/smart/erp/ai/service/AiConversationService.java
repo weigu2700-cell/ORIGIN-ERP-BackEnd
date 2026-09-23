@@ -1,7 +1,7 @@
 package org.smart.erp.ai.service;
 
 import org.smart.erp.ai.result.ConversationResult;
-import org.smart.erp.ai.persistence.AiConversation;
+import org.smart.erp.ai.persistence.impl.AiConversation;
 
 import java.util.List;
 

@@ -1,7 +1,7 @@
 package org.smart.erp.ai.service.impl;
 
 import org.junit.jupiter.api.Test;
-import org.smart.erp.ai.persistence.AiConversation;
+import org.smart.erp.ai.persistence.impl.AiConversation;
 import org.smart.erp.ai.persistence.AiConversationMapper;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;

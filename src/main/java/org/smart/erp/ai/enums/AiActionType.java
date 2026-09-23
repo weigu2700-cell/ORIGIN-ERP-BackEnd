@@ -1,4 +1,4 @@
-package org.smart.erp.ai.tool.action.enums;
+package org.smart.erp.ai.enums;
 
 import lombok.Getter;
 

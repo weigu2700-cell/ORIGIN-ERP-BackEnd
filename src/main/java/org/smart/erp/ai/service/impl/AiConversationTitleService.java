@@ -3,7 +3,7 @@ package org.smart.erp.ai.service.impl;
 import org.smart.erp.ai.request.AiAssistantRequest;
 import org.smart.erp.ai.result.ConversationTitleResult;
 import org.smart.erp.ai.service.AiConversationService;
-import org.smart.erp.ai.persistence.AiConversation;
+import org.smart.erp.ai.persistence.impl.AiConversation;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;

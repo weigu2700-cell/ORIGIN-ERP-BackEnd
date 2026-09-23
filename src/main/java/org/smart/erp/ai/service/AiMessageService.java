@@ -1,6 +1,6 @@
 package org.smart.erp.ai.service;
 
-import org.smart.erp.ai.persistence.AiMessage;
+import org.smart.erp.ai.persistence.impl.AiMessage;
 
 import java.util.List;
 

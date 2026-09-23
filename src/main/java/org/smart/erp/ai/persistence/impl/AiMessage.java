@@ -1,4 +1,4 @@
-package org.smart.erp.ai.persistence;
+package org.smart.erp.ai.persistence.impl;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;

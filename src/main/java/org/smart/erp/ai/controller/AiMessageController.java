@@ -3,7 +3,7 @@ package org.smart.erp.ai.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.smart.erp.ai.persistence.AiMessage;
+import org.smart.erp.ai.persistence.impl.AiMessage;
 import org.smart.erp.ai.service.AiMessageService;
 import org.smart.erp.common.result.Result;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -3,7 +3,7 @@ package org.smart.erp.ai.service.impl;
 import org.smart.erp.ai.service.AiMessageService;
 import org.smart.erp.ai.service.AiConversationService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import org.smart.erp.ai.persistence.AiMessage;
+import org.smart.erp.ai.persistence.impl.AiMessage;
 import org.smart.erp.ai.persistence.AiMessageMapper;
 import org.springframework.stereotype.Service;
 

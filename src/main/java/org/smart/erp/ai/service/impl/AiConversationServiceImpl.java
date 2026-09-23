@@ -3,7 +3,7 @@ package org.smart.erp.ai.service.impl;
 import org.smart.erp.ai.service.AiConversationService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.smart.erp.ai.result.ConversationResult;
-import org.smart.erp.ai.persistence.AiConversation;
+import org.smart.erp.ai.persistence.impl.AiConversation;
 import org.smart.erp.ai.persistence.ConversationStatus;
 import org.smart.erp.ai.persistence.AiConversationMapper;
 import org.smart.erp.common.exception.BusinessException;
