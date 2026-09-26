@@ -16,4 +16,6 @@ public interface AiActionService {
             Long userId,
             Long conversationId
     );
+
+    void executePendingAction(String token, Long userId);
 }

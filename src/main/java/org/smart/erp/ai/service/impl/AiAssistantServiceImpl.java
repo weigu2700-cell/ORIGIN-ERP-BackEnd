@@ -2,6 +2,7 @@ package org.smart.erp.ai.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.smart.erp.ai.config.AiActionTool;
 import org.smart.erp.ai.service.AiActionService;
 import org.smart.erp.ai.service.AiAssistantService;
 import org.slf4j.Logger;
@@ -14,13 +15,12 @@ import org.smart.erp.ai.config.AiAssistantPrompt;
 import org.smart.erp.ai.config.AiQueryTools;
 import org.smart.erp.ai.service.AiMessageService;
 import org.smart.erp.ai.tool.ToolExecutionSupport;
-import org.smart.erp.ai.tool.action.AiActionCollector;
+import org.smart.erp.ai.tool.action.collector.AiActionCollector;
 import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.common.security.CurrentUser;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -38,6 +38,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
 
     private final ChatClient chatClient;
     private final AiQueryTools queryTools;
+    private final AiActionTool aiActionTool;
     private final CurrentUser currentUser;
     private final AiMessageService aiMessageService;
     private final AiConversationTitleService titleService;
@@ -48,6 +49,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             ChatClient.Builder builder,
             ChatMemory chatMemory,
             AiQueryTools queryTools,
+            AiActionTool aiActionTool,
             CurrentUser currentUser,
             AiMessageService aiMessageService,
             AiConversationTitleService titleService,
@@ -64,6 +66,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         this.titleService = titleService;
         this.aiActionService = aiActionService;
         this.objectMapper = objectMapper;
+        this.aiActionTool = aiActionTool;
     }
 
     @Override
@@ -115,12 +118,13 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                                                           Map<String, Object> toolContext,
                                                           AiActionCollector actionCollector) {
         Long conversationId = request.conversationId();
+        StringBuilder content = new StringBuilder();
         return Flux.defer(() -> {
-            StringBuilder content = new StringBuilder();
             Flux<AiAssistantStreamResult> chunks = chatClient.prompt()
                     .user(request.message())
                     .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId.toString()))
                     .tools(queryTools.all())
+                    .tools(aiActionTool.all())
                     .toolContext(toolContext)
                     .stream()
                     .content()
@@ -141,7 +145,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                             titleService.generateTitleIfNeeded(request, securityContext)
                     )
                     .subscribeOn(Schedulers.boundedElastic())
-                    .flatMap(value -> Mono.just(new AiAssistantStreamResult(AiStreamType.TITLE, value)))
+                    .flatMap(value -> value == null
+                            ? Mono.empty()
+                            : Mono.just(new AiAssistantStreamResult(AiStreamType.TITLE, value)))
                     .doOnError(error -> log.warn("AI 标题生成失败 conversationId={}", conversationId, error))
                     .onErrorResume(error -> Mono.empty());
 
@@ -164,13 +170,12 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                     .concatWith(title)
                     .concatWith(actionEvents)
                     .doOnCancel(() -> log.info("用户主动停止 AI 生成 conversationId={}, partialLength={}",
-                            conversationId, content.length()))
-                    .doOnError(error -> log.warn("AI 流式对话失败 conversationId={}", conversationId, error))
-                    .onErrorResume(error -> Flux.just(new AiAssistantStreamResult(
-                            AiStreamType.ERROR,
-                            content.isEmpty() ? UNAVAILABLE_MESSAGE : "\n\nAI回答中断，请重试"))
-                    );
-        });
+                            conversationId, content.length()));
+        })
+                .doOnError(error -> log.warn("AI 流式对话失败 conversationId={}", conversationId, error))
+                .onErrorResume(error -> Flux.just(new AiAssistantStreamResult(
+                        AiStreamType.ERROR,
+                        content.isEmpty() ? UNAVAILABLE_MESSAGE : "\n\nAI回答中断，请重试")));
     }
 
     private Map<String, Object> toolContext(SecurityContext securityContext) {

@@ -19,4 +19,14 @@ class AiAssistantStreamResultTest {
         assertEquals("库存充足", json.get("content").asText());
         assertFalse(json.has("data"));
     }
+
+    @Test
+    void actionUsesTheSameSseEnvelope() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(
+                new AiAssistantStreamResult(AiStreamType.ACTION, "{\"token\":\"abc\"}")));
+
+        assertEquals("ACTION", json.get("type").asText());
+        assertEquals("{\"token\":\"abc\"}", json.get("content").asText());
+    }
 }

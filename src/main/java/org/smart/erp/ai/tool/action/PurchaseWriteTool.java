@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.smart.erp.ai.service.AiActionService;
 import org.smart.erp.ai.model.AiActionProposal;
 import org.smart.erp.ai.tool.ToolExecutionSupport;
+import org.smart.erp.ai.tool.action.collector.AiActionCollector;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;

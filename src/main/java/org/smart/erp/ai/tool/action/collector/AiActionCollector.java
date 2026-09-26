@@ -1,4 +1,4 @@
-package org.smart.erp.ai.tool.action;
+package org.smart.erp.ai.tool.action.collector;
 
 import org.smart.erp.ai.model.AiActionProposal;
 
@@ -10,6 +10,7 @@ public class AiActionCollector {
 
     private final Map<String, AiActionProposal> proposals = new ConcurrentHashMap<>();
     public final static String ACTION_COLLECTOR_KEY = "actionCollector";
+
     public void add(AiActionProposal aiActionProposal) {
         String key = buildKey(aiActionProposal);
         proposals.putIfAbsent(key, aiActionProposal);
