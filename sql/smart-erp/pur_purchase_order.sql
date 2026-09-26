@@ -16,6 +16,7 @@ create table `smart-erp`.pur_purchase_order
     status                 tinyint                       not null comment '订单状态（0-草稿，1-已审批，2-已发货，3-已收货，4-已关闭等）',
     create_time            datetime                      not null comment '创建时间',
     update_time            datetime                      null comment '更新时间',
+    version                int            default 0      not null comment '版本号',
     constraint uk_order_no
         unique (purchase_order_no)
 )

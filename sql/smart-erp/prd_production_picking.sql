@@ -26,3 +26,4 @@ create index idx_production_order_id
 
 create index idx_warehouse_id
     on `smart-erp`.prd_production_picking (warehouse_id);
+

@@ -23,3 +23,4 @@ create index idx_customer_id
 
 create index idx_order_date
     on `smart-erp`.sal_order (order_date);
+

@@ -25,3 +25,4 @@ create index idx_source
 
 create index idx_source_material_warehouse
     on `smart-erp`.prd_production_demand (source_type, source_no, material_id, warehouse_id);
+

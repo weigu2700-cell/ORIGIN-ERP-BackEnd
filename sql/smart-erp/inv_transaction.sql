@@ -25,3 +25,4 @@ create index idx_material_id
 
 create index idx_warehouse_id
     on `smart-erp`.inv_transaction (warehouse_id);
+

@@ -15,6 +15,7 @@ create table `smart-erp`.prd_production_report
     material_id          bigint                        not null comment '物料id',
     remark               varchar(255)                  null comment '备注',
     version              int            default 0      not null comment '乐观锁版本号',
+    warehouse_id         bigint                        null comment '成品入库仓库(报工指定)',
     constraint uk_production_report_no
         unique (production_report_no)
 )

@@ -29,3 +29,4 @@ create index idx_production_demand_id
 
 create index idx_production_status
     on `smart-erp`.prd_production_order (status);
+
