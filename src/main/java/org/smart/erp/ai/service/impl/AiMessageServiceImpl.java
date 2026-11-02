@@ -1,6 +1,8 @@
 package org.smart.erp.ai.service.impl;
 
 import org.smart.erp.ai.service.AiMessageService;
+import org.smart.erp.ai.persistence.ConversationStatus;
+import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.ai.service.AiConversationService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.smart.erp.ai.persistence.impl.AiMessage;
@@ -23,7 +25,9 @@ public class AiMessageServiceImpl implements AiMessageService {
 
     @Override
     public void addMessage(Long conversationId, String role, String message) {
-        aiConversationService.getOwnedConversation(conversationId);
+        if (aiConversationService.getOwnedConversation(conversationId).getStatus() == ConversationStatus.ARCHIVED) {
+            throw new BusinessException(409, "已归档会话不可发送消息");
+        }
         saveMessage(conversationId, role, message);
     }
 
