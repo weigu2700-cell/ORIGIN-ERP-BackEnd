@@ -159,6 +159,8 @@ BOM 展开是典型的高读压力场景：一次展开可能递归数十个节�
 发货单状态锁同样使用 Redisson watchdog（`erp:lock:sales-delivery:{id}`），在事务完成后释放。库存入库使用数据库唯一键
 `uk_material_warehouse_id` 配合 MySQL `INSERT ... ON DUPLICATE KEY UPDATE` 原子累加；这条 SQL 路径同时覆盖首次并发入库和既有库存增量，流水在同事务回查后的库存上计算。
 
+开放 Issue 的处理结论与新增能力计划见 [Issue 核查与实施计划](docs/plans/open-issues.md)。
+
 ## 快速开始
 
 ### 环境要求
