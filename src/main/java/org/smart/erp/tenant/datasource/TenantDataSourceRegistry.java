@@ -9,7 +9,7 @@ import java.util.Map;
 
 /** T2：受容量限制的按需连接池；回收与滚动配置更新后续完善。 */
 public final class TenantDataSourceRegistry implements AutoCloseable {
-    private record Pool(long version, HikariDataSource dataSource) {}
+    private record Pool(long version, String connectionRef, HikariDataSource dataSource) {}
     private final Map<String, Pool> pools = new HashMap<>();
     private final TenantProperties properties;
     private boolean closed;
@@ -36,14 +36,24 @@ public final class TenantDataSourceRegistry implements AutoCloseable {
         Pool existing = pools.get(tenant.id());
         if (existing != null) {
             // 不在活跃请求中关闭或替换连接池；配置变更要求受控重启。
-            if (existing.version() != tenant.routingVersion()) throw new TenantException(503, "企业连接配置已更新，请联系运维重载服务");
+            if (existing.version() != tenant.routingVersion() || !existing.connectionRef().equals(tenant.connectionRef()))
+                throw new TenantException(503, "企业连接配置已更新，请联系运维重载服务");
             return existing.dataSource();
         }
         if (pools.size() >= properties.getMaxPools()) throw new TenantException(503, "企业连接容量已满");
         var connection = properties.getConnections().get(tenant.connectionRef());
         if (connection == null) throw new TenantException(503, "企业连接尚未配置");
         var pool = create(connection, "tenant-" + tenant.id(), properties.getPoolSize());
-        pools.put(tenant.id(), new Pool(tenant.routingVersion(), pool));
+        // 检查物理库的企业归属，防止外部连接配置写反后访问另一企业。
+        try (var probe = pool.getConnection(); var query = probe.prepareStatement("SELECT tenant_id FROM sys_tenant_identity WHERE singleton=1");
+             var rows = query.executeQuery()) {
+            if (!rows.next() || !tenant.id().equals(rows.getString(1)) || rows.next())
+                throw new TenantException(503, "企业数据库归属校验失败");
+        } catch (java.sql.SQLException | TenantException error) {
+            pool.close();
+            throw new TenantException(503, "企业数据库未就绪或归属不匹配");
+        }
+        pools.put(tenant.id(), new Pool(tenant.routingVersion(), tenant.connectionRef(), pool));
         return pool;
     }
     public static HikariDataSource create(TenantProperties.Connection connection, String name, int size) {

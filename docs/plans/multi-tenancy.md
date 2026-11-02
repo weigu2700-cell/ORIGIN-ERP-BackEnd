@@ -1,7 +1,7 @@
 # 多租户实施方案：一租户一库，共用服务
 
-状态：总体设计，T1/T2 最小验证已开始实施，尚未完成全部阶段。2026-11-02 已确认采用“一租户一库、共用服务”。
-依据：当前后端、Web、移动端源码及 [Issue 核查计划](open-issues.md)。实现边界与验证方式见 [T1/T2 最小验证](tenancy-t1-t2.md)。
+状态：T1/T2 验证原型与 T3 Flyway 逐库生命周期已实现；T4/T5/T6 尚未完成，多租户业务门禁保留。2026-11-02 已确认采用“一租户一库、共用服务”。
+依据：当前后端、Web、移动端源码及 [Issue 核查计划](open-issues.md)。实现边界与验证方式见 [T1/T2 最小验证](tenancy-t1-t2.md)、[T3 Flyway 操作说明](tenancy-t3-flyway.md)。
 
 ## 1. 首版范围与取舍
 
@@ -53,7 +53,7 @@ flowchart TB
 
 ## 4. 平台数据模型与开通流程
 
-以下名称为拟定契约，不是已经存在的表。
+以下为完整目标契约。当前已实现租户登记、连接登记和迁移操作记录；完整字段以 Flyway 脚本为准，平台运维人员和综合审计表尚未实现。
 
 | 平台表 | 主要字段与约束 |
 | --- | --- |
@@ -122,7 +122,7 @@ flowchart TB
 
 现有 SQL 固定库名，不能简单循环执行到各租户。已经应用的版本迁移不可直接修改，避免破坏 checksum 与历史；MySQL DDL 也不能假设失败后自动回滚。[Flyway 多库发布原则](https://documentation.red-gate.com/flyway/deploying-database-changes-using-flyway/rolling-out-updates-from-a-single-schema-to-multiple-production-databases)、[DDL 与独立 schema 历史](https://documentation.red-gate.com/fd/frequently-asked-questions-277579363.html)
 
-建议采用明确的新迁移轨道：
+T3 已采用明确的新迁移轨道，实际操作见 [Flyway 操作说明](tenancy-t3-flyway.md)：
 
 1. 冻结目标应用 commit 与当前实际 schema，盘点该版本的 DDL、已提交增量与公共 seed，生成不限定库名的 `db/tenant-migration/V1__tenant_baseline.sql`。
 2. 租户轨道使用独立历史表 `flyway_tenant_schema_history`。平台使用另一迁移目录与自己的历史，二者不共享一个全局 schema_version。
@@ -161,7 +161,7 @@ flowchart TB
 7. Web 与移动端切企业后，旧请求晚到也不恢复旧用户、仓库、未读数或动作弹窗。
 8. 验证连接预算；启用多实例时另外验证跨节点通知、配置失效和总连接数。
 
-这些是待实现的验收标准，本轮未声称已经验证多租户隔离。
+这些是完整上线标准。T1/T2 与 T3 已验证请求路由和 schema 生命周期；缓存、消息、异步与双端切换等标准仍待实现，不能据此上线完整多租户业务。
 
 ## 10. 实施顺序与代码组织
 
@@ -176,4 +176,4 @@ flowchart TB
 | T5 双端联调 | 企业登录、企业展示、切换时取消与清理、单企业兼容 | Web/移动端双企业全流程及晚到响应测试通过 |
 | T6 灰度运维 | 版本门禁、连接预算、租户级指标、试点迁移、恢复演练 | 原企业与一个试点企业共存；故障不串库；再分批开放 |
 
-下一步先实施 T1/T2 的最小验证：平台库 + 两个同结构租户库、相同用户 ID、两个租户 Token，以及 HTTP 查询/写入/缺失租户/跨租户请求测试。通过后再推进 T3/T4。仅完成动态数据源或仅加入 tenantId 不能作为首版上线完成。
+下一步推进 T4：Redis/锁/序列、WebSocket、通知、AI 与异步上下文隔离，再做双端联调。当前逐库迁移仍需维护窗口及人工备份，不含自动建库、排流和恢复。仅完成动态数据源或仅加入 tenantId 不能作为首版上线完成。

@@ -31,6 +31,6 @@ public class TenantResolver {
         return single();
     }
     private TenantDescriptor single() {
-        return new TenantDescriptor(properties.getSingleTenantId(), properties.getSingleTenantCode(), "当前企业", "", 1, "ACTIVE", "READY");
+        return new TenantDescriptor(properties.getSingleTenantId(), properties.getSingleTenantCode(), "当前企业", "", 1, "ACTIVE", "READY", org.smart.erp.tenant.migration.TenantFlyway.TENANT_VERSION);
     }
 }

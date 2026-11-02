@@ -1,4 +1,5 @@
 -- 显式选择独立平台库后执行；不要导入任何租户业务库。
+-- T1 历史建表入口，保留给测试夹具；当前部署使用 sql/tenant/run.py platform-init/platform-adopt。
 CREATE TABLE plt_tenant (
  id VARCHAR(64) PRIMARY KEY,
  code VARCHAR(64) NOT NULL UNIQUE,

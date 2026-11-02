@@ -65,8 +65,10 @@ class TenantIsolationTests {
             jdbc.update("INSERT INTO sys_user VALUES(80001,'operator',?,NULL,1,NOW(),NULL,0,NULL,?)", encoder.encode("isolation-test"), key);
             jdbc.execute("CREATE TABLE tenant_probe(id BIGINT PRIMARY KEY, marker VARCHAR(64))");
             jdbc.update("INSERT INTO tenant_probe VALUES(1,?)", key);
+            jdbc.execute("CREATE TABLE sys_tenant_identity(singleton TINYINT PRIMARY KEY,tenant_id VARCHAR(64) UNIQUE)");
+            jdbc.update("INSERT INTO sys_tenant_identity VALUES(1,?)",key);
             platform.update("INSERT INTO plt_tenant(id,code,name,status) VALUES(?,?,?,'ACTIVE')",key,key,"企业"+key);
-            platform.update("INSERT INTO plt_tenant_database(tenant_id,connection_ref,schema_status,schema_version) VALUES(?,?,'READY','fixture')",key,key);
+            platform.update("INSERT INTO plt_tenant_database(tenant_id,connection_ref,schema_status,schema_version) VALUES(?,?,'READY','2')",key,key);
         }
         var props = new TenantProperties(); props.setMode(TenantProperties.Mode.MULTI);
         for (String key : new String[]{"a","b"}) {
@@ -138,6 +140,13 @@ class TenantIsolationTests {
                     .andExpect(status().isServiceUnavailable());
             mvc.perform(get("/tenant-verification/value").header("Authorization","Bearer "+tokenB)).andExpect(status().isOk());
         } finally { platform.update("UPDATE plt_tenant_database SET connection_ref='a',routing_version=1 WHERE tenant_id='a'"); }
+    }
+    @Test void incompatibleSchemaVersionIsRejectedBeforeBusinessAccess() throws Exception {
+        platform.update("UPDATE plt_tenant_database SET schema_version='999' WHERE tenant_id='a'");
+        try {
+            mvc.perform(get("/tenant-verification/value").header("Authorization","Bearer "+tokenA)).andExpect(status().isServiceUnavailable());
+            mvc.perform(get("/tenant-verification/value").header("Authorization","Bearer "+tokenB)).andExpect(status().isOk());
+        } finally { platform.update("UPDATE plt_tenant_database SET schema_version='2' WHERE tenant_id='a'"); }
     }
     @Test void missingScopeAndPrematureBusinessAccessAreBlocked() throws Exception {
         assertThatThrownBy(routed::getConnection).isInstanceOf(TenantException.class);

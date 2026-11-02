@@ -1,5 +1,7 @@
 # 首次部署与预置数据（Issue #4）
 
+本说明适用于旧单企业部署。多租户新库初始化和旧库接管使用独立 Flyway 轨道，见 [T3 操作说明](../../docs/plans/tenancy-t3-flyway.md)；不要把此处固定库名的入口循环用于租户库。
+
 ## 审计结论
 
 - Issue #4 及评论确认缺少 `permission_init.sql` 和 `seed_dev_admin.sql`。
