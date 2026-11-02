@@ -16,6 +16,8 @@
 
 ## #1：一租户一库
 
+已确认采用“一租户一库、共用服务”，完整设计、迁移策略与验收门槛见 [多租户实施方案](multi-tenancy.md)。
+
 ### 当前实现与缺口
 
 - [`DataSourceConfig`](../../src/main/java/org/smart/erp/common/config/DataSourceConfig.java) 只有一个 Hikari 数据源，没有租户注册表或路由。

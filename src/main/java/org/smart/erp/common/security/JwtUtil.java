@@ -23,22 +23,27 @@ public class JwtUtil {
         this.expirationMillis = expirationMillis;
     }
 
-    public String generateToken(long userid) {
+    public record Identity(long userId, String tenantId) {}
 
-        return Jwts.builder()
-                .subject(String.valueOf(userid))
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expirationMillis))
-                .signWith(secretKey)
-                .compact();
+    public String generateToken(long userId) { return generateToken(userId, null); }
+
+    public String generateToken(long userId, String tenantId) {
+        var builder = Jwts.builder().subject(String.valueOf(userId))
+                .issuedAt(new Date()).expiration(new Date(System.currentTimeMillis() + expirationMillis));
+        if (tenantId != null) builder.claim("tenantId", tenantId).claim("ver", 1).audience().add("tenant-api").and();
+        return builder.signWith(secretKey).compact();
     }
 
-    public long parseToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-        return Long.parseLong(claims.getSubject());
+    public Identity parseIdentity(String token) {
+        Claims claims = Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload();
+        String tenantId = claims.get("tenantId", String.class);
+        if (tenantId == null && (claims.getAudience() != null || claims.get("ver") != null))
+            throw new io.jsonwebtoken.MalformedJwtException("登录身份缺少企业信息");
+        if (tenantId != null && (tenantId.isBlank() || !Integer.valueOf(1).equals(claims.get("ver", Integer.class))
+                || claims.getAudience() == null || !claims.getAudience().contains("tenant-api")))
+            throw new io.jsonwebtoken.MalformedJwtException("登录身份用途或版本不匹配");
+        return new Identity(Long.parseLong(claims.getSubject()), tenantId);
     }
+
+    public long parseToken(String token) { return parseIdentity(token).userId(); }
 }

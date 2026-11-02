@@ -22,6 +22,7 @@ import javax.sql.DataSource;
  * <p>{@link ConditionalOnMissingBean} 确保：若框架已提供 DataSource，则本 Bean 不生效，避免冲突。
  */
 @Configuration
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "tenancy.mode", havingValue = "single", matchIfMissing = true)
 public class DataSourceConfig {
 
     @Bean

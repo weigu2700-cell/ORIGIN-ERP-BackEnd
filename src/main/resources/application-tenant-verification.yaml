@@ -1,0 +1,23 @@
+# 仅供 T1/T2 验证；业务入口在多租户模式下被关闭。
+tenancy:
+  mode: multi
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.chat.memory.repository.jdbc.autoconfigure.JdbcChatMemoryRepositoryAutoConfiguration
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: never
+  ai:
+    openai:
+      api-key: ${AI_API_KEY:tenant-verification-no-model-calls}
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: never
+mybatis-plus:
+  configuration:
+    cache-enabled: false

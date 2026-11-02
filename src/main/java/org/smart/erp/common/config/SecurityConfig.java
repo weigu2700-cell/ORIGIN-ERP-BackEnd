@@ -36,6 +36,13 @@ public class SecurityConfig {
     private RestAccessDeniedHandler restAccessDeniedHandler;
 
     @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration() {
+        var registration = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(jwtAuthenticationFilter);
+        registration.setEnabled(false); // 只由 SecurityFilterChain 执行，避免 Servlet 重复注册。
+        return registration;
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
@@ -50,7 +57,7 @@ public class SecurityConfig {
                     .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                     // SSE 的初始 REQUEST 已鉴权；异步完成时的再次分派不应在响应提交后重新鉴权。
                     .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
-                    .requestMatchers("/auth/login", "/error", "/ws/**").permitAll()
+                    .requestMatchers("/auth/login", "/auth/tenant/resolve", "/error", "/ws/**").permitAll()
                     // Swagger / OpenAPI 相关路径放行
                     .requestMatchers(
                             "/swagger-ui.html",

@@ -9,4 +9,7 @@ public class LoginUser {
 
     private Long userId;
     private String username;
+    private String tenantId;
+
+    public LoginUser(Long userId, String username) { this(userId, username, null); }
 }

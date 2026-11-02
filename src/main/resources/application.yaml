@@ -72,3 +72,10 @@ springdoc:
     path: /swagger-ui.html
     doc-expansion: none
     operations-sorter: method
+
+# 单企业默认模式保留现有部署行为；多租户只使用 tenant-verification 配置进行阶段验证。
+tenancy:
+  mode: single
+  single-tenant-id: ${TENANT_SINGLE_ID:single}
+  single-tenant-code: ${TENANT_SINGLE_CODE:single}
+  allow-legacy-tokens: true
