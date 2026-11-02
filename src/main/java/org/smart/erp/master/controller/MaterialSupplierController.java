@@ -60,14 +60,14 @@ public class MaterialSupplierController {
 
     @Operation(summary = "设置优选供应商")
     @PutMapping("/{id}/preferred")
-    public Result<Void> preferred(@PathVariable Long masterId, Long supplier) {
+    public Result<Void> preferred(@PathVariable("id") Long masterId, @RequestParam Long supplier) {
         materialSupplierService.changeMaterialSupplierPreferred(masterId, supplier);
         return Result.success();
     }
 
     @Operation(summary = "物料供应商关联导出")
     @GetMapping("/export")
-    public Result<Void> export(List<Long> ids, HttpServletResponse response) {
+    public Result<Void> export(@RequestParam(required = false) List<Long> ids, HttpServletResponse response) {
         materialSupplierService.exportMaterialSupplier(ids, response);
         return Result.success();
     }

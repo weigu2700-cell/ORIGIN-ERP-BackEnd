@@ -70,7 +70,7 @@ public class MaterialController {
 
     @Operation(summary = "物料导出")
     @GetMapping("/export")
-    public void export(List<Long> ids, HttpServletResponse response) {
+    public void export(@RequestParam(required = false) List<Long> ids, HttpServletResponse response) {
         materialService.exportMaterial(ids, response);
     }
 }

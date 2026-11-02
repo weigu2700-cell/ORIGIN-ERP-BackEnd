@@ -59,6 +59,8 @@ class MaterialStockServiceImplTests {
 	void setUp() {
 		TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "material-test"),
 				Material.class);
+		TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "stock-test"),
+				MaterialStock.class);
 		service = new MaterialStockServiceImpl(materialStockMapper, materialMapper, warehouseMapper,
 				transactionService);
 	}

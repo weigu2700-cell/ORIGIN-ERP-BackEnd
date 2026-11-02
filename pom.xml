@@ -28,6 +28,7 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <jacocoArgLine></jacocoArgLine>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -180,6 +181,14 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- 显式加载 agent，避免 JDK 自附加限制导致 Mockito 测试失效。 -->
+                    <argLine>@{jacocoArgLine} -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
@@ -264,4 +273,20 @@
         </plugins>
     </build>
 
+    <profiles>
+        <profile>
+            <id>coverage</id>
+            <build><plugins><plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution><id>coverage-agent</id><goals><goal>prepare-agent</goal></goals>
+                        <configuration><propertyName>jacocoArgLine</propertyName></configuration>
+                    </execution>
+                    <execution><id>coverage-report</id><phase>test</phase><goals><goal>report</goal></goals></execution>
+                </executions>
+            </plugin></plugins></build>
+        </profile>
+    </profiles>
 </project>

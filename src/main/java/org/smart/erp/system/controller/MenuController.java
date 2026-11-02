@@ -53,7 +53,7 @@ public class MenuController {
 
     @Operation(summary = "更新菜单")
     @PutMapping("/{id:\\d+}")
-    public Result<Void> update( Long id, @RequestBody MenuAddDto dto) {
+    public Result<Void> update(@PathVariable Long id, @RequestBody MenuAddDto dto) {
         menuService.updateMenu(id, dto);
         return Result.success();
     }

@@ -57,7 +57,7 @@ public class SecurityConfig {
                     .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                     // SSE 的初始 REQUEST 已鉴权；异步完成时的再次分派不应在响应提交后重新鉴权。
                     .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
-                    .requestMatchers("/auth/login", "/auth/tenant/resolve", "/error", "/ws/**").permitAll()
+                    .requestMatchers("/auth/login", "/auth/tenant/resolve", "/auth/tenant/context", "/error", "/ws/**").permitAll()
                     // Swagger / OpenAPI 相关路径放行
                     .requestMatchers(
                             "/swagger-ui.html",

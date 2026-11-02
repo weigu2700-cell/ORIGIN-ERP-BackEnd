@@ -212,7 +212,9 @@ public class ProductionReportServiceImpl
                         .ge(Objects.nonNull(dto.getReportTime()),
                                 ProductionReport::getReportTime, dto.getReportTime());
 
-        Page<ProductionReport> page = this.page(new Page<>(dto.getPageNum(), dto.getPageSize()), qw);
+        int pageNum = dto.getPageNum() == null || dto.getPageNum() < 1 ? 1 : dto.getPageNum();
+        int pageSize = dto.getPageSize() == null || dto.getPageSize() < 1 ? 10 : dto.getPageSize();
+        Page<ProductionReport> page = this.page(new Page<>(pageNum, pageSize), qw);
 
         Set<Long> productionOrderIds = page.getRecords().stream()
                 .map(ProductionReport::getProductionOrderId)
@@ -262,7 +264,7 @@ public class ProductionReportServiceImpl
                     .stream()
                     .collect(Collectors.toMap(Warehouse::getId, Function.identity()));
 
-        Page<ProductionReportVo> voPage = new Page<>(dto.getPageNum(), dto.getPageSize(), page.getTotal());
+        Page<ProductionReportVo> voPage = new Page<>(pageNum, pageSize, page.getTotal());
 
         return voPage.setRecords(
                 page.getRecords().stream().map( productionReport -> {

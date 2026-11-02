@@ -7,12 +7,7 @@ import org.smart.erp.inventory.service.MaterialStockService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -26,27 +21,11 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@Testcontainers(disabledWithoutDocker = true)
-class MaterialStockConcurrencyIntegrationTests {
+class MaterialStockConcurrencyIntegrationTests extends org.smart.erp.support.MySqlIntegrationTest {
 
 	private static final long MATERIAL_ID = 11L;
 
 	private static final long WAREHOUSE_ID = 21L;
-
-	@Container
-	private static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4").withDatabaseName("origin_erp_test")
-		.withUsername("origin")
-		.withPassword("origin");
-
-	@DynamicPropertySource
-	static void mysqlProperties(DynamicPropertyRegistry registry) {
-		registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
-		registry.add("spring.datasource.username", MYSQL::getUsername);
-		registry.add("spring.datasource.password", MYSQL::getPassword);
-		registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
-		registry.add("spring.data.redis.repositories.enabled", () -> false);
-		registry.add("security.jwt.secret", () -> "c21hcnQtZXJwLXRlc3Qtc2VjcmV0LW11c3QtYmUtYXQtbGVhc3QtMzItYnl0ZXM=");
-	}
 
 	@MockitoBean
 	private RedissonClient redissonClient;

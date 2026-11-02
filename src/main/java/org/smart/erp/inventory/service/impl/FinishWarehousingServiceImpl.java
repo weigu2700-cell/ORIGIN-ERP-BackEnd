@@ -212,7 +212,9 @@ public class FinishWarehousingServiceImpl
                         .ge(Objects.nonNull(dto.getWarehousingTime()),
                                 FinishWarehousing::getWarehousingTime, dto.getWarehousingTime());
 
-        Page<FinishWarehousing> page = this.page(new Page<>(dto.getPageNum(), dto.getPageSize()), qw);
+        int pageNum = dto.getPageNum() == null || dto.getPageNum() < 1 ? 1 : dto.getPageNum();
+        int pageSize = dto.getPageSize() == null || dto.getPageSize() < 1 ? 10 : dto.getPageSize();
+        Page<FinishWarehousing> page = this.page(new Page<>(pageNum, pageSize), qw);
 
         Set<Long> productionOrderIds = page.getRecords().stream()
                 .map(FinishWarehousing::getProductionOrderId)

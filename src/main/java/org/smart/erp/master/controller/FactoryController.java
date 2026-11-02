@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import org.smart.erp.common.result.Result;
+import org.smart.erp.common.exception.BusinessException;
 import org.smart.erp.master.dto.FactoryDto.FactoryAddDto;
 import org.smart.erp.master.dto.FactoryDto.FactoryPageDto;
 import org.smart.erp.master.dto.FactoryDto.FactoryUpdateDto;
@@ -54,8 +55,11 @@ public class FactoryController {
 
     @Operation(summary = "变更工厂状态")
     @PutMapping("{id}/status")
-    public Result<Void> updateFactoryStatus(@PathVariable Long id, @RequestParam FactoryStatus status) {
-        factoryService.updateFactoryStatus(id, status);
+    public Result<Void> updateFactoryStatus(@PathVariable Long id, @RequestParam Integer status) {
+        FactoryStatus resolved = java.util.Arrays.stream(FactoryStatus.values())
+                .filter(value -> value.getCode().equals(status)).findFirst()
+                .orElseThrow(() -> new BusinessException(400, "未知工厂状态"));
+        factoryService.updateFactoryStatus(id, resolved);
         return Result.success();
     }
 

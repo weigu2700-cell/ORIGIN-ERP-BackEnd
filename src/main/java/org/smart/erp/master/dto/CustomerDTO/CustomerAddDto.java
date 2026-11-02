@@ -12,10 +12,12 @@ public class CustomerAddDto {
 
     private String shortName;
 
+    @NotBlank(message = "联系人不能为空")
     private String contactName;
 
     private String address;
 
+    @NotBlank(message = "联系电话不能为空")
     private String phone;
 
     @Email(message = "邮箱格式不正确")

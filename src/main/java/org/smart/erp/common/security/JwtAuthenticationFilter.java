@@ -41,10 +41,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                                FilterChain chain) throws ServletException, IOException {
         String path = request.getRequestURI().substring(request.getContextPath().length());
-        boolean login = path.equals("/auth/login") || path.equals("/auth/tenant/resolve");
+        boolean login = path.equals("/auth/login") || path.equals("/auth/tenant/resolve") || path.equals("/auth/tenant/context");
         if (properties.multi()) {
             // T2 未完成缓存/通知/AI 隔离，明确禁止现有业务接口进入多租户链路。
-            if (!login && !path.startsWith("/tenant-verification/") && !path.equals("/error")) {
+            if (!login && !path.equals("/auth/tenant/session") && !path.startsWith("/tenant-verification/") && !path.equals("/error")) {
                 reject(response, 503, "多租户业务入口尚未开放，请先完成全链路隔离验证"); return;
             }
         }

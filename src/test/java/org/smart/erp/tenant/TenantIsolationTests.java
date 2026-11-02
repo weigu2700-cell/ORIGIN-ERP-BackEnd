@@ -91,7 +91,7 @@ class TenantIsolationTests {
         });
         jwt = new JwtUtil(Base64.getEncoder().encodeToString("tenant-test-secret-must-have-at-least-32-bytes".getBytes()),60000);
         var login = new LoginServiceImpl(mapper,jwt,encoder,resolver);
-        mvc = MockMvcBuilders.standaloneSetup(new LoginController(login),new TenantController(resolver),new ProbeController(routed))
+        mvc = MockMvcBuilders.standaloneSetup(new LoginController(login),new TenantController(resolver),new TenantAccessController(resolver,props,new CurrentUserImpl(),users),new ProbeController(routed))
                 .setControllerAdvice(new org.smart.erp.common.exception.GlobalException(), new TenantExceptionHandler())
                 .addFilters(new JwtAuthenticationFilter(jwt,users,permissions,resolver,props,json)).build();
         tokenA=login("a"); tokenB=login("b");
@@ -128,6 +128,20 @@ class TenantIsolationTests {
         mvc.perform(post("/auth/tenant/resolve").contentType("application/json").content("{\"tenantCode\":\"a\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.code").value("a")).andExpect(jsonPath("$.data.connectionRef").doesNotExist());
         mvc.perform(post("/auth/tenant/resolve").contentType("application/json").content("{}" )).andExpect(status().isBadRequest());
+    }
+    @Test void organizationSessionIsAuthenticatedScopedAndDoesNotOpenBusinessAccess() throws Exception {
+        mvc.perform(get("/auth/tenant/context")).andExpect(status().isOk()).andExpect(jsonPath("$.data.mode").value("multi"))
+                .andExpect(jsonPath("$.data.organization").isEmpty());
+        mvc.perform(get("/auth/tenant/session")).andExpect(status().isUnauthorized());
+        for(var pair:java.util.Map.of("a",tokenA,"b",tokenB).entrySet()) {
+            mvc.perform(get("/auth/tenant/session").header("Authorization","Bearer "+pair.getValue()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.data.tenantId").value(pair.getKey()))
+                    .andExpect(jsonPath("$.data.organization.code").value(pair.getKey()))
+                    .andExpect(jsonPath("$.data.user.id").value("80001"))
+                    .andExpect(jsonPath("$.data.user.password").doesNotExist())
+                    .andExpect(jsonPath("$.data.businessAvailable").value(false));
+        }
+        mvc.perform(get("/system/menu/current").header("Authorization","Bearer "+tokenA)).andExpect(status().isServiceUnavailable());
     }
     @Test void suspendedTenantFailsWithoutAffectingOtherTenant() throws Exception {
         platform.update("UPDATE plt_tenant SET status='SUSPENDED' WHERE id='a'");

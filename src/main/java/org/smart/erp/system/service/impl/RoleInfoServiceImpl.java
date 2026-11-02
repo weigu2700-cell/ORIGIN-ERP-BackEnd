@@ -197,7 +197,12 @@ public class RoleInfoServiceImpl extends ServiceImpl<RoleInfoMapper, RoleInfo> i
                         new LambdaQueryWrapper<RolePermission>().
                                 eq(RolePermission::getRoleId, id)
                 );
-        if (rolePermission != null) {
+        boolean hasPermissions = rolePermission != null && !rolePermission.isEmpty();
+        boolean hasMenus = roleMenuMapper.selectCount(new LambdaQueryWrapper<RoleMenu>()
+                .eq(RoleMenu::getRoleId, id)) > 0;
+        boolean hasUsers = userRoleMapper.selectCount(new LambdaQueryWrapper<UserRole>()
+                .eq(UserRole::getRoleId, id)) > 0;
+        if (hasPermissions || hasMenus || hasUsers) {
             throw new BusinessException(400, "角色已被使用，无法删除");
         }
         this.removeById(id);

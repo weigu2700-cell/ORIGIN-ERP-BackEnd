@@ -1,6 +1,7 @@
 package org.smart.erp.system.vo;
 
 import lombok.Data;
+import org.smart.erp.system.Enum.UserStatus;
 
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,8 @@ public class UserDetailVo {
     private String realName;
 
     private String phone;
+
+    private UserStatus status;
 
     private String deptName;
 

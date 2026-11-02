@@ -234,7 +234,9 @@ public class PermissionServiceImpl extends ServiceImpl<PermissionMapper, Permiss
             throw new BusinessException(400, "权限编码已存在");
         }
         Permission permission = new Permission();
-        BeanUtils.copyProperties(dto, permission);
+        // sort is optional in the request but primitive in the entity.
+        BeanUtils.copyProperties(dto, permission, "sort");
+        if (dto.getSort() != null) permission.setSort(dto.getSort());
         if (permission.getStatus() == null) {
             permission.setStatus(Status.ENABLE);
         }

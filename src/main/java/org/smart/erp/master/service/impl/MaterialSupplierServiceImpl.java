@@ -109,12 +109,12 @@ public class MaterialSupplierServiceImpl
         List<Long> materialIds = page.getRecords().stream().map(MaterialSupplier::getMaterialId).distinct().toList();
         List<Long> supplierIds = page.getRecords().stream().map(MaterialSupplier::getSupplierId).distinct().toList();
 
-        Map<Long, String> materialNameMap = materialMapper
+        Map<Long, String> materialNameMap = materialIds.isEmpty() ? Map.of() : materialMapper
                         .selectByIds(materialIds)
                         .stream()
                         .collect(Collectors.toMap(Material::getId, Material::getName));
 
-        Map<Long, String> supplierNameMap = supplierMapper
+        Map<Long, String> supplierNameMap = supplierIds.isEmpty() ? Map.of() : supplierMapper
                         .selectByIds(supplierIds)
                         .stream()
                         .collect(Collectors.toMap(Supplier::getId, Supplier::getName));
@@ -183,28 +183,26 @@ public class MaterialSupplierServiceImpl
     }
 
     @Override
-    public void changeMaterialSupplierPreferred(Long materialId , Long supplierId) {
-
-        MaterialSupplier materialSupplier = materialSupplierMapper.selectOne(
+    @Transactional(rollbackFor = Exception.class)
+    public void changeMaterialSupplierPreferred(Long materialId, Long supplierId) {
+        MaterialSupplier selected = materialSupplierMapper.selectOne(
                 new LambdaQueryWrapper<MaterialSupplier>()
                         .eq(MaterialSupplier::getMaterialId, materialId)
-                        .eq(MaterialSupplier::getSupplierId, supplierId)
-        );
-        if (materialSupplier == null) {
-            throw new BusinessException(404,"物料供应商关系不存在");
+                        .eq(MaterialSupplier::getSupplierId, supplierId));
+        if (selected == null || selected.getStatus() == MaterialSupplierStatus.INACTIVE) {
+            throw new BusinessException(404, "物料供应商关系不存在或被禁用");
         }
-        materialSupplier.setPreferred(materialSupplier.getPreferred() == 1 ? 0 : 1);
-        MaterialSupplier preferredMaterialSupplier =
-                materialSupplierMapper.selectOne
-                        (
-                            new LambdaQueryWrapper<MaterialSupplier>()
-                                    .eq(MaterialSupplier::getPreferred, 1)
-                        );
-        if (preferredMaterialSupplier != null) {
-            preferredMaterialSupplier.setPreferred(0);
-            materialSupplierMapper.updateById(preferredMaterialSupplier);
+        int next = Integer.valueOf(1).equals(selected.getPreferred()) ? 0 : 1;
+        if (next == 1) {
+            MaterialSupplier reset = new MaterialSupplier();
+            reset.setPreferred(0);
+            materialSupplierMapper.update(reset, new LambdaQueryWrapper<MaterialSupplier>()
+                    .eq(MaterialSupplier::getMaterialId, materialId)
+                    .eq(MaterialSupplier::getPreferred, 1)
+                    .ne(MaterialSupplier::getSupplierId, supplierId));
         }
-        materialSupplierMapper.updateById(materialSupplier);
+        selected.setPreferred(next);
+        materialSupplierMapper.updateById(selected);
     }
 
     @Override
