@@ -21,12 +21,12 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) {
         Long userId = (Long) session.getAttributes().get("userId");
 
-        webSocketSessionManager.addSession(userId, session);
+        webSocketSessionManager.addSession((String) session.getAttributes().get("tenantId"), userId, session);
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, @NonNull CloseStatus status) {
         Long userId = (Long) session.getAttributes().get("userId");
-        webSocketSessionManager.removeSession(userId, session);
+        webSocketSessionManager.removeSession((String) session.getAttributes().get("tenantId"), userId, session);
     }
 }

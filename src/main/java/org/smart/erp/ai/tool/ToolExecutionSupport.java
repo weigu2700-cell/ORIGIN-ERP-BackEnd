@@ -51,19 +51,10 @@ public final class ToolExecutionSupport {
             throw new IllegalArgumentException("toolContext 和 action 不能为空");
         }
 
-        Object value = toolContext.getContext().get(SECURITY_CONTEXT_KEY);
-        if (!(value instanceof SecurityContext securityContext)
-                || securityContext.getAuthentication() == null) {
-            throw new SecurityException("缺少安全上下文，无法执行工具调用");
-        }
-
-        SecurityContext previous = SecurityContextHolder.getContext();
-        SecurityContextHolder.setContext(securityContext);
-        try {
-            return action.get();
-        } finally {
-            SecurityContextHolder.setContext(previous);
-        }
+        Object value = toolContext.getContext().get(org.smart.erp.tenant.context.TenantExecution.CONTEXT_KEY);
+        if (!(value instanceof org.smart.erp.tenant.context.TenantExecution execution))
+            throw new SecurityException("缺少企业与用户执行快照，无法执行工具调用");
+        return execution.call(action);
     }
 
     public static AiActionCollector getActionCollector(ToolContext toolContext) {

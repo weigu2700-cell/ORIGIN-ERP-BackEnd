@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import org.smart.erp.tenant.context.TenantExecutor;
+import org.smart.erp.tenant.context.TenantWork;
 
 /** 独立事务写入一条发布批次和该批次的全部收件箱记录。 */
 @Slf4j
@@ -34,19 +36,23 @@ public class NotificationPersistenceServiceImpl implements NotificationPersisten
 	private final NotificationConverter converter;
 
 	private final NotificationPushGateway pushGateway;
+	private final TenantExecutor tenants;
 
 	public NotificationPersistenceServiceImpl(NotificationPublishMapper publishMapper,
 			NotificationMapper notificationMapper, NotificationConverter converter,
-			NotificationPushGateway pushGateway) {
+			NotificationPushGateway pushGateway, TenantExecutor tenants) {
 		this.publishMapper = publishMapper;
 		this.notificationMapper = notificationMapper;
 		this.converter = converter;
 		this.pushGateway = pushGateway;
+		this.tenants = tenants;
 	}
 
 	@Override
 	@Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
 	public void persist(NotificationPublishEvent event, Set<Long> recipientIds) {
+		if (!event.getTenantId().equals(org.smart.erp.tenant.context.TenantScope.required()))
+			throw new org.smart.erp.tenant.TenantException(403, "通知事件与当前企业不匹配");
 		if (recipientIds == null || recipientIds.isEmpty()) {
 			throw new BusinessException(422, "未解析到有效通知收件人");
 		}
@@ -69,21 +75,22 @@ public class NotificationPersistenceServiceImpl implements NotificationPersisten
 			notificationMapper.insert(notification);
 			inserted.add(notification);
 		}
-		registerPushAfterCommit(inserted);
+		registerPushAfterCommit(inserted, tenants.captureTenant());
 	}
 
-	private void registerPushAfterCommit(List<Notification> notifications) {
+	private void registerPushAfterCommit(List<Notification> notifications, TenantWork tenant) {
 		if (notifications.isEmpty()) {
 			return;
 		}
 		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-			notifications.forEach(pushGateway::push);
+			tenant.run(() -> notifications.forEach(n -> pushGateway.push(tenant.tenantId(), n)));
 			return;
 		}
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
-				notifications.forEach(pushGateway::push);
+				try { tenant.run(() -> notifications.forEach(n -> pushGateway.push(tenant.tenantId(), n))); }
+				catch (RuntimeException error) { log.warn("通知已保存，企业不可用或推送失败 tenantId={}", tenant.tenantId()); }
 			}
 		});
 	}

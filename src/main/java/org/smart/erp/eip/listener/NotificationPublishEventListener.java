@@ -11,6 +11,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.event.TransactionPhase;
 
 import java.util.Set;
+import org.smart.erp.tenant.context.TenantExecutor;
 
 /** 业务提交后解析收件人并写入通知；通知异常不回滚原业务事务。 */
 @Slf4j
@@ -20,20 +21,24 @@ public class NotificationPublishEventListener {
 	private final NotificationRecipientResolver recipientResolver;
 
 	private final NotificationPersistenceService persistenceService;
+	private final TenantExecutor tenants;
 
 	public NotificationPublishEventListener(NotificationRecipientResolver recipientResolver,
-			NotificationPersistenceService persistenceService) {
+			NotificationPersistenceService persistenceService, TenantExecutor tenants) {
 		this.recipientResolver = recipientResolver;
 		this.persistenceService = persistenceService;
+		this.tenants = tenants;
 	}
 
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
 	public void handle(NotificationPublishEvent event) {
 		try {
+			tenants.forTenant(event.getTenantId()).run(() -> {
 			RecipientSelectorDTO selector = event.getPublish().getRecipients();
 			Set<Long> recipientIds = recipientResolver
 				.resolve(selector == null ? new RecipientSelectorDTO() : selector);
 			persistenceService.persist(event, recipientIds);
+			});
 		}
 		catch (RuntimeException exception) {
 			log.error("业务事务已提交，但通知处理失败，requestId={}", event.getRequestId(), exception);

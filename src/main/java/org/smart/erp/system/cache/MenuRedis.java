@@ -24,11 +24,16 @@ public class MenuRedis {
     }
 
     public List<MenuTreeVo> getMenuCache(Long userId) {
-        return operationString.get(MENU_KEY_PREFIX, userId);
+        try { return operationString.get(MENU_KEY_PREFIX, userId); }
+        catch (org.springframework.data.redis.serializer.SerializationException stale) {
+            operationString.delete(MENU_KEY_PREFIX, userId);
+            return null;
+        }
     }
 
     public void activeMenuCache(Long userId, List<MenuTreeVo> menus) {
-        operationString.set(MENU_KEY_PREFIX, userId, menus, Duration.ofHours(2));
+        // List.of()/Stream.toList() 的 final 实现可能缺少顶层类型信息，统一使用可反序列化的容器。
+        operationString.set(MENU_KEY_PREFIX, userId, new java.util.ArrayList<>(menus), Duration.ofHours(2));
         operationSet.add(MENU_USERS_INDEX, userId, Duration.ofHours(2));
     }
 

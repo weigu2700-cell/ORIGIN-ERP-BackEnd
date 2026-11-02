@@ -78,7 +78,7 @@ class TenantMigrationTests {
             assertThat(count(target, "sys_menu")).isEqualTo(37);
             assertThat(count(target, "sys_role_permission")).isEqualTo(117);
             assertThat(count(target, "sys_role_menu")).isEqualTo(37);
-            assertThat(count(target, TenantFlyway.TENANT_HISTORY)).isEqualTo(2);
+            assertThat(count(target, TenantFlyway.TENANT_HISTORY)).isEqualTo(3);
             var jdbc = new JdbcTemplate(target);
             assertThat(jdbc.queryForObject("SELECT id FROM sys_user WHERE username='owner'", Long.class)).isEqualTo(80001L);
             assertThat(encoder.matches("deployment-selected-password", jdbc.queryForObject("SELECT password FROM sys_user WHERE username='owner'", String.class))).isTrue();
@@ -97,7 +97,7 @@ class TenantMigrationTests {
         migrator.execute("a", "a", target, TenantSchemaMigrator.Action.UPGRADE, null);
         var row = new JdbcTemplate(target).queryForMap("SELECT password,status FROM sys_user WHERE username='owner'");
         assertThat(row.get("password")).isEqualTo(changed); assertThat(((Number)row.get("status")).intValue()).isZero();
-        assertThat(count(target, TenantFlyway.TENANT_HISTORY)).isEqualTo(2);
+        assertThat(count(target, TenantFlyway.TENANT_HISTORY)).isEqualTo(3);
         assertThat(count(target, "sys_permission")).isEqualTo(117);
         assertThat(count(target, "sys_role_permission")).isEqualTo(117);
     }
@@ -109,6 +109,8 @@ class TenantMigrationTests {
         var jdbc = new JdbcTemplate(target);
         jdbc.update("INSERT INTO flyway_schema_history(installed_rank,version,description,type,script,checksum,installed_by,execution_time,success) VALUES(1,'20260921','old migration','SQL','old.sql',123,'operator',5,1)");
         jdbc.update("INSERT INTO md_factory(id,name,code,status,create_time,deleted) VALUES(42,'已有工厂','EXISTING',1,NOW(),0)");
+        jdbc.update("INSERT INTO ai_conversation(id,user_id,title,status,create_time,update_time,deleted) VALUES(1,80001,'existing',0,NOW(),NOW(),0)");
+        jdbc.update("INSERT INTO SPRING_AI_CHAT_MEMORY(conversation_id,content,type,timestamp,sequence_id) VALUES('1','legacy memory','USER',NOW(),0)");
         String before = jdbc.queryForObject("SELECT password FROM sys_user WHERE username='owner'", String.class);
         var history = jdbc.queryForList("SELECT * FROM flyway_schema_history");
         migrator.execute("a", "a", target, TenantSchemaMigrator.Action.ADOPT, null);
@@ -117,6 +119,7 @@ class TenantMigrationTests {
         assertThat(jdbc.queryForObject("SELECT password FROM sys_user WHERE username='owner'", String.class)).isEqualTo(before);
         assertThat(jdbc.queryForObject("SELECT code FROM md_factory WHERE id=42", String.class)).isEqualTo("EXISTING");
         assertThat(count(target, "sys_role_permission")).isEqualTo(117);
+        assertThat(jdbc.queryForObject("SELECT content FROM SPRING_AI_CHAT_MEMORY WHERE conversation_id='t:a:u:80001:c:1'",String.class)).isEqualTo("legacy memory");
         assertThat(schemaStatus("a")).isEqualTo("READY");
     }
 
@@ -230,7 +233,7 @@ class TenantMigrationTests {
         assertThat(registry.queryForObject("SELECT error_code FROM plt_tenant_operation WHERE id='abandoned'", String.class)).isEqualTo("INTERRUPTED");
         assertThat(registry.queryForObject("SELECT status FROM plt_tenant_operation WHERE id='abandoned'", String.class)).isEqualTo("FAILED");
         assertThat(status("a")).isEqualTo("ACTIVE");
-        assertThat(count(target, TenantFlyway.TENANT_HISTORY)).isEqualTo(2);
+        assertThat(count(target, TenantFlyway.TENANT_HISTORY)).isEqualTo(3);
         assertThat(count(target, "sys_user")).isEqualTo(1);
     }
 

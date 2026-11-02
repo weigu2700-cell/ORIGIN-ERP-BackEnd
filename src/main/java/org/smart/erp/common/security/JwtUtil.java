@@ -23,7 +23,7 @@ public class JwtUtil {
         this.expirationMillis = expirationMillis;
     }
 
-    public record Identity(long userId, String tenantId) {}
+    public record Identity(long userId, String tenantId, java.time.Instant expiresAt) {}
 
     public String generateToken(long userId) { return generateToken(userId, null); }
 
@@ -42,7 +42,8 @@ public class JwtUtil {
         if (tenantId != null && (tenantId.isBlank() || !Integer.valueOf(1).equals(claims.get("ver", Integer.class))
                 || claims.getAudience() == null || !claims.getAudience().contains("tenant-api")))
             throw new io.jsonwebtoken.MalformedJwtException("登录身份用途或版本不匹配");
-        return new Identity(Long.parseLong(claims.getSubject()), tenantId);
+        if (claims.getExpiration() == null) throw new io.jsonwebtoken.MalformedJwtException("缺少登录有效期");
+        return new Identity(Long.parseLong(claims.getSubject()), tenantId, claims.getExpiration().toInstant());
     }
 
     public long parseToken(String token) { return parseIdentity(token).userId(); }

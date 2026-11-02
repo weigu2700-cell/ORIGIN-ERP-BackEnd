@@ -1,13 +1,13 @@
 # T3：用 Flyway 管理平台与租户数据库版本
 
-本轮实现逐库初始化、显式旧库接管、升级校验与失败记录。多租户正式业务门禁仍保留；缓存、消息、AI 和异步隔离属于 T4。本轮不迁移现有业务库。
+本轮实现逐库初始化、显式旧库接管、升级校验与失败记录。多租户正式业务门禁仍保留；后续缓存、消息、AI 和异步隔离进展见 [T4](tenancy-t4-isolation.md)。本轮不迁移现有业务库。
 
 ## 迁移轨道
 
 | 对象 | 迁移目录 | 历史表 | 当前版本 |
 | --- | --- | --- | --- |
 | 平台库 | `src/main/resources/db/platform-migration` | `flyway_platform_schema_history` | 2 |
-| 每个租户库 | `src/main/resources/db/tenant-migration` | `flyway_tenant_schema_history` | 2 |
+| 每个租户库 | `src/main/resources/db/tenant-migration` | `flyway_tenant_schema_history` | 3 |
 | 未接管的旧单企业库 | 原 `db/migration` | 原 `flyway_schema_history` | 保留原有历史 |
 
 平台 V1 是租户登记；V2 增加 `plt_tenant_operation`。租户 V1 冻结 `5118ebc` 的 39 张应用表，并纳入“采购入库实际日期可空”的兼容修正；生产领料仓库可空和 AI 记忆表也已包含。V2 创建物理库归属标记、117 个公共权限和 37 个菜单，补齐已有有效 admin 角色的关联。没有工厂、物料等虚构业务数据，没有开发账号或默认密码。
@@ -16,7 +16,7 @@
 
 旧库的基线含义见 [Flyway baseline 说明](https://documentation.red-gate.com/flyway/flyway-concepts/baselines)；自动 baseline 会绕过非空库的保护检查，因此这里采用先校验、再显式接管的方式，参见 [baselineOnMigrate 官方说明](https://documentation.red-gate.com/fd/flyway-baseline-on-migrate-setting-277578974.html)。
 
-已应用脚本不可修改；下一次变更新增 V3、V4。同时更新应用支持版本、对应的结构契约和回归。当前精确支持 schema_version=2，不承诺跨 schema 版本的滚动升级。
+T4 新增 V3 扩大 AI 记忆标识列，V1/V2 保持不可变。已应用脚本不可修改；下一次变更新增 V4、V5。同时更新应用支持版本、对应的结构契约和回归。当前精确支持 schema_version=3，不承诺跨 schema 版本的滚动升级。
 
 ## 准备与权限
 
@@ -64,7 +64,7 @@ python3 sql/tenant/run.py new /secure/tenancy.properties enterprise-a
 python3 sql/tenant/run.py verify /secure/tenancy.properties enterprise-a
 ```
 
-`new` 拒绝已有未知表的库。执行顺序为：核对平台版本/登记/物理连接 → 取得租户迁移锁 → schema_status=UPGRADING → Flyway V1/V2 → 绑定物理库归属 → 在独立事务中建立首位管理员、部门、admin 角色及全部公共关联 → 校验版本、结构、管理员 → READY / ACTIVE。
+`new` 拒绝已有未知表的库。执行顺序为：核对平台版本/登记/物理连接 → 取得租户迁移锁 → schema_status=UPGRADING → Flyway V1/V2 → 绑定物理库归属 → V3 及后续迁移 → 在独立事务中建立首位管理员、部门、admin 角色及全部公共关联 → 校验版本、结构、管理员 → READY / ACTIVE。
 
 首位管理员预留 ID 为 80001，仅用于新空库；用户名由部署方指定。失败重试不重置已成功创建的账号密码，也不把既有普通账号自动提升为管理员。已开通后再次执行 `new` 会拒绝，后续使用 `upgrade`。
 
@@ -84,9 +84,9 @@ python3 sql/tenant/run.py adopt /secure/tenancy.properties enterprise-a
 ALTER TABLE pur_in_stock MODIFY COLUMN in_date DATETIME NULL COMMENT '实际入库日期（上架后填写）';
 ```
 
-全部结构匹配且原历史没有失败记录后，显式在新历史表 baseline=1，再执行 V2。原 `flyway_schema_history` 及其 checksum 保留不动，已有业务行、用户密码、禁用和逻辑删除标记不被重置。至少要有一个已有的有效管理员及部门/角色关系；工具不会给旧库补通用开发账号。公共 seed 的自然键/预留菜单 ID 冲突会失败，需人工判断后再试。
+全部结构匹配且原历史没有失败记录后，显式在新历史表 baseline=1，再执行 V2、归属绑定和后续迁移。原 `flyway_schema_history` 及其 checksum 保留不动，已有业务行、用户密码、禁用和逻辑删除标记不被重置。至少要有一个已有的有效管理员及部门/角色关系；工具不会给旧库补通用开发账号。公共 seed 的自然键/预留菜单 ID 冲突会失败，需人工判断后再试。
 
-接管后只运行租户轨道，禁止再次启动旧单企业迁移器。运行共用服务时仍使用 `tenant-verification` profile，以关闭旧全局迁移器和 AI 自动建表；完成 T4 之前业务入口返回 503。
+接管后只运行租户轨道，禁止再次启动旧单企业迁移器。运行共用服务时仍使用 `tenant-verification` profile，以关闭旧全局迁移器和 AI 自动建表；完成双端联调及上线验收之前业务入口返回 503。
 
 ## 升级、失败与恢复
 
@@ -119,8 +119,8 @@ SELECT tenant_id FROM sys_tenant_identity WHERE singleton=1;
 python3 sql/platform/test_tenants.py
 ```
 
-测试启动临时 MySQL 并清理，仅操作随机前缀的隔离库。覆盖双库同用户 ID、新库与旧库、独立历史、公共 seed、密码/数据保留、未知 schema 与 checksum 失败、并发锁、中断重试、错误目标/物理归属、停用保留、外部配置与运行时隔离。没有指定测试数据库而跳过集成类，不能算验收通过。依赖已缓存时，部署命令支持 `--offline`。
+测试启动临时 MySQL、Redis 并清理，仅操作隔离库与键空间。覆盖双库同用户 ID、新库与旧库、独立历史、公共 seed、密码/数据保留、未知 schema 与 checksum 失败、并发锁、中断重试、错误目标/物理归属、停用保留、外部配置与运行时隔离。没有指定测试环境而跳过集成类，不能算验收通过。依赖已缓存时，部署命令支持 `--offline`。
 
-本轮实测：39 项测试通过、无跳过，其中 16 项为真实 MySQL/Flyway 生命周期测试。干净副本仅叠加本轮改动后，测试与可执行 JAR 打包均通过；默认启动类仍是原应用。另实际执行平台初始化及租户 new/verify/upgrade 命令，带空格的外部配置路径也通过。没有访问或迁移现有业务库。
+T3 初次交付实测：39 项测试通过、无跳过，其中 16 项为真实 MySQL/Flyway 生命周期测试。干净副本测试与可执行 JAR 打包均通过；默认启动类仍是原应用。另实际执行平台初始化及租户 new/verify/upgrade 命令，带空格的外部配置路径也通过。没有访问或迁移现有业务库。后续扩大后的验证结果见 T4 说明。
 
-尚未实现：自动分配数据库/账号、平台运维认证/UI、在线排流、自动备份恢复及连接池热轮换。下一步是 T4 全链路隔离，多租户业务门禁继续保留。
+尚未实现：自动分配数据库/账号、平台运维认证/UI、在线排流、自动备份恢复及连接池热轮换。后续 T4 隔离改造已补充，下一步是双端联调和灰度运维验收，多租户业务门禁继续保留。

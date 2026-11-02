@@ -25,15 +25,12 @@ public class WebSocketNotificationPushGateway implements NotificationPushGateway
 	}
 
 	@Override
-	public void push(Notification notification) {
+	public void push(String tenantId, Notification notification) {
 		try {
-			sessionManager.sendMessage(notification.getUserId(), objectMapper.writeValueAsString(notification));
+			sessionManager.sendMessage(tenantId, notification.getUserId(), objectMapper.writeValueAsString(notification));
 		}
 		catch (JsonProcessingException | RuntimeException exception) {
 			log.warn("通知已保存，WebSocket 推送消息序列化失败，notificationId={}", notification.getId(), exception);
-		}
-		catch (IOException exception) {
-			log.warn("通知已保存，WebSocket 推送失败，notificationId={}", notification.getId(), exception);
 		}
 	}
 

@@ -18,12 +18,19 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.smart.erp.tenant.context.TenantKeyspace;
+import org.smart.erp.ai.service.AiConversationService;
+import org.smart.erp.ai.persistence.ConversationStatus;
+import org.springframework.data.redis.core.script.RedisScript;
 
 @Service
 public class AiActionServiceImpl implements AiActionService {
 
     private final PurchaseOrderService purchaseOrderService;
     private final OperationString operationString;
+    private final TenantKeyspace tenantKeys;
+    private final AiConversationService conversations;
+    private static final RedisScript<Long> RELEASE_LOCK = RedisScript.of("if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end", Long.class);
     private static final String AI_PENDING_ACTION_KEY = "erp:ai:action:";
     private static final String AI_ACTION_EXECUTION_LOCK_KEY = "erp:ai:action:executing:";
     private static final Duration ACTION_TTL = Duration.ofMinutes(10);
@@ -31,10 +38,12 @@ public class AiActionServiceImpl implements AiActionService {
 
     public AiActionServiceImpl(
             PurchaseOrderService purchaseOrderService,
-            OperationString operationString
+            OperationString operationString, TenantKeyspace tenantKeys, AiConversationService conversations
     ) {
         this.purchaseOrderService = purchaseOrderService;
         this.operationString = operationString;
+        this.tenantKeys = tenantKeys;
+        this.conversations = conversations;
     }
 
     @Override
@@ -71,6 +80,12 @@ public class AiActionServiceImpl implements AiActionService {
             Long conversationId
     ) {
 
+        String tenantId = tenantKeys.tenantId();
+        var conversation = conversations.getOwnedConversation(conversationId);
+        if (!Objects.equals(conversation.getUserId(), userId))
+            throw new BusinessException(403, "待确认动作的用户与会话所有者不一致");
+        if (conversation.getStatus() == ConversationStatus.ARCHIVED)
+            throw new BusinessException(409, "已归档会话不能创建待确认动作");
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expireTime = now.plus(ACTION_TTL);
 
@@ -84,6 +99,7 @@ public class AiActionServiceImpl implements AiActionService {
                     AiPendingAction aiPendingAction =
                             new AiPendingAction(
                                     token,
+                                    tenantId,
                                     userId,
                                     conversationId,
                                     proposal.actionType(),
@@ -120,7 +136,9 @@ public class AiActionServiceImpl implements AiActionService {
 
         String redisKey = AI_PENDING_ACTION_KEY + token;
         String lockKey = AI_ACTION_EXECUTION_LOCK_KEY + token;
-        boolean locked = operationString.setIfAbsent(lockKey, userId, EXECUTION_LOCK_TTL);
+        String tenantId = tenantKeys.tenantId();
+        String lockOwner = UUID.randomUUID().toString();
+        boolean locked = operationString.setIfAbsent(lockKey, lockOwner, EXECUTION_LOCK_TTL);
         if (!locked) {
             throw new BusinessException(409, "该操作正在执行，请勿重复确认");
         }
@@ -130,6 +148,8 @@ public class AiActionServiceImpl implements AiActionService {
             if (pendingAction == null) {
                 throw new BusinessException(410, "待确认操作不存在或已过期，请重新发起");
             }
+            if (!tenantId.equals(pendingAction.tenantId()))
+                throw new BusinessException(403, "待确认操作不属于当前企业或身份已失效");
             if (!Objects.equals(pendingAction.userId(), userId)) {
                 throw new BusinessException(403, "无权执行该待确认操作");
             }
@@ -146,7 +166,7 @@ public class AiActionServiceImpl implements AiActionService {
             // 只在业务执行成功后消费 token；瞬时故障时用户仍可在有效期内重试。
             operationString.delete(redisKey);
         } finally {
-            operationString.delete(lockKey);
+            operationString.executeScript(RELEASE_LOCK, List.of(lockKey), lockOwner);
         }
     }
 

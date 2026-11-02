@@ -8,6 +8,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.smart.erp.tenant.context.TenantExecution;
 
 @Service
 public class AiConversationTitleService {
@@ -21,10 +22,8 @@ public class AiConversationTitleService {
         this.aiConversationService = aiConversationService;
     }
 
-    public String generateTitleIfNeeded(AiAssistantRequest request, SecurityContext securityContext) {
-        SecurityContext previous = SecurityContextHolder.getContext();
-        SecurityContextHolder.setContext(securityContext);
-        try {
+    public String generateTitleIfNeeded(AiAssistantRequest request, TenantExecution execution) {
+        return execution.call(() -> {
             AiConversation aiConversation = aiConversationService.getOwnedConversation(request.conversationId());
             if (!"新对话".equals(aiConversation.getTitle())) {
                 return null;
@@ -40,9 +39,7 @@ public class AiConversationTitleService {
             String title = result.title().trim();
             aiConversationService.writeTitle(request.conversationId(), title);
             return title;
-        } finally {
-            SecurityContextHolder.setContext(previous);
-        }
+        });
     }
 
 }

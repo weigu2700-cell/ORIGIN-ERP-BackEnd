@@ -38,6 +38,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.smart.erp.tenant.context.TenantKeyspace;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -54,6 +55,7 @@ public class PurchaseInStockServiceImpl
 
     private final Validator validator;
     private final BusinessNoGenerator businessNoGenerator;
+    private final TenantKeyspace tenantKeys;
     private final MaterialMapper materialMapper;
     private final SupplierMapper supplierMapper;
     private final WarehouseMapper warehouseMapper;
@@ -77,10 +79,11 @@ public class PurchaseInStockServiceImpl
                     MaterialStockService materialStockService,
                     ProductionPickingService productionPickingService,
                     RedissonClient redissonClient,
-                    NotificationPublisher notificationPublisher
+                    NotificationPublisher notificationPublisher, TenantKeyspace tenantKeys
             ) {
         this.validator = validator;
         this.businessNoGenerator = businessNoGenerator;
+        this.tenantKeys = tenantKeys;
         this.materialMapper = materialMapper;
         this.supplierMapper = supplierMapper;
         this.warehouseMapper = warehouseMapper;
@@ -232,7 +235,7 @@ public class PurchaseInStockServiceImpl
 
     @Override
     public void approvePurchaseInStock(Long id) {
-        RLock rLock = redissonClient.getLock(LOCK_PREFIX + id);
+        RLock rLock = redissonClient.getLock(tenantKeys.key(LOCK_PREFIX + id));
         boolean locked;
         try {
             locked = rLock.tryLock(5,  TimeUnit.SECONDS);

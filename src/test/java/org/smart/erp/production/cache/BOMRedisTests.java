@@ -40,7 +40,7 @@ class BOMRedisTests {
 
 	@BeforeEach
 	void setUp() {
-		bomRedis = new BOMRedis(operationString, redissonClient);
+		bomRedis = new BOMRedis(operationString, redissonClient, org.smart.erp.tenant.TenantTestSupport.singleKeys(), org.smart.erp.tenant.TenantTestSupport.singleExecutor());
 	}
 
 	@Test
@@ -86,6 +86,7 @@ class BOMRedisTests {
 
 	@Test
 	void evictionRunsOnlyAfterCommitWhenTransactionIsActive() {
+		var tenant = org.smart.erp.tenant.context.TenantScope.open("single");
 		TransactionSynchronizationManager.initSynchronization();
 		TransactionSynchronizationManager.setActualTransactionActive(true);
 		try {
@@ -99,6 +100,7 @@ class BOMRedisTests {
 		finally {
 			TransactionSynchronizationManager.clearSynchronization();
 			TransactionSynchronizationManager.setActualTransactionActive(false);
+			tenant.close();
 		}
 	}
 

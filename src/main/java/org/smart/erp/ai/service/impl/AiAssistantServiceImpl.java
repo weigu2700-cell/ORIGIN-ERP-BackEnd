@@ -29,6 +29,10 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
+import org.smart.erp.tenant.context.TenantExecutor;
+import org.smart.erp.tenant.context.TenantExecution;
+import org.smart.erp.tenant.context.TenantKeyspace;
+import org.smart.erp.tenant.context.TenantMemoryId;
 
 @Service
 public class AiAssistantServiceImpl implements AiAssistantService {
@@ -39,7 +43,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final ChatClient chatClient;
     private final AiQueryTools queryTools;
     private final AiActionTool aiActionTool;
-    private final CurrentUser currentUser;
+    private final TenantExecutor tenants;
+    private final TenantKeyspace tenantKeys;
     private final AiMessageService aiMessageService;
     private final AiConversationTitleService titleService;
     private final AiActionService aiActionService;
@@ -50,7 +55,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
             ChatMemory chatMemory,
             AiQueryTools queryTools,
             AiActionTool aiActionTool,
-            CurrentUser currentUser,
+            TenantExecutor tenants, TenantKeyspace tenantKeys,
             AiMessageService aiMessageService,
             AiConversationTitleService titleService,
             AiActionService aiActionService,
@@ -61,7 +66,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
                 .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
                 .build();
         this.queryTools = queryTools;
-        this.currentUser = currentUser;
+        this.tenants = tenants;
+        this.tenantKeys = tenantKeys;
         this.aiMessageService = aiMessageService;
         this.titleService = titleService;
         this.aiActionService = aiActionService;
@@ -73,14 +79,15 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     public AiAssistantResult chat(AiAssistantRequest request) {
         validate(request);
         Long conversationId = request.conversationId();
+        var execution = tenants.capture();
         // addMessage 校验当前用户拥有该对话，之后才允许模型读取记忆。
         aiMessageService.addMessage(conversationId, "user", request.message());
         try {
             String content = chatClient.prompt()
                     .user(request.message())
-                    .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId.toString()))
+                    .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, memoryId(execution, conversationId)))
                     .tools(queryTools.all())
-                    .toolContext(toolContext(SecurityContextHolder.getContext()))
+                    .toolContext(toolContext(execution))
                     .call()
                     .content();
             aiMessageService.saveMessage(conversationId, "assistant", content);
@@ -96,16 +103,15 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         try {
             validate(request);
             Long conversationId = request.conversationId();
-            SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
-            securityContext.setAuthentication(SecurityContextHolder.getContext().getAuthentication());
+            var execution = tenants.capture();
             AiActionCollector actionCollector = new AiActionCollector();
             Map<String, Object> toolContext = Map.of(
-                    "userId", currentUser.getUserId(),
-                    ToolExecutionSupport.SECURITY_CONTEXT_KEY, securityContext,
+                    "userId", execution.userId(),
+                    TenantExecution.CONTEXT_KEY, execution,
                     AiActionCollector.ACTION_COLLECTOR_KEY, actionCollector);
             // 在请求线程完成归属校验与用户消息写入。
             aiMessageService.addMessage(conversationId, "user", request.message());
-            return streamResponse(request, securityContext, toolContext, actionCollector);
+            return streamResponse(request, execution, toolContext, actionCollector);
         } catch (Exception error) {
             log.warn("准备 AI 流式对话失败", error);
             String message = error instanceof BusinessException ? error.getMessage() : UNAVAILABLE_MESSAGE;
@@ -114,73 +120,54 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     }
 
     private Flux<AiAssistantStreamResult> streamResponse(AiAssistantRequest request,
-                                                          SecurityContext securityContext,
+                                                          TenantExecution snapshot,
                                                           Map<String, Object> toolContext,
                                                           AiActionCollector actionCollector) {
         Long conversationId = request.conversationId();
-        StringBuilder content = new StringBuilder();
-        return Flux.defer(() -> {
-            Flux<AiAssistantStreamResult> chunks = chatClient.prompt()
+        return Flux.deferContextual(context -> {
+            TenantExecution execution = context.get(TenantExecution.CONTEXT_KEY);
+            StringBuilder content = new StringBuilder();
+            Flux<AiAssistantStreamResult> chunks = execution.call(() -> chatClient.prompt()
                     .user(request.message())
-                    .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId.toString()))
-                    .tools(queryTools.all())
-                    .tools(aiActionTool.all())
-                    .toolContext(toolContext)
-                    .stream()
-                    .content()
+                    .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, memoryId(execution, conversationId)))
+                    .tools(queryTools.all()).tools(aiActionTool.all()).toolContext(toolContext)
+                    .stream().content())
                     .doOnNext(content::append)
                     .map(chunk -> new AiAssistantStreamResult(AiStreamType.CONTENT, chunk));
-
-            Mono<Void> saveAssistant = Mono.fromRunnable(() -> {
-                        if (!content.isEmpty()) {
-                            aiMessageService.saveMessage(conversationId, "assistant", content.toString());
-                        }
-                    })
+            Mono<Void> saveAssistant = Mono.fromRunnable(() -> execution.run(() -> {
+                        if (!content.isEmpty()) aiMessageService.saveMessage(conversationId, "assistant", content.toString());
+                    })).subscribeOn(Schedulers.boundedElastic()).then();
+            Mono<AiAssistantStreamResult> title = Mono.fromCallable(() -> titleService.generateTitleIfNeeded(request, execution))
                     .subscribeOn(Schedulers.boundedElastic())
-                    .doOnError(error -> log.warn("AI 对话保存失败 conversationId={}", conversationId, error))
-                    .onErrorResume(error -> Mono.empty())
-                    .then();
-
-            Mono<AiAssistantStreamResult> title = Mono.fromCallable(() ->
-                            titleService.generateTitleIfNeeded(request, securityContext)
-                    )
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .flatMap(value -> value == null
-                            ? Mono.empty()
-                            : Mono.just(new AiAssistantStreamResult(AiStreamType.TITLE, value)))
-                    .doOnError(error -> log.warn("AI 标题生成失败 conversationId={}", conversationId, error))
-                    .onErrorResume(error -> Mono.empty());
-
-            Flux<AiAssistantStreamResult> actionEvents =
-                    Mono.fromCallable(() -> aiActionService.createPendingAction(
-                                    actionCollector.getAll(),
-                                    (Long) toolContext.get("userId"),
-                                    conversationId)
-                            )
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .flatMapMany(Flux::fromIterable)
-                            .map(action -> new AiAssistantStreamResult(
-                                    AiStreamType.ACTION,
-                                    toJson(action)))
-                            .doOnError(error -> log.warn(
-                                    "AI 创建待办失败 conversationId={}", conversationId, error))
-                            .onErrorResume(error -> Flux.empty());
-
-            return chunks.concatWith(saveAssistant.then(Mono.empty()))
-                    .concatWith(title)
-                    .concatWith(actionEvents)
-                    .doOnCancel(() -> log.info("用户主动停止 AI 生成 conversationId={}, partialLength={}",
-                            conversationId, content.length()));
-        })
-                .doOnError(error -> log.warn("AI 流式对话失败 conversationId={}", conversationId, error))
-                .onErrorResume(error -> Flux.just(new AiAssistantStreamResult(
-                        AiStreamType.ERROR,
-                        content.isEmpty() ? UNAVAILABLE_MESSAGE : "\n\nAI回答中断，请重试")));
+                    .flatMap(value -> value == null ? Mono.empty() : Mono.just(new AiAssistantStreamResult(AiStreamType.TITLE, value)));
+            Flux<AiAssistantStreamResult> actions = Mono.fromCallable(() -> execution.call(() ->
+                            aiActionService.createPendingAction(actionCollector.getAll(), execution.userId(), conversationId)))
+                    .subscribeOn(Schedulers.boundedElastic()).flatMapMany(Flux::fromIterable)
+                    .map(action -> new AiAssistantStreamResult(AiStreamType.ACTION, toJson(action)));
+            // 模型可能长时间只输出内容而不访问 DB，独立检查企业状态以终止停用后的流。
+            Mono<Void> guard = Flux.interval(java.time.Duration.ofSeconds(5)).publishOn(Schedulers.boundedElastic())
+                    .doOnNext(tick -> execution.run(() -> {})).then();
+            return chunks.concatWith(saveAssistant.then(Mono.empty())).concatWith(title).concatWith(actions)
+                    .takeUntilOther(guard)
+                    .doOnCancel(() -> log.info("用户停止 AI 生成 tenantId={},conversationId={}", execution.tenantId(), conversationId))
+                    .doOnError(error -> log.warn("AI 流式对话失败 tenantId={},conversationId={}", execution.tenantId(), conversationId, error))
+                    .onErrorResume(error -> Flux.just(new AiAssistantStreamResult(AiStreamType.ERROR,
+                            content.isEmpty() ? UNAVAILABLE_MESSAGE : "\n\nAI回答中断，请重试")));
+        }).subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(error -> {
+                    log.warn("AI 执行企业已不可用 tenantId={},conversationId={}", snapshot.tenantId(), conversationId);
+                    return Flux.just(new AiAssistantStreamResult(AiStreamType.ERROR, UNAVAILABLE_MESSAGE));
+                })
+                .contextWrite(context -> context.put(TenantExecution.CONTEXT_KEY, snapshot));
     }
 
-    private Map<String, Object> toolContext(SecurityContext securityContext) {
-        return Map.of("userId", currentUser.getUserId(),
-                ToolExecutionSupport.SECURITY_CONTEXT_KEY, securityContext);
+    private Map<String, Object> toolContext(TenantExecution execution) {
+        return Map.of("userId", execution.userId(), TenantExecution.CONTEXT_KEY, execution);
+    }
+
+    private String memoryId(TenantExecution execution, Long conversationId) {
+        return tenantKeys.multi() ? new TenantMemoryId(execution.tenantId(), execution.userId(), conversationId).encode()
+                : conversationId.toString();
     }
 
     private String toJson(Object value) {

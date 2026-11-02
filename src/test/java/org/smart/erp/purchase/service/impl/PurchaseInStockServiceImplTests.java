@@ -83,7 +83,7 @@ class PurchaseInStockServiceImplTests {
 	void setUp() {
 		service = spy(new PurchaseInStockServiceImpl(validator, businessNoGenerator, materialMapper, supplierMapper,
 				warehouseMapper, purchaseOrderMapper, materialStockService, productionPickingService, redissonClient,
-				notificationPublisher));
+				notificationPublisher, org.smart.erp.tenant.TenantTestSupport.singleKeys()));
 	}
 
 	@Test

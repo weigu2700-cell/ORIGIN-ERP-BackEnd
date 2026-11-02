@@ -42,6 +42,7 @@ import org.smart.erp.eip.enums.NotificationType;
 import org.smart.erp.eip.service.NotificationPublisher;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.smart.erp.tenant.context.TenantKeyspace;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -72,6 +73,7 @@ public class SalesDeliveryServiceImpl
     private final MaterialStockService materialStockService;
     private final ProductionDemandService productionDemandService;
     private final BusinessNoGenerator businessNoGenerator;
+    private final TenantKeyspace tenantKeys;
     private final CustomerMapper customerMapper;
     @Lazy
     private final SalesOrderService salesOrderService;
@@ -89,7 +91,7 @@ public class SalesDeliveryServiceImpl
             SalesOrderItemMapper salesOrderItemMapper,
             @Lazy SalesOrderService salesOrderService,
             NotificationPublisher notificationPublisher,
-            RedissonClient redissonClient
+            RedissonClient redissonClient, TenantKeyspace tenantKeys
     )
     {
         this.salesDeliveryMapper = salesDeliveryMapper;
@@ -97,6 +99,7 @@ public class SalesDeliveryServiceImpl
         this.materialStockService = materialStockService;
         this.productionDemandService = productionDemandService;
         this.businessNoGenerator = businessNoGenerator;
+        this.tenantKeys = tenantKeys;
         this.customerMapper = customerMapper;
         this.salesOrderMapper = salesOrderMapper;
         this.salesOrderItemMapper = salesOrderItemMapper;
@@ -155,7 +158,7 @@ public class SalesDeliveryServiceImpl
 
     private static final String LOCK_PREFIX = "erp:sales:delivery:lock:";
     private <T> T withDeliveryLock(Long id, Supplier<T> action){
-        RLock rLock = redissonClient.getLock(LOCK_PREFIX + id);
+        RLock rLock = redissonClient.getLock(tenantKeys.key(LOCK_PREFIX + id));
         boolean locked;
         try{
             locked = rLock.tryLock(5, TimeUnit.SECONDS);

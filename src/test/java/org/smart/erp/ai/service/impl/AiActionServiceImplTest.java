@@ -39,7 +39,7 @@ class AiActionServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new AiActionServiceImpl(purchaseOrderService, operationString);
+        service = new AiActionServiceImpl(purchaseOrderService, operationString, org.smart.erp.tenant.TenantTestSupport.singleKeys(), org.mockito.Mockito.mock(org.smart.erp.ai.service.AiConversationService.class));
     }
 
     @Test
@@ -50,7 +50,7 @@ class AiActionServiceImplTest {
         current.setPurchaseOrderNo("PO-001");
         current.setVersion(3);
 
-        when(operationString.setIfAbsent(eq(LOCK_KEY), eq(7L), any(Duration.class))).thenReturn(true);
+        when(operationString.setIfAbsent(eq(LOCK_KEY), org.mockito.ArgumentMatchers.anyString(), any(Duration.class))).thenReturn(true);
         when(operationString.get(ACTION_KEY)).thenReturn(pendingAction);
         when(purchaseOrderService.getById(11L)).thenReturn(current);
 
@@ -58,12 +58,12 @@ class AiActionServiceImplTest {
 
         verify(purchaseOrderService).approvePurchaseOrder(11L);
         verify(operationString).delete(ACTION_KEY);
-        verify(operationString).delete(LOCK_KEY);
+        verify(operationString).executeScript(any(), eq(java.util.List.of(LOCK_KEY)), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
     void rejectsActionCreatedForAnotherUser() {
-        when(operationString.setIfAbsent(eq(LOCK_KEY), eq(8L), any(Duration.class))).thenReturn(true);
+        when(operationString.setIfAbsent(eq(LOCK_KEY), org.mockito.ArgumentMatchers.anyString(), any(Duration.class))).thenReturn(true);
         when(operationString.get(ACTION_KEY)).thenReturn(pendingAction(7L, 3));
 
         assertThatThrownBy(() -> service.executePendingAction(TOKEN, 8L))
@@ -71,7 +71,7 @@ class AiActionServiceImplTest {
                 .hasMessage("无权执行该待确认操作");
 
         verify(purchaseOrderService, never()).approvePurchaseOrder(any());
-        verify(operationString).delete(LOCK_KEY);
+        verify(operationString).executeScript(any(), eq(java.util.List.of(LOCK_KEY)), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -81,7 +81,7 @@ class AiActionServiceImplTest {
         current.setPurchaseOrderNo("PO-001");
         current.setVersion(4);
 
-        when(operationString.setIfAbsent(eq(LOCK_KEY), eq(7L), any(Duration.class))).thenReturn(true);
+        when(operationString.setIfAbsent(eq(LOCK_KEY), org.mockito.ArgumentMatchers.anyString(), any(Duration.class))).thenReturn(true);
         when(operationString.get(ACTION_KEY)).thenReturn(pendingAction(7L, 3));
         when(purchaseOrderService.getById(11L)).thenReturn(current);
 
@@ -96,6 +96,7 @@ class AiActionServiceImplTest {
     private static AiPendingAction pendingAction(Long userId, Integer version) {
         return new AiPendingAction(
                 TOKEN,
+                "single",
                 userId,
                 5L,
                 AiActionType.APPROVE_PURCHASE_ORDER,

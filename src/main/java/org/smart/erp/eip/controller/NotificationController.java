@@ -76,7 +76,7 @@ public class NotificationController {
 		Long userId = currentUser.getUserId();
 
 		// 推送一条系统消息，用于验证 WebSocket 推送链路是否打通
-		webSocketSessionManager.sendMessage(userId, """
+		webSocketSessionManager.sendMessage(currentUser.getTenantId(), userId, """
 				{
 				  "type": "SYSTEM",
 				  "title": "WebSocket 测试",

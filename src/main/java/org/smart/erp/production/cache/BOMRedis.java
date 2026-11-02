@@ -12,6 +12,8 @@ import org.smart.erp.production.entity.BOM;
 import org.smart.erp.production.entity.BOMItem;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
+import org.smart.erp.tenant.context.TenantKeyspace;
+import org.smart.erp.tenant.context.TenantExecutor;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -31,13 +33,17 @@ public class BOMRedis{
 
     private final OperationString operationString;
     private final RedissonClient redissonClient;
+    private final TenantKeyspace tenantKeys;
+    private final TenantExecutor tenantExecutor;
 
     public BOMRedis(
             OperationString operationString,
-            RedissonClient redissonClient
+            RedissonClient redissonClient, TenantKeyspace tenantKeys, TenantExecutor tenantExecutor
     ) {
         this.operationString = operationString;
         this.redissonClient = redissonClient;
+        this.tenantKeys = tenantKeys;
+        this.tenantExecutor = tenantExecutor;
     }
     /** 读取缓存原值；调用方负责区分 miss、EMPTY 和历史脏类型。 */
     private Object readRaw(Long materialId) {
@@ -59,7 +65,7 @@ public class BOMRedis{
         if (EMPTY_BOM.equals(first)) return null;
         if (first != null) deleteUnknown(materialId, first);
 
-        RLock lock = redissonClient.getLock(BOM_LOCK_KEY_PREFIX + materialId);
+        RLock lock = redissonClient.getLock(tenantKeys.key(BOM_LOCK_KEY_PREFIX + materialId));
         boolean locked;
         try {
             locked = lock.tryLock(3, TimeUnit.SECONDS);
@@ -98,11 +104,15 @@ public class BOMRedis{
     /** DB 写入成功后失效缓存；事务回滚时不误删仍有效的缓存。 */
     public void evictAfterCommit(Long materialId) {
         if (materialId == null) return;
+        var tenant = tenantExecutor.captureTenant();
         if (TransactionSynchronizationManager.isActualTransactionActive()
                 && TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
-                public void afterCommit() { evictSafely(materialId); }
+                public void afterCommit() {
+                    try { tenant.run(() -> evictSafely(materialId)); }
+                    catch (RuntimeException error) { log.warn("BOM 已提交，企业不可用，未失效缓存 tenantId={}", tenant.tenantId()); }
+                }
             });
         } else {
             evictSafely(materialId);

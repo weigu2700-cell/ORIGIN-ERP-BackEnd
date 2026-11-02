@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "@class")
 public record AiPendingAction(
         String token,
+        String tenantId,
         Long userId,
         Long conversationId,
         AiActionType actionType,

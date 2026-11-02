@@ -24,16 +24,9 @@ public class MultiTenantDataSourceConfiguration {
     @Bean(name="dataSource") @Primary
     public DataSource tenantDataSource(TenantCatalog catalog, TenantDataSourceRegistry registry) { return new TenantRoutingDataSource(catalog, registry); }
     @Bean
-    public org.springframework.ai.chat.memory.ChatMemory unavailableTenantChatMemory() {
-        // T4 前不允许后台任务绕过 HTTP 门禁使用未隔离的 AI 记忆。
-        return new org.springframework.ai.chat.memory.ChatMemory() {
-            public void add(String id, java.util.List<org.springframework.ai.chat.messages.Message> messages) { throw unavailable(); }
-            public java.util.List<org.springframework.ai.chat.messages.Message> get(String id) { throw unavailable(); }
-            public void clear(String id) { throw unavailable(); }
-            private org.smart.erp.tenant.TenantException unavailable() {
-                return new org.smart.erp.tenant.TenantException(503, "多租户 AI 尚未开放");
-            }
-        };
+    public org.springframework.ai.chat.memory.ChatMemory tenantChatMemory(
+            @Qualifier("dataSource") DataSource dataSource, org.smart.erp.tenant.context.TenantExecutor tenants) {
+        return new org.smart.erp.tenant.context.TenantJdbcChatMemory(dataSource, tenants);
     }
 
 }

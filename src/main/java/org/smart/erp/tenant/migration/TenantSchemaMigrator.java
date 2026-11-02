@@ -81,7 +81,7 @@ public final class TenantSchemaMigrator {
                         "SELECT type FROM flyway_tenant_schema_history WHERE version='1'", String.class)))
                     throw new IllegalStateException("NEW 不接管已做 BASELINE 的旧库");
                 String version = flyway.info().current().getVersion().getVersion();
-                if (!java.util.Set.of("1", TenantFlyway.TENANT_VERSION).contains(version))
+                if (!java.util.Set.of("1", "2", TenantFlyway.TENANT_VERSION).contains(version))
                     throw new IllegalStateException("目标库版本不受当前迁移器支持");
                 SchemaContract.verify(target, "tenant-v" + version);
                 checkOwnership(target, id);
@@ -98,8 +98,12 @@ public final class TenantSchemaMigrator {
                 }
             }
             phase(jdbc, operation, "MIGRATE");
-            flyway.migrate();
+            // V2 创建归属表；先写入归属，V3 才能把既有数值记忆 ID 安全映射至本企业。
+            var current = flyway.info().current();
+            if (current == null || org.flywaydb.core.api.MigrationVersion.fromVersion("2").compareTo(current.getVersion()) > 0)
+                Flyway.configure().configuration(flyway.getConfiguration()).target("2").load().migrate();
             bindOwnership(target, id);
+            flyway.migrate();
             if (action == Action.NEW) {
                 phase(jdbc, operation, "ADMINISTRATOR");
                 administrator.initialize(target);
@@ -127,7 +131,7 @@ public final class TenantSchemaMigrator {
 
     public static void verify(DataSource target, String tenantId) {
         requireCurrent(TenantFlyway.tenant(target), TenantFlyway.TENANT_VERSION);
-        SchemaContract.verify(target, "tenant-v2");
+        SchemaContract.verify(target, "tenant-v" + TenantFlyway.TENANT_VERSION);
         String owner = new JdbcTemplate(target).queryForObject("SELECT tenant_id FROM sys_tenant_identity WHERE singleton=1", String.class);
         if (!tenantId.equals(owner)) throw new IllegalStateException("企业数据库归属不匹配");
     }

@@ -68,7 +68,7 @@ class TenantIsolationTests {
             jdbc.execute("CREATE TABLE sys_tenant_identity(singleton TINYINT PRIMARY KEY,tenant_id VARCHAR(64) UNIQUE)");
             jdbc.update("INSERT INTO sys_tenant_identity VALUES(1,?)",key);
             platform.update("INSERT INTO plt_tenant(id,code,name,status) VALUES(?,?,?,'ACTIVE')",key,key,"企业"+key);
-            platform.update("INSERT INTO plt_tenant_database(tenant_id,connection_ref,schema_status,schema_version) VALUES(?,?,'READY','2')",key,key);
+            platform.update("INSERT INTO plt_tenant_database(tenant_id,connection_ref,schema_status,schema_version) VALUES(?,?,'READY','3')",key,key);
         }
         var props = new TenantProperties(); props.setMode(TenantProperties.Mode.MULTI);
         for (String key : new String[]{"a","b"}) {
@@ -85,6 +85,10 @@ class TenantIsolationTests {
         var users = mock(UserService.class);
         when(users.detailUserById(anyLong())).thenAnswer(invocation -> mapper.selectById((Long)invocation.getArgument(0)));
         permissions = mock(PermissionService.class);
+        when(permissions.detailCurrentUserPermission(anyLong())).thenAnswer(call -> {
+            assertThat(TenantScope.required()).isIn("a", "b");
+            return java.util.List.of();
+        });
         jwt = new JwtUtil(Base64.getEncoder().encodeToString("tenant-test-secret-must-have-at-least-32-bytes".getBytes()),60000);
         var login = new LoginServiceImpl(mapper,jwt,encoder,resolver);
         mvc = MockMvcBuilders.standaloneSetup(new LoginController(login),new TenantController(resolver),new ProbeController(routed))
@@ -111,7 +115,7 @@ class TenantIsolationTests {
         mvc.perform(post("/tenant-verification/value").header("Authorization","Bearer "+tokenA)).andExpect(status().isOk());
         assertThat(new JdbcTemplate(source("tenant_a")).queryForObject("SELECT marker FROM tenant_probe WHERE id=1",String.class)).isEqualTo("a-updated");
         assertThat(new JdbcTemplate(source("tenant_b")).queryForObject("SELECT marker FROM tenant_probe WHERE id=1",String.class)).isEqualTo("b");
-        verifyNoInteractions(permissions);
+        verify(permissions, atLeastOnce()).detailCurrentUserPermission(80001L);
         assertThat(TenantScope.current()).isNull();
     }
     @Test void rejectsConflictingHeaderAndLegacyTokens() throws Exception {
@@ -146,7 +150,7 @@ class TenantIsolationTests {
         try {
             mvc.perform(get("/tenant-verification/value").header("Authorization","Bearer "+tokenA)).andExpect(status().isServiceUnavailable());
             mvc.perform(get("/tenant-verification/value").header("Authorization","Bearer "+tokenB)).andExpect(status().isOk());
-        } finally { platform.update("UPDATE plt_tenant_database SET schema_version='2' WHERE tenant_id='a'"); }
+        } finally { platform.update("UPDATE plt_tenant_database SET schema_version='3' WHERE tenant_id='a'"); }
     }
     @Test void missingScopeAndPrematureBusinessAccessAreBlocked() throws Exception {
         assertThatThrownBy(routed::getConnection).isInstanceOf(TenantException.class);

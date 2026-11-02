@@ -28,8 +28,10 @@ class JwtUtilTests {
     void tenantTokensPreserveEnterpriseAndRejectPlatformPurpose() {
         String secret = encodedSecret("0123456789abcdef0123456789abcdef");
         var jwt = new JwtUtil(secret, EXPIRATION_MILLIS);
-        assertThat(jwt.parseIdentity(jwt.generateToken(42L, "enterprise-a")))
-                .isEqualTo(new JwtUtil.Identity(42L, "enterprise-a"));
+        var identity = jwt.parseIdentity(jwt.generateToken(42L, "enterprise-a"));
+        assertThat(identity.userId()).isEqualTo(42L);
+        assertThat(identity.tenantId()).isEqualTo("enterprise-a");
+        assertThat(identity.expiresAt()).isAfter(java.time.Instant.now());
         var key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(java.util.Base64.getDecoder().decode(secret));
         String platform = io.jsonwebtoken.Jwts.builder().subject("42").audience().add("platform-api").and().signWith(key).compact();
         assertThatThrownBy(() -> jwt.parseIdentity(platform)).isInstanceOf(io.jsonwebtoken.MalformedJwtException.class);

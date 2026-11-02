@@ -107,7 +107,7 @@ class SalesDeliveryServiceImplTests {
 		lenient().when(salesDeliveryMapper.updateById(any(SalesDelivery.class))).thenReturn(1);
 		service = new SalesDeliveryServiceImpl(salesDeliveryMapper, salesDeliveryItemService, materialStockService,
 				productionDemandService, businessNoGenerator, customerMapper, salesOrderMapper, salesOrderItemMapper,
-				salesOrderService, notificationPublisher,redissonClient);
+				salesOrderService, notificationPublisher,redissonClient, org.smart.erp.tenant.TenantTestSupport.singleKeys());
 		ReflectionTestUtils.setField(service,"self",service);
 		lenient().when(redissonClient.getLock(anyString())).thenReturn(rLock);
 		lenient().when(rLock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(true);

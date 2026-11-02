@@ -71,9 +71,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 var user = users.detailUserById(userId);
                 if (user.getStatus() != UserStatus.NORMAL) throw new TenantException(403, "账号不可用");
-                // 验证模式不读取尚未按租户隔离的权限缓存。
-                var authorities = properties.multi() ? List.<SimpleGrantedAuthority>of()
-                        : permissions.detailCurrentUserPermission(userId).stream()
+                // 租户作用域覆盖权限加载，Redis 键序列化器统一隔离缓存及失效索引。
+                var authorities = permissions.detailCurrentUserPermission(userId).stream()
                             .map(permission -> new SimpleGrantedAuthority(permission.getCode())).toList();
                 SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                         new LoginUser(userId, user.getUsername(), tenantId), null, authorities));

@@ -4,6 +4,7 @@ import org.smart.erp.common.utils.RandomTtl;
 import org.smart.erp.common.utils.redis.OperationString;
 import org.smart.erp.system.vo.DashboardVo;
 import org.springframework.stereotype.Component;
+import org.smart.erp.tenant.context.TenantKeyspace;
 
 import java.time.Duration;
 
@@ -15,13 +16,15 @@ public class DashboardRedis {
     private static final Duration TTL = RandomTtl.ofMinutes(1, 2);
 
     private final OperationString operationString;
+    private final TenantKeyspace tenantKeys;
 
-    public DashboardRedis(OperationString operationString) {
+    public DashboardRedis(OperationString operationString, TenantKeyspace tenantKeys) {
         this.operationString = operationString;
+        this.tenantKeys = tenantKeys;
     }
 
     public String getDashboardLockKey() {
-        return DASHBOARD_LOCK_KEY;
+        return tenantKeys.key(DASHBOARD_LOCK_KEY);
     }
 
     /**

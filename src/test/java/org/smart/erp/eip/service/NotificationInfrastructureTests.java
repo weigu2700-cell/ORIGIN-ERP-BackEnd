@@ -27,7 +27,7 @@ class NotificationInfrastructureTests {
 
 	@Test
 	void publisherEmitsFrozenDtoAsOneDomainEvent() {
-		NotificationPublisherImpl publisher = new NotificationPublisherImpl(eventPublisher);
+		NotificationPublisherImpl publisher = new NotificationPublisherImpl(eventPublisher, org.smart.erp.tenant.TenantTestSupport.singleExecutor());
 		NotificationPublishDTO dto = NotificationPublishDTO.builder()
 			.requestId("req-1")
 			.sourceType(NotificationSourceType.BUSINESS)
@@ -46,11 +46,17 @@ class NotificationInfrastructureTests {
 			.build();
 
 		publisher.publish(dto);
+		dto.setTitle("changed after publish");
+		dto.getBusiness().setBusinessId(99L);
+		dto.getRecipients().setUserIds(Set.of(99L));
 
 		ArgumentCaptor<NotificationPublishEvent> captor = ArgumentCaptor.forClass(NotificationPublishEvent.class);
 		verify(eventPublisher).publishEvent(captor.capture());
 		NotificationPublishEvent event = captor.getValue();
 		assertThat(event.getRequestId()).isEqualTo("req-1");
+		assertThat(event.getTenantId()).isEqualTo("single");
+		assertThat(event.getPublish().getTitle()).isEqualTo("待处理");
+		assertThat(event.getPublish().getBusiness().getBusinessId()).isEqualTo(12L);
 		assertThat(event.getPublish().getBusiness().getBusinessType()).isEqualTo("purchase_demand");
 		assertThat(event.getPublish().getRecipients().getUserIds()).containsExactly(3L);
 	}

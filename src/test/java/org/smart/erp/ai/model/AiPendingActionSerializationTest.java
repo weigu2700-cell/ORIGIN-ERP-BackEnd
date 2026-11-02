@@ -19,10 +19,10 @@ class AiPendingActionSerializationTest {
     @SuppressWarnings("unchecked")
     void redisRoundTripRetainsRecordTypeAndBusinessFields() {
         var mapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        var template = new RedisConfig().redisTemplate(mock(RedisConnectionFactory.class), mapper);
+        var template = new RedisConfig().redisTemplate(mock(RedisConnectionFactory.class), mapper, org.smart.erp.tenant.TenantTestSupport.singleKeys());
         var serializer = (RedisSerializer<Object>) template.getValueSerializer();
         var now = LocalDateTime.of(2026, 11, 2, 10, 0);
-        var action = new AiPendingAction("token", 7L, 42L, AiActionType.APPROVE_PURCHASE_ORDER,
+        var action = new AiPendingAction("token", "single", 7L, 42L, AiActionType.APPROVE_PURCHASE_ORDER,
                 100L, "PUR-100", 3, "审批采购订单", "确认后执行", AiActionStatus.PENDING, now, now.plusMinutes(10));
 
         assertEquals(action, serializer.deserialize(serializer.serialize(action)));

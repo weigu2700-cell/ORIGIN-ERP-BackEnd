@@ -82,17 +82,19 @@ class QueryToolsTest {
         SecurityContext caller = SecurityContextHolder.createEmptyContext();
         caller.setAuthentication(new UsernamePasswordAuthenticationToken("caller", "n/a"));
         SecurityContext execution = SecurityContextHolder.createEmptyContext();
-        execution.setAuthentication(new UsernamePasswordAuthenticationToken("tool-user", "n/a"));
+        execution.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(new org.smart.erp.common.security.LoginUser(7L, "tool-user", "single"), null, java.util.List.of()));
+        SecurityContextHolder.setContext(execution);
+        var snapshot = org.smart.erp.tenant.TenantTestSupport.singleExecutor().capture();
         SecurityContextHolder.setContext(caller);
 
         callback.call("{\"customerId\":42,\"status\":1,\"pageSize\":5}",
-                new ToolContext(Map.of(ToolExecutionSupport.SECURITY_CONTEXT_KEY, execution)));
+                new ToolContext(Map.of(org.smart.erp.tenant.context.TenantExecution.CONTEXT_KEY, snapshot)));
 
         assertEquals(42L, capturedQuery.get().getCustomerId());
         assertEquals(SalesOrderStatus.CONFIRMED, capturedQuery.get().getStatus());
         assertEquals(1, capturedQuery.get().getPageNum());
         assertEquals(5, capturedQuery.get().getPageSize());
-        assertSame(execution, observedContext.get());
+        assertEquals("tool-user", ((org.smart.erp.common.security.LoginUser) observedContext.get().getAuthentication().getPrincipal()).getUsername());
         assertSame(caller, SecurityContextHolder.getContext());
     }
 
