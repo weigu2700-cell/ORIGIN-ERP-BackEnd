@@ -179,13 +179,22 @@ cd ORIGIN-ERP-BackEnd
 
 ### 初始化数据库
 
-1. 创建数据库 `smart-erp`。
-2. 按模块执行 `sql/smart-erp/` 下的系统、基础资料和业务表 DDL。
-3. 根据目标版本检查并执行 `sql/migrations/` 下的增量脚本。
-4. 初始化用户、角色、菜单、权限及其关联数据。仓库不提供可用于生产的默认账号或密码。
-5. 消息通知功能依赖 `sys_notification`、`sys_notification_publish`、`sys_notification_template` 和
-   `sys_notification_template_recipient` 表，实体与转换逻辑位于 `eip/entity` 和 `eip/converter`。
-   首次部署或已有库升级均执行 `sql/migrations/V20260918__eip_notification_expand.sql`；脚本可重复执行。
+2026-09-26 的“数据库转储”提交只包含 DDL，没有用户、权限或菜单预置数据。
+首次开发部署请使用下列入口（需要 Python 3 和 MySQL 8 客户端）：
+
+```bash
+# 从后端仓库根目录执行；-p 交互输入数据库密码
+python3 sql/bootstrap/run.py schema -h127.0.0.1 -uroot -p
+python3 sql/bootstrap/run.py seed-dev -h127.0.0.1 -uroot -p
+python3 sql/bootstrap/run.py verify -h127.0.0.1 -uroot -p
+```
+
+执行顺序为：全部基础表 → 权限 → 菜单 → 部门/管理员角色/账号及关联 →
+启动应用，由 Flyway 执行 `src/main/resources/db/migration/` 的增量迁移。
+开发默认账号 **`admin` / `OriginDev@123`**，密码以 BCrypt 保存，首次登录后修改。
+seed 可重复执行且保留已有密码；schema 入口仅用于空库，不可在已有业务库重跑。
+完整的审计结论、生产部署区别、缓存处理和登录验收见 [数据库初始化说明](sql/bootstrap/README.md)。
+通知表使用 `eip_notification*`，已包含在基础表清单中，无需额外通知迁移脚本。
 
 数据库、Redis 和 JWT 默认配置位于 `src/main/resources/application.yaml`。本地可直接按文件中的开发配置启动；共享、测试和生产环境应使用环境变量或外部配置覆盖，禁止沿用仓库中的开发凭据。
 
@@ -282,7 +291,7 @@ eip.listener.NotificationPublishEventListener
       └── 权限编码：解析启用角色、启用用户，并由管理员兜底
       │
       ▼
-写入 sys_notification（独立事务，isRead=false）
+写入 eip_notification（独立事务，isRead=false）
       │
       ▼
 通知事务提交后，由现有 WebSocketSessionManager 定向推送
@@ -416,7 +425,7 @@ AI 助手基于 Spring AI 2.0（OpenAI 兼容协议，当前接入 DeepSeek 大�
 
 ### 能力概览
 
-- **多轮对话**：Spring AI 的 JDBC `ChatMemory` 按 `conversationId` 维护模型上下文；`ai_conversation` / `ai_message` 则保存前端可见的对话和消息历史（建表脚本见 `sql/migrations/V20260922__ai_conversation_history.sql`）。
+- **多轮对话**：Spring AI 的 JDBC `ChatMemory` 按 `conversationId` 维护模型上下文；`ai_conversation` / `ai_message` 则保存前端可见的对话和消息历史（建表脚本见 `sql/smart-erp/ai_conversation.sql` 和 `sql/smart-erp/ai_message.sql`）。
 - **工具调用（Tool Calling）**：模型可在生成过程中调用业务工具查询真实数据。已接入库存（`get_material_stock` 按物料编码聚合各仓库在库/预留/可用量）、销售（`query_sales_orders` / `query_sales_deliveries`）、生产（`query_production_orders` / `query_production_demands`）、采购（`query_purchase_demands` / `query_purchase_orders`）与通知（`query_my_notifications`）等只读查询工具，并以当前登录用户身份受 RBAC 约束。
 - **流式与非流式**：提供一次性返回与 SSE 逐字流式返回两种模式，前端可边生成边渲染。
 - **对话与消息管理**：创建、查看、归档对话与拉取历史消息，均按当前用户归属隔离。
@@ -491,7 +500,8 @@ sql/smart-erp/
 ├── sal_*.sql              # 销售表
 ├── prd_*.sql              # BOM 与生产表
 ├── pur_*.sql              # 采购表
-├── permission_init.sql    # 权限初始化
+├── permission_init.sql    # 与后端鉴权一致的权限初始化
+├── menu_init.sql          # 配套 Web 客户端菜单
 └── seed_dev_admin.sql     # 本地开发管理员数据
 ```
 
