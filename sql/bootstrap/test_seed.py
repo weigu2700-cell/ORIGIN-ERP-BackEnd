@@ -84,9 +84,12 @@ DELETE FROM `smart-erp`.sys_role_permission;''')
     assert sql('SELECT CONCAT(user_id, ":", role_id) FROM `smart-erp`.sys_user_role;') == '90002:90003'
     # Validate exact menu components when the companion client is available locally.
     views = ROOT.parent / 'origin-erp-client/src/views'
+    menu_check = 'skipped (companion Web client not present)'
     if views.exists():
         for component in sql("SELECT component FROM `smart-erp`.sys_menu WHERE component<>'';").splitlines():
             assert (views / (component + '.vue')).is_file(), component
-    print(f'PASS: {len(required)} exact permissions; fresh install, replay, password/status preservation, natural IDs and menu components')
+        menu_check = 'passed'
+    print(f'PASS: {len(required)} exact permissions; fresh install, replay, password/status preservation and natural IDs')
+    print(f'Menu component check: {menu_check}')
 finally:
     docker('rm', '-f', name)
