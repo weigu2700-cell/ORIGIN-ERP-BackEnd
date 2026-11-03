@@ -1,644 +1,218 @@
 <div align="center">
-  <h1>ORIGIN ERP Service</h1>
-
-  <p>面向制造企业的 ERP 后端服务，以可配置权限、可追溯库存和跨业务单据协同为核心。</p>
-
+  <h1>ORIGIN ERP · 原点智造</h1>
+  <p><strong>连接订单、物料与现场作业的制造业务系统</strong></p>
+  <p>让销售、计划、采购、仓库与产线围绕同一套单据和业务状态协作。</p>
   <p>
-    <img src="https://img.shields.io/badge/Java-21-ed8b00?logo=openjdk&logoColor=white" alt="Java 21" />
-    <img src="https://img.shields.io/badge/Spring_Boot-4.1-6db33f?logo=springboot&logoColor=white" alt="Spring Boot 4.1" />
-    <img src="https://img.shields.io/badge/MyBatis--Plus-3.5-2f54eb" alt="MyBatis-Plus 3.5" />
-    <img src="https://img.shields.io/badge/MySQL-8-4479a1?logo=mysql&logoColor=white" alt="MySQL 8" />
-    <img src="https://img.shields.io/badge/Spring_AI-2.0-6db33f?logo=spring&logoColor=white" alt="Spring AI 2.0" />
-    <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
+    <a href="#产品能做什么">产品能力</a> ·
+    <a href="#开始使用">开始使用</a> ·
+    <a href="#面向开发者">开发接入</a> ·
+    <a href="docs/development.md">开发与部署文档</a>
   </p>
 </div>
 
-## 项目简介
+## 产品定位
 
-ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boot 模块化单体架构，按系统、基础资料、销售、库存、生产（含 BOM）和采购划分业务边界，并以消息通知打通跨模块协同；通过 JWT、RBAC、事务、库存流水和状态机式业务校验保障系统安全与数据一致性。
+ORIGIN ERP 是面向制造企业内部协作的开源业务系统，围绕订单驱动的销售、采购、库存和生产执行展开。它把办公室里的计划与审批、仓库里的出入库、产线上的领料和报工连接起来，让业务进度可以沿单据追踪，让库存变化有据可查。
 
-配套项目：
+对于开发团队，ORIGIN ERP 提供可自部署的服务端、Web 管理端和移动作业端。你可以从现有业务流程开始使用，也可以在共享身份、权限、单据和库存规则的基础上扩展企业自己的流程。
 
-- [ORIGIN ERP Web](https://github.com/weigu2700-cell/ORIGIN-ERP--FrontEnd)
-- [ORIGIN ERP 移动端](https://github.com/weigu2700-cell/ORIGIN-ERP-Moblie)
+### 谁会使用它
 
-## 项目亮点
+| 使用者           | 在产品中完成的工作                                       |
+| ---------------- | -------------------------------------------------------- |
+| 销售与跟单人员   | 维护客户与销售订单，确认需求，跟进出库和交付状态         |
+| 生产计划人员     | 维护 BOM，展开物料需求，生成与下达生产订单，跟踪执行进度 |
+| 采购人员         | 处理采购需求与订单，协同到货、入库审核和上架             |
+| 仓库人员         | 查询库存，处理采购入库、生产领料、成品入库及销售出库     |
+| 产线人员与审核人 | 在移动端登记报工，按权限完成审批，衔接成品入库           |
+| 管理员与开发者   | 配置用户、角色和菜单，部署服务，维护数据库并扩展业务能力 |
 
-- **模块化单体架构**：保留单体部署和事务的一致性优势，同时按业务域隔离 Controller、Service、Mapper 和模型。
-- **RBAC 双层权限**：菜单控制页面入口，Permission 控制接口操作，支持角色、部门、菜单和操作权限组合配置。
-- **制造业务闭环**：销售需求可驱动生产，生产订单基于 BOM 计算净需求，缺料衔接采购，出入库同步库存。
-- **库存全程可追溯**：统一维护在库量、预留量和可用量，关键库存变化写入流水。
-- **明确的单据状态流转**：订单确认、审核、下达、开工、完工、取消和上架均在服务端验证前置状态。
-- **多级 BOM 能力**：支持 BOM 版本管理、启用/停用、递归展开和按生产数量计算物料需求。
-- **全链路缓存**：基于 Redis 的旁路缓存（Cache-Aside），BOM 展开查询优先命中缓存，显著降低多级 BOM 递归查询的数据库压力，并在 BOM 激活/停用时主动失效。
-- **移动作业复用同一后端**：Web 与移动端共享账户、权限、业务数据和统一响应协议。
-- **组织身份与数据库版本**：按“一租户一库、共用服务”推进，JWT 绑定组织；平台与租户库使用独立 Flyway 轨道，支持逐库初始化、接管、升级与校验。当前多租户正式业务仍受门禁保护。
-- **持久化实时通知**：通知先写入数据库，再通过带 JWT 握手认证的 WebSocket 推送；离线用户重新登录后仍可查询未读消息。
-- **开箱即用的接口文档**：通过 Springdoc OpenAPI 提供 Swagger UI，便于联调和接口验收。
-- **AI 业务助手**：基于 Spring AI 接入 DeepSeek，支持多轮对话与工具调用（如按物料编码聚合各仓库库存），并以当前登录用户身份受 RBAC 约束。
+当前产品聚焦制造业务流转。财务核算、薪资、人力资源和对外商城不在现有交付范围内；采用前应按企业实际流程核对功能和验收结果。
 
-## 业务能力
+## 产品能做什么
 
-| 业务域   | 主要能力                                                       |
-| -------- | -------------------------------------------------------------- |
-| 系统管理 | 登录认证、用户/角色/部门管理、菜单与权限分配                   |
-| 基础资料 | 客户、供应商、物料、仓库与工厂/车间/产线主数据                 |
-| 销售管理 | 销售订单、库存预留、销售出库与状态流转                         |
-| 库存管理 | 在库/预留/可用量、库存流水、Excel 导入导出                     |
-| BOM 管理 | BOM 版本与多级展开、基于生产数量的物料净需求计算               |
-| 生产管理 | 生产需求、生产订单、下达/开工/完工/取消与生产领料              |
-| 采购管理 | 采购需求、采购订单、采购入库审核与上架                         |
-| 消息通知 | 通知落库、实时推送、未读统计与单条/全部已读                    |
-| AI 助手  | 基于 Spring AI 的对话助手，支持工具调用查询库存等 ERP 业务数据 |
+| 业务环节       | 当前能力                                           | 协作结果                           |
+| -------------- | -------------------------------------------------- | ---------------------------------- |
+| 基础资料       | 客户、供应商、物料、仓库、工厂、车间和产线管理     | 单据引用一致的主数据               |
+| 销售与交付     | 销售订单、确认与取消、库存预留、销售出库           | 从客户需求追踪到交付执行           |
+| BOM 与生产计划 | 多级 BOM、版本及启停、物料需求展开、生产需求与订单 | 将需求转成生产和备料依据           |
+| 采购与到货     | 采购需求、采购订单、入库审核与上架                 | 衔接缺料采购和到货入库             |
+| 生产执行       | 订单下达、开工、领料、报工、审批及成品入库         | 现场作业回到订单和库存记录         |
+| 库存追踪       | 在库、预留、可用数量及库存流水                     | 查询数量及其变化来源               |
+| 待办协同       | 业务通知、未读收件箱、实时提醒与通知模板           | 将下一步工作送达有权限的处理人     |
+| 业务助手       | AI 对话、库存及单据查询、待确认的采购审批提案      | 在现有权限范围内查询和辅助处理业务 |
 
-## 业务链路
+AI 使用已配置的模型服务；业务操作仍由领域服务校验，审批提案需要用户确认。知识库检索（RAG）处于开发草稿阶段。
 
-```text
-销售订单
-   │
-   ├── 库存充足 ──→ 库存预留 ──→ 销售出库 ──→ 库存流水
-   │
-   └── 库存不足 ──→ 生产需求 ──→ 生产订单 ──→ BOM 净需求
-                                          │
-                                          ├── 库存领料
-                                          └── 采购需求 ──→ 采购订单 ──→ 入库审核/上架
+### 一笔需求如何流转
+
+```mermaid
+flowchart LR
+    A[销售订单] --> B{库存与生产需求}
+    B -->|现货| C[库存预留]
+    C --> D[销售出库]
+    B -->|需要生产| E[生产需求与订单]
+    E --> F[BOM 与物料需求]
+    F -->|缺料| G[采购需求与订单]
+    G --> H[采购入库与上架]
+    F --> I[生产领料]
+    H --> I
+    I --> J[生产报工与审批]
+    J --> K[成品入库]
+    K --> D
 ```
 
-库存口径：
+各环节按单据状态和操作权限推进。报工完成后生成成品入库单，实际库存增加发生在确认入库时；销售预留量与在库量分开记录，可用量按“在库量 − 预留量”计算。
 
-```text
-可用量 = 在库量 - 预留量
-```
+## 三端如何协作
 
-## 界面展示
+| 仓库                                                                 | 产品职责                           | 主要使用场景                               |
+| -------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------ |
+| **当前仓库：Service**                                                | 统一业务规则、身份权限、数据与接口 | 服务部署、业务扩展、系统集成和数据库维护   |
+| [Web 管理端](https://github.com/weigu2700-cell/ORIGIN-ERP--FrontEnd) | 业务管理与跨岗位协同               | 主数据、订单、计划、审批、查询和运营工作台 |
+| [Mobile 作业端](https://github.com/weigu2700-cell/ORIGIN-ERP-Moblie) | 手机和 PDA 现场操作                | 扫码、库存查询、领料、报工与出入库         |
+
+Web 与移动端共享后端账号、权限和业务数据。移动端是员工现场作业入口；小程序构建目标服务于这一场景，对外客户订货商城另行规划。
+
+### 产品界面
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="docs/screenshots/home.png" alt="业务工作台" /></td>
-    <td width="50%" align="center"><img src="docs/screenshots/sales-order.png" alt="销售订单" /></td>
+    <td width="50%"><img src="docs/screenshots/home.png" alt="原点智造业务工作台" /></td>
+    <td width="50%"><img src="docs/screenshots/sales-order.png" alt="销售订单及业务状态" /></td>
   </tr>
   <tr>
-    <td align="center"><b>业务工作台</b>：核心待办与生产订单状态总览</td>
-    <td align="center"><b>销售订单</b>：订单状态管理与库存预留</td>
+    <td align="center">查看待办与业务进度</td>
+    <td align="center">围绕订单组织协作</td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="docs/screenshots/bom.png" alt="BOM 树形查询" /></td>
-    <td width="50%" align="center"><img src="docs/screenshots/notification.png" alt="发布通知" /></td>
+    <td><img src="docs/screenshots/bom.png" alt="多级 BOM 与物料需求" /></td>
+    <td><img src="docs/screenshots/notification.png" alt="通知发布与收件人配置" /></td>
   </tr>
   <tr>
-    <td align="center"><b>BOM 树形查询</b>：多级 BOM 递归展开与净需求</td>
-    <td align="center"><b>发布通知</b>：按用户/角色/部门定向推送通知</td>
+    <td align="center">从产品结构展开物料需求</td>
+    <td align="center">把后续工作交给对应处理人</td>
   </tr>
 </table>
 
-<div align="center">
-  <img src="docs/screenshots/ai-assistant.png" alt="AI 助手查询物料库存" width="90%" />
-  <p><em>AI 助手 — 自然语言查询物料库存并展示库存明细与业务提示</em></p>
-</div>
+## 当前交付与部署方式
 
-## 技术栈
+产品持续迭代，采用前请在自己的业务流程、权限角色和目标设备上完成验收。
 
-| 分类       | 技术                                                   |
-| ---------- | ------------------------------------------------------ |
-| 运行环境   | Java 21                                                |
-| 核心框架   | Spring Boot 4.1.0                                      |
-| Web 与校验 | Spring Web、Jakarta Validation                         |
-| 认证授权   | Spring Security、JJWT 0.12                             |
-| 数据访问   | MyBatis-Plus 3.5                                       |
-| 数据库     | MySQL 8.x                                              |
-| 数据库迁移 | Flyway：平台库、租户库与旧单企业库分轨管理             |
-| 缓存与单号 | Spring Data Redis、Redisson                            |
-| 实时通信   | Spring WebSocket                                       |
-| 接口文档   | Springdoc OpenAPI 2.8                                  |
-| AI 能力    | Spring AI 2.0（OpenAI 兼容协议，接入 DeepSeek 大模型） |
-| Excel      | FastExcel                                              |
-| 构建工具   | Maven Wrapper                                          |
+| 方式                        | 当前范围                                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **单组织自部署（single）**  | 默认运行方式，提供现有销售、采购、生产、库存和协同业务；企业自行维护数据、配置及部署环境                       |
+| **多组织共用服务（multi）** | 采用一租户一库，已接入组织登录、数据源路由、Flyway、缓存与异步隔离；当前仅开放组织身份链路，正式业务仍返回 503 |
+| **移动端交付**              | 提供 H5、App 和小程序构建入口；原生签名、平台配置、相机/PDA 与实际业务联调按目标设备验收                       |
 
-## 缓存设计
+multi 登录后会显示当前组织和“当前组织暂未开放业务”。组织选择界面已接入，两种部署方式的可用范围以服务端为准。
 
-系统采用 **Cache-Aside（旁路缓存）** 模式，以 Redis 作为集中缓存，目标是减少读多写少场景（尤其是多级 BOM 递归展开）对数据库的重复查询。以下示例使用 single 模式的原始键；multi 模式会统一加上 `erp:t:{tenantId}:`，Redisson 锁也绑定组织，缺少有效组织上下文时拒绝访问。详见 [T4 隔离说明](docs/plans/tenancy-t4-isolation.md)。
+多租户正式开放前还需完成跨组织业务联调、旧单号计数接管、连接预算和备份恢复验收；自动建库、平台运维 UI、连接池热轮换及跨节点 WebSocket 投递尚未交付。详见 [多租户方案](docs/plans/multi-tenancy.md) 和 [当前隔离实现](docs/plans/tenancy-t4-isolation.md)。
 
-### BOM 缓存
+## 开始使用
 
-BOM 展开是典型的高读压力场景：一次展开可能递归数十个节点，每个节点都要查询 BOM 头与 BOM 明细。为此引入物料级 active BOM 缓存。
+建议先在独立开发环境以 single 模式走通一条订单与库存流程，再按企业需要配置角色、主数据和部署方式。
 
-- **缓存键**：`erp:bom:hot:{materialId}`
-- **缓存值**：`BOMCacheDto`，包含 BOM 头字段与 `BOMItemCacheDto` 明细列表，代表某物料当前 `ACTIVE` 版本（version 最大）的 BOM。
-- **TTL**：正常 BOM 120-150 分钟（随机抖动，避免缓存雪崩），空哨兵 5-10 分钟。
+### 1. 准备环境
 
-读取流程（由 `BOMRedis#getOrLoad` 统一负责，Service 只提供 DB loader）：
-
-```text
-1. 查 Redis（key = `erp:bom:hot:{materialId}`）
-   ├── 命中 BOMCacheDto → 直接返回
-   ├── 命中 EMPTY → 返回 null（空值缓存 TTL 5~10 分钟）
-   └── 未命中/历史脏类型
-        2. 用 Redisson 锁 `erp:lock:bom:build:{materialId}` 双检
-        3. 查 DB：取该物料 status=ACTIVE 且 version 最大的 BOM 及明细
-        4. 正常值缓存 120~150 分钟；无 BOM 写入 EMPTY 空值缓存
-        5. 返回 BOMCacheDto 或 null
-```
-
-`BOMController` 的 BOM 展开（`getBOMExplosion`）及递归 `buildExplosionChildren` 均通过该入口取数，树中公共子件（如 A→B→D 与 A→C→D 的 D）第二次起直接命中缓存。
-
-### 失效策略（写时失效）
-
-旁路缓存必须保证写入后缓存不脏读，因此在 BOM 状态变更时主动删除缓存键：
-
-| 操作     | 触发方法     | 缓存动作                                  |
-| -------- | ------------ | ----------------------------------------- |
-| 激活 BOM | `activeBOM`  | 事务提交后 `evictAfterCommit(materialId)` |
-| 停用 BOM | `disableBOM` | 事务提交后 `evictAfterCommit(materialId)` |
-| 新增明细 | `addBOMItem` | 事务提交后 `evictAfterCommit(materialId)` |
-| 新增 BOM | `addBOM`     | 不影响（新增为 DRAFT，不参与缓存）        |
-
-### 已知权衡
-
-- **缓存穿透**：不存在 active BOM 的采购件 / 原材料写入 `EMPTY` 空值标记，短 TTL 降低递归展开中的重复回源。
-- **提交一致性**：BOM 写路径仅在数据库事务 `afterCommit` 后失效缓存；事务回滚不会误删旧缓存，删除失败只记录日志，不反向影响已提交事务。
-- **TTL 兜底**：极端情况下（如缓存删除失败）最多 2 小时内读到旧值，依赖 TTL 自动过期保证最终一致。
-
-发货单状态锁同样使用 Redisson watchdog（`erp:lock:sales-delivery:{id}`），在事务完成后释放。库存入库使用数据库唯一键
-`uk_material_warehouse_id` 配合 MySQL `INSERT ... ON DUPLICATE KEY UPDATE` 原子累加；这条 SQL 路径同时覆盖首次并发入库和既有库存增量，流水在同事务回查后的库存上计算。
-
-开放 Issue 的处理结论与新增能力计划见 [Issue 核查与实施计划](docs/plans/open-issues.md)。
-
-## 快速开始
-
-### 环境要求
-
-- JDK 21
-- MySQL 8.x
-- Redis 6+
-- Git
-
-项目已包含 Maven Wrapper，无需额外安装 Maven。
-
-### 获取代码
+服务端需要 JDK 21、MySQL 8.x、Redis，以及初始化脚本使用的 Python 3 和 MySQL 客户端。仓库自带 Maven Wrapper。
 
 ```bash
 git clone https://github.com/weigu2700-cell/ORIGIN-ERP-BackEnd.git
 cd ORIGIN-ERP-BackEnd
 ```
 
-### 初始化数据库
+### 2. 初始化开发数据库
 
-先选择部署轨道：现有单企业环境使用本节 bootstrap；多租户新库、旧库接管使用下方“组织与多租户”中的逐库 Flyway 入口。两条路径不要对同一业务库混用。
-
-2026-09-26 的“数据库转储”提交只包含 DDL，没有用户、权限或菜单预置数据。
-首次开发部署请使用下列入口（需要 Python 3 和 MySQL 8 客户端）：
+以下入口仅用于独立的空开发库 `smart-erp`，按顺序创建表、导入权限/菜单/开发管理员并校验：
 
 ```bash
-# 从后端仓库根目录执行；-p 交互输入数据库密码
 python3 sql/bootstrap/run.py schema -h127.0.0.1 -uroot -p
 python3 sql/bootstrap/run.py seed-dev -h127.0.0.1 -uroot -p
 python3 sql/bootstrap/run.py verify -h127.0.0.1 -uroot -p
 ```
 
-执行顺序为：全部基础表 → 权限 → 菜单 → 部门/管理员角色/账号及关联 →
-启动应用，由 Flyway 执行 `src/main/resources/db/migration/` 的增量迁移。
-开发默认账号 **`admin` / `OriginDev@123`**，密码以 BCrypt 保存，首次登录后修改。
-seed 可重复执行且保留已有密码；schema 入口仅用于空库，不可在已有业务库重跑。
-完整的审计结论、生产部署区别、缓存处理和登录验收见 [数据库初始化说明](sql/bootstrap/README.md)。
-通知表使用 `eip_notification*`，已包含在基础表清单中，无需额外通知迁移脚本。
+开发账号为 **`admin` / `OriginDev@123`**，仅在显式执行开发 seed 后存在。重跑 seed 保留已有密码；schema 入口不能在已有业务库重跑。生产环境由部署方建立自己的管理员，完整步骤见 [数据库初始化](sql/bootstrap/README.md)。
 
-数据库、Redis 和 JWT 默认配置位于 `src/main/resources/application.yaml`。本地可直接按文件中的开发配置启动；共享、测试和生产环境应使用环境变量或外部配置覆盖，禁止沿用仓库中的开发凭据。
+多租户新库与旧库接管使用 [逐库 Flyway 入口](docs/plans/tenancy-t3-flyway.md)，不要套用上述固定库名脚本；新租户管理员由开通方指定，没有统一默认密码。
+
+### 3. 配置并启动服务
+
+默认配置位于 `src/main/resources/application.yaml`。连接地址、密码和密钥应使用本地环境或外部配置覆盖：
 
 ```bash
 export SPRING_DATASOURCE_URL='jdbc:mysql://localhost:3306/smart-erp?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true'
 export SPRING_DATASOURCE_USERNAME='root'
-export SPRING_DATASOURCE_PASSWORD='<local-database-password>'
-# 生成一次后存入密钥管理系统；不要每次启动都重新生成
-openssl rand -base64 32
-export JWT_SECRET='<base64-secret-from-previous-command>'
-```
-
-Spring Boot 会通过环境变量的宽松绑定将上述 `SPRING_DATASOURCE_*` 配置映射到 `spring.datasource.*`。
-
-常用配置项：
-
-| 配置                                                       | 默认值                                     | 说明                            |
-| ---------------------------------------------------------- | ------------------------------------------ | ------------------------------- |
-| `spring.datasource.url`                                    | `jdbc:mysql://localhost:3306/smart-erp...` | MySQL 连接地址                  |
-| `spring.datasource.username`                               | `root`                                     | MySQL 用户名                    |
-| `spring.datasource.password`                               | 本地开发值                                 | 生产环境必须覆盖                |
-| `spring.data.redis.host`                                   | `127.0.0.1`                                | Redis 地址                      |
-| `spring.data.redis.port`                                   | `6379`                                     | Redis 端口                      |
-| `security.jwt.secret` / `JWT_SECRET`                       | 开发密钥                                   | Base64 编码，解码后至少 32 字节 |
-| `security.jwt.expiration-millis` / `JWT_EXPIRATION_MILLIS` | `18000000`                                 | Token 有效期，默认 5 小时       |
-
-`JWT_SECRET` 必须是 Base64 编码且解码后至少 32 字节。可选的 `JWT_EXPIRATION_MILLIS` 默认为 `18000000`（5 小时）。
-
-### 启动服务
-
-macOS / Linux：
-
-```bash
+export SPRING_DATASOURCE_PASSWORD='<database-password>'
+export SPRING_DATA_REDIS_HOST='127.0.0.1'
+export SPRING_DATA_REDIS_PORT='6379'
+export JWT_SECRET='<saved-base64-secret>'
+export AI_API_KEY='<model-api-key>'
 ./mvnw spring-boot:run
 ```
 
-Windows：
+`JWT_SECRET` 可通过 `openssl rand -base64 32` 生成一次并保存，解码后至少 32 字节；环境重启保持同一密钥。当前模型配置读取 `AI_API_KEY`，调用助手时需要真实可用凭据。模型地址及模型名按实际服务配置，见 [开发与部署参考](docs/development.md#配置)。
 
-```powershell
-./mvnw.cmd spring-boot:run
-```
+默认 API 为 <http://localhost:8080>，[Swagger UI](http://localhost:8080/swagger-ui.html) 与 [OpenAPI JSON](http://localhost:8080/v3/api-docs) 可用于联调。Windows 使用 `mvnw.cmd`。single 模式启动时由原 Flyway 轨道执行已有库的增量迁移。
 
-> 前置依赖：本地需运行 Redis（默认 `127.0.0.1:6379`）；AI 助手需配置大模型密钥，例如：
-> `AI_API_KEY=sk-xxx ./mvnw spring-boot:run`（当前接入 DeepSeek，模型名见 `application.yaml` 的 `spring.ai.openai`）。
+### 4. 接入客户端并核对业务
 
-默认服务地址：<http://localhost:8080>
+按 [Web 启动说明](https://github.com/weigu2700-cell/ORIGIN-ERP--FrontEnd#本地运行) 或 [移动端启动说明](https://github.com/weigu2700-cell/ORIGIN-ERP-Moblie#本地运行) 配置相同后端。首次进入后可按以下顺序核对：
 
-Swagger UI：<http://localhost:8080/swagger-ui.html>
+1. 登录并确认组织和账号，检查用户、角色与菜单。
+2. 建立物料、仓库及需要的客户、供应商、BOM 等主数据。
+3. 用独立测试单据走通采购入库、领料、报工或销售出库，核对状态、权限和库存流水。
+4. 使用不同岗位账号检查操作范围，在目标手机/PDA 上检查现场流程。
 
-OpenAPI JSON：<http://localhost:8080/v3/api-docs>
+## 面向开发者
 
-## 组织与多租户
+### 架构与扩展入口
 
-部署方案为 **一租户一库、共用服务**。默认 `tenancy.mode=single` 兼容单企业运行；多租户验证使用 `tenant-verification` profile 和仓库外部连接配置。平台只保存连接引用，真实连接与凭据由部署环境提供，客户端不能指定数据库。
+服务端采用模块化单体，Java 21、Spring Boot、MyBatis-Plus、MySQL 与 Redis 构成业务运行基础；Flyway 管理数据库版本，WebSocket 承担实时通知，Spring AI 接入模型与业务工具。具体依赖以 [pom.xml](pom.xml) 为准。
 
-### 当前可用范围
+| 目录                      | 扩展职责                                     |
+| ------------------------- | -------------------------------------------- |
+| `system`、`tenant`        | 用户权限、组织身份、租户数据库与迁移生命周期 |
+| `master`                  | 客户、供应商、物料、仓库和生产组织资料       |
+| `sales`、`purchase`       | 销售、采购单据及业务状态                     |
+| `production`、`inventory` | BOM、生产执行、库存与流水                    |
+| `eip`、`ai`               | 待办通知、业务查询与受确认约束的 AI 动作     |
 
-- 已实现组织解析、组织 JWT、数据库路由、物理库归属校验、独立 Flyway 历史，以及 Redis、通知、WebSocket、AI 与异步上下文边界。
-- Web 与移动端已接入组织编码核验、当前组织展示、退出后重新登录切换；最近组织仅为客户端本地记录，不是公开企业目录。
-- **multi 模式目前 `businessAvailable=false`**：允许登录和读取当前会话，主页提示“当前组织暂未开放业务”；采购、生产、库存、菜单、AI、WebSocket 等正式业务入口仍返回 503。不能仅修改前端页面就开放业务。
-- 正式放开前仍需完成同 ID 的跨组织业务联调、旧单号计数接管、连接预算、备份恢复和灰度验收。平台运维 UI、自动建库和连接池热轮换尚未实现。
+新增业务建议沿 `controller → service → mapper` 扩展，把状态、权限和事务约束留在服务端；Web 与移动端复用同一规则。外部系统接入使用服务 API，并按 OpenAPI 确认接口契约，不直接写业务表。
 
-### Flyway 轨道与执行顺序
+### 数据与接口约定
 
-| 对象               | 迁移目录                | 历史表                           | 当前版本         |
-| ------------------ | ----------------------- | -------------------------------- | ---------------- |
-| 平台库             | `db/platform-migration` | `flyway_platform_schema_history` | 2                |
-| 每个租户库         | `db/tenant-migration`   | `flyway_tenant_schema_history`   | 3                |
-| 未接管的旧单企业库 | `db/migration`          | `flyway_schema_history`          | 保留既有增量历史 |
+- 登录后使用 `Authorization: Bearer <token>`；组织来自已验证的 JWT，客户端不能指定数据库。
+- 普通接口使用 `{ code, msg, data }`，流式助手使用 SSE；`Long` ID 对 JavaScript 客户端按字符串处理。
+- 数据库、缓存、通知和 AI 回调需保持相同组织与用户边界；新功能应覆盖异常、重复提交和权限变化。
+- 已执行的 Flyway 脚本保持不可变，结构变化新增版本；平台库、租户库与旧 single 库分轨维护。
 
-目录均位于 `src/main/resources/`。新租户的 V1 建表、V2 公共权限/菜单及归属标记、V3 AI 记忆标识升级按顺序执行；公共 seed 不包含通用开发账号或虚构业务数据。已应用脚本保持不可变，后续结构变更新增版本。
-
-1. 部署人员预先创建独立平台库和租户库，准备迁移账号与运行账号；将 [配置模板](sql/tenant/tenancy.example.properties) 复制到仓库外。
-2. 执行 `platform-init` 初始化空平台库；已有 T1 登记库使用 `platform-adopt`。然后按 [T3 操作说明](docs/plans/tenancy-t3-flyway.md) 登记目标租户，保持 PROVISIONING/UPGRADING。
-3. 新租户通过环境变量注入 `TENANT_ADMIN_USERNAME` 和 `TENANT_ADMIN_BCRYPT`（BCrypt cost 10–16），再执行 `new`、`verify`；**没有默认账号或密码**。已有业务库先备份停服，按结构契约检查后执行 `adopt`，保留已有账号及密码。
-4. 后续逐租户执行 `upgrade`、`verify`；全部校验成功才更新 READY/ACTIVE。失败检查操作记录与 Flyway 历史，不通过删除历史、自动 repair 或 clean 绕过校验。
+### 开发检查
 
 ```bash
-# 从后端仓库根目录执行；配置文件与凭据由部署方准备
-python3 sql/tenant/run.py platform-init /secure/tenancy.properties
-# 完成平台登记并注入管理员环境变量后：
-python3 sql/tenant/run.py new /secure/tenancy.properties enterprise-a
-python3 sql/tenant/run.py verify /secure/tenancy.properties enterprise-a
-# 后续版本升级：
-python3 sql/tenant/run.py upgrade /secure/tenancy.properties enterprise-a
-```
-
-共用服务启动时使用运行账号对应的外部配置；该 profile 关闭旧全局 Flyway 与 AI 自动建表，数据库维护由上述独立入口完成：
-
-```bash
-SPRING_PROFILES_ACTIVE=tenant-verification \
-SPRING_CONFIG_ADDITIONAL_LOCATION=file:/secure/tenancy-runtime.properties \
-./mvnw spring-boot:run
-```
-
-方案及维护细节见 [多租户方案](docs/plans/multi-tenancy.md)、[Flyway 操作说明](docs/plans/tenancy-t3-flyway.md)、[缓存与异步隔离](docs/plans/tenancy-t4-isolation.md)。
-
-## 认证与响应
-
-组织相关接口与最新 Web、移动端配套使用：
-
-| 方法   | 地址                   | 认证与用途                                            |
-| ------ | ---------------------- | ----------------------------------------------------- |
-| `GET`  | `/auth/tenant/context` | 匿名；返回 single/multi，single 附带默认组织          |
-| `POST` | `/auth/tenant/resolve` | 匿名；入参 `tenantCode`，仅返回已核验的组织编码与名称 |
-| `POST` | `/auth/login`          | 匿名；multi 提交 `tenantCode`、`username`、`password` |
-| `GET`  | `/auth/tenant/session` | JWT；返回当前组织、用户基础身份和 `businessAvailable` |
-
-没有公开组织列表。single 兼容省略 `tenantCode`；multi 必须提供有效组织编码。新 JWT 绑定组织，后续请求以验签结果确定组织，不能通过修改请求头切换。无效登录返回 401，组织停用或冲突返回 403，平台/目标库不可用或业务门禁返回 503。
-
-登录成功后，客户端在受保护请求中携带 JWT：
-
-```http
-Authorization: Bearer <token>
-```
-
-接口使用统一响应结构：
-
-```json
-{
-  "code": 200,
-  "msg": "请求成功",
-  "data": {}
-}
-```
-
-权限模型：
-
-```text
-User ── UserRole ── Role ── RoleMenu ── Menu
-                       └──── RolePermission ── Permission
-```
-
-## 消息通知与 WebSocket
-
-### 全链路流程
-
-```text
-业务状态流转成功
-      │
-      ▼
-eip.service.NotificationPublisher.publish(NotificationPublishDTO) 发布业务事件
-      │
-      ▼
-原业务事务提交成功（回滚则不发送）
-      │
-      ▼
-eip.listener.NotificationPublishEventListener
-      │
-      ├── 指定用户：仅通知该用户
-      └── 权限编码：解析启用角色、启用用户，并由管理员兜底
-      │
-      ▼
-写入 eip_notification（独立事务，isRead=false）
-      │
-      ▼
-通知事务提交后，由现有 WebSocketSessionManager 定向推送
-      │
-      ├── 在线：发送 TextMessage
-      └── 离线：保留数据库记录，登录后通过 REST 拉取
-```
-
-业务模块只依赖 `eip.service.NotificationPublisher` 和 DTO，不直接依赖通知表、权限表或 WebSocket。
-发布事件在原业务事务中产生，监听器在 `AFTER_COMMIT` 阶段解析收件人，再以独立事务写入发布批次和收件箱；
-收件箱事务提交后才尝试 WebSocket 推送。推送失败只记录警告，不回滚业务数据或已经持久化的通知。
-
-每次发布以 `requestId` 作为批次幂等键，业务通知默认生成
-`BUSINESS:{businessType}:{businessId}`；同一批次通过 `(publish_id, user_id)` 保证每位收件人只有一条收件箱记录。
-不同业务阶段使用不同 `businessType`，因此“报工待审批”“报工审批通过”和“报工驳回”可以分别通知。
-
-### 已接入的业务节点
-
-| 业务节点                     | 收件人规则                       | 通知后的动作       |
-| ---------------------------- | -------------------------------- | ------------------ |
-| 生产需求已自动排产           | 拥有生产订单下达权限的用户       | 审核并下达生产订单 |
-| 采购需求创建                 | 拥有采购需求审批权限的用户       | 审批采购需求       |
-| 采购需求审批通过             | 拥有采购订单新增或编辑权限的用户 | 创建或更新采购订单 |
-| 采购入库单创建               | 拥有采购入库审批权限的用户       | 审批入库单         |
-| 采购入库审批通过             | 拥有采购入库上架权限的用户       | 完成上架           |
-| 生产领料单备料完成或审批通过 | 拥有领料确认权限的用户           | 确认领料           |
-| 生产报工提交                 | 拥有报工审批权限的用户           | 审批报工单         |
-| 生产报工审批通过或驳回       | 报工人本人                       | 查看审批结果       |
-| 报工完成并生成成品入库单     | 拥有成品入库操作权限的用户       | 审批成品入库单     |
-| 销售发货单确认               | 拥有销售出库完成权限的用户       | 完成销售出库       |
-
-### 建立连接与认证
-
-WebSocket 端点为：
-
-```text
-ws://localhost:8080/ws/notification?token=<JWT>
-```
-
-HTTPS 环境使用：
-
-```text
-wss://api.example.com/ws/notification?token=<JWT>
-```
-
-握手流程：
-
-1. `/ws/**` 在 Spring Security HTTP 过滤链中放行，使请求可以完成协议升级。
-2. `WebSocketAuthInterceptor` 从 `token` 查询参数读取 JWT，并调用现有 `JwtUtil` 校验。
-3. 校验成功后将 `tenantId`、`userId` 和有效期写入 WebSocket session attributes；校验失败直接拒绝握手。
-4. `NotificationWebSocketHandler` 建立连接时注册用户会话，关闭时精确移除同一会话。
-5. `WebSocketSessionManager` 使用线程安全 Map 保存当前在线连接，并按 `(tenantId, userId)` 定向发送文本消息。
-
-当前实现支持同一组织账号多浏览器、多设备同时在线：新连接追加而非替换旧连接；推送遍历该组织用户的全部活动会话。并发发送串行化，慢连接有缓冲和发送时限；失效连接独立移除。发送前与周期检查会核验有效期和组织状态。会话管理仍局限于单应用实例，尚无跨节点消息总线；multi 的正式 WS 入口仍受业务门禁限制。
-
-JWT 位于 WebSocket URL 查询参数中。生产环境必须使用 WSS，并避免在反向代理访问日志、APM 或错误页中记录完整查询字符串。
-
-### REST API
-
-所有 REST 接口都基于 `CurrentUser` 限定当前用户数据。详情查询和已读操作不会访问其他用户的通知。
-
-| 方法  | 地址                             | 说明                                                      |
-| ----- | -------------------------------- | --------------------------------------------------------- |
-| `GET` | `/sys/notification`              | 分页查询通知，参数为 `pageNum`、`pageSize`、可选 `isRead` |
-| `GET` | `/sys/notification/{id}`         | 查询当前用户的一条通知详情                                |
-| `GET` | `/sys/notification/unread/count` | 查询当前用户未读数量                                      |
-| `PUT` | `/sys/notification/{id}/readed`  | 将当前用户指定通知标记为已读                              |
-| `PUT` | `/sys/notification/all/readed`   | 将当前用户全部未读通知标记为已读                          |
-
-通知类型：
-
-| 编码 | 枚举       | 含义       |
-| ---- | ---------- | ---------- |
-| `0`  | `SYSTEM`   | 系统消息   |
-| `1`  | `BUSINESS` | 业务消息   |
-| `2`  | `WARNING`  | 预警消息   |
-| `3`  | `TASK`     | 任务消息   |
-| `4`  | `CUSTOM`   | 自定义消息 |
-
-WebSocket 推送内容与通知详情字段保持一致，示例：
-
-```json
-{
-  "id": "9007199254740993",
-  "userId": "10001",
-  "type": 1,
-  "title": "销售订单已确认",
-  "content": "销售订单 SO-001 已完成确认，请及时处理后续业务。",
-  "businessType": "sales_order",
-  "businessId": "20001",
-  "businessNo": "SO-001",
-  "isRead": false,
-  "readTime": null,
-  "createTime": "2026-09-17 08:00:00",
-  "updateTime": "2026-09-17 08:00:00"
-}
-```
-
-`Long` 类型 ID 返回给 JavaScript 客户端时应保持字符串形式，避免超过 `Number.MAX_SAFE_INTEGER` 后产生精度损失。
-
-### 在业务中发送通知
-
-业务 Service 注入 `NotificationPublisher`，用 `NotificationBusinessRefDTO` 表达业务引用，
-用 `RecipientSelectorDTO` 表达收件人选择：
-
-```java
-NotificationPublishDTO publish = NotificationPublishDTO.business(
-        NotificationType.TASK,
-        "待审批采购需求",
-        "采购需求 PR-001 已创建，请及时审批。",
-        NotificationBusinessRefDTO.of(
-                "PURCHASE_DEMAND_PENDING_APPROVAL", demandId, "PR-001"),
-        RecipientSelectorDTO.permissions(
-                Set.of("purchase:demand:approve"), true));
-notificationPublisher.publish(publish);
-```
-
-发布时也可以直接选择用户（例如报工审批结果）：设置 `recipients.userIds`，并保持
-`includeAdministrators=false`，因此不会扩散给管理员。权限选择会解析启用角色和启用用户，
-`includeAdministrators=true` 时额外覆盖启用管理员。系统通知可通过 `/eip/notification-templates`
-提前配置模板和收件人；发布接口 `/eip/notifications/publish` 支持 PRESET_ONLY、MERGE、OVERRIDE
-策略，分别表示仅模板收件人、模板与手选收件人合并、手选收件人覆盖模板。
-不使用模板直接发布时，默认使用本次手选收件人；调用方可传入稳定 `requestId` 防止重复提交。
-
-业务模块不应直接操作 `NotificationPersistenceService` 或 `WebSocketSessionManager`，统一通过单参数
-`NotificationPublisher#publish` 保持“业务提交、通知落库、实时推送”的顺序和故障隔离。
-
-## AI 助手
-
-AI 助手基于 Spring AI 2.0（OpenAI 兼容协议，当前接入 DeepSeek 大模型）构建，以对话方式帮助业务人员查询库存、解读单据与经营指标。它不是一个独立账号，而是**以当前登录用户的身份**调用后端业务方法，因此受与前端完全一致的 RBAC 约束。
-
-### 能力概览
-
-- **多轮对话**：Spring AI 的 JDBC `ChatMemory` 按 `conversationId` 维护模型上下文；`ai_conversation` / `ai_message` 则保存前端可见的对话和消息历史（建表脚本见 `sql/smart-erp/ai_conversation.sql` 和 `sql/smart-erp/ai_message.sql`）。
-- **工具调用（Tool Calling）**：模型可在生成过程中调用业务工具查询真实数据。已接入库存（`get_material_stock` 按物料编码聚合各仓库在库/预留/可用量）、销售（`query_sales_orders` / `query_sales_deliveries`）、生产（`query_production_orders` / `query_production_demands`）、采购（`query_purchase_demands` / `query_purchase_orders`）与通知（`query_my_notifications`）等只读查询工具，并以当前登录用户身份受 RBAC 约束。
-- **流式与非流式**：提供一次性返回与 SSE 逐字流式返回两种模式，前端可边生成边渲染。
-- **对话与消息管理**：创建、查看、归档对话与拉取历史消息，均按当前用户归属隔离。
-
-### 接口
-
-| 方法   | 地址                                        | 说明                                      |
-| ------ | ------------------------------------------- | ----------------------------------------- |
-| `POST` | `/ai/assistant/chat`                        | 非流式对话                                |
-| `POST` | `/ai/assistant/chat/stream`                 | 流式对话（SSE，响应 `text/event-stream`） |
-| `POST` | `/ai/conversation`                          | 创建对话，返回 `conversationId`           |
-| `GET`  | `/ai/conversation`                          | 当前用户的对话列表                        |
-| `GET`  | `/ai/conversation/{conversationId}`         | 获取指定对话（归属校验）                  |
-| `PUT`  | `/ai/conversation/{conversationId}/archive` | 归档对话                                  |
-| `GET`  | `/ai/message/{conversationId}`              | 拉取某对话的历史消息                      |
-
-对话入参 `AiAssistantRequest`：
-
-```json
-{
-  "conversationId": "10001",
-  "message": "查一下物料 A-1001 在各仓库的库存情况"
-}
-```
-
-流式接口返回 `Flux<AiAssistantStreamResult>`（内容、标题或错误事件）；非流式返回 `Result<AiAssistantResult>`。需确认的业务动作与普通查询分开处理；RAG 目前仍是未接入主链路的草稿，不应按已上线知识库部署。
-
-模块包结构与依赖规则见 [AI 模块结构](docs/ai-architecture.md)。
-
-### 鉴权模型
-
-- 所有 AI 接口同样需要 `Authorization: Bearer <token>`。
-- 助手以当前登录用户身份执行。工具调用走的是 `MaterialStockService.pageMaterialStock()`，该方法带有 `@PreAuthorize("hasAnyAuthority('inventory:material-stock:list')")`，因此用户必须拥有相应权限工具才会成功，否则返回无权限错误。
-- 对话与消息在当前组织数据库内按 `userId` 校验归属；multi 的模型记忆标识由服务端生成为 `t:{tenantId}:u:{userId}:c:{conversationId}`，异步/流式回调显式恢复组织和用户身份。正式 AI 入口仍受 multi 门禁限制。
-
-### 配置
-
-AI 配置位于 `application.yaml` 的 `spring.ai` 段，敏感项建议用环境变量覆盖：
-
-| 配置                                                      | 环境变量                       | 说明                                                                 |
-| --------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------- |
-| `spring.ai.openai.api-key`                                | `AI_API_KEY`                   | 大模型 API Key（当前为 DeepSeek）                                    |
-| `spring.ai.model.embedding`                               | `AI_EMBEDDING_MODEL`           | 默认 `none`，RAG 尚未接入聊天                                        |
-| `spring.ai.openai.embedding.api-key`                      | `AI_EMBEDDING_API_KEY`         | 预留的嵌入模型密钥                                                   |
-| `spring.ai.openai.base-url`                               | —                              | 服务地址，当前 `https://api.deepseek.com`                            |
-| `spring.ai.chat.options.model`                            | `SPRING_AI_CHAT_OPTIONS_MODEL` | 模型名，须与部署账号实际可用模型一致                                 |
-| `spring.ai.chat.memory.repository.jdbc.initialize-schema` | —                              | 旧 single 配置可自动建表；多租户验证为 `never`，改由逐库 Flyway 管理 |
-
-> 模型名以部署环境配置和服务端实际支持值为准。调用报模型不支持时，核对服务商账号可用模型后修改配置。
-
-## 项目结构
-
-```text
-src/main/java/org/smart/erp/
-├── common/       # 响应、异常、安全、WebSocket、配置、序号、Excel 和通用工具
-├── ai/           # AI 助手：controller、request、result、service、persistence、config、tool、rag
-├── system/       # 用户、角色、部门、菜单、权限和认证
-├── tenant/       # 组织身份、登记、数据源路由、Flyway 维护及异步隔离
-├── eip/          # 通知实体、DTO、收件人解析、持久化与 WebSocket 适配
-│   ├── entity/ dto/ mapper/ service/ (service/impl/)
-│   ├── controller/ converter/ event/ listener/ adapter/ port/
-│   └── enums/ vo/
-├── master/       # 客户、供应商、工厂、车间、产线、仓库和物料
-├── inventory/    # 物料库存与库存流水
-├── sales/        # 销售订单与销售出库
-├── production/   # BOM、生产需求、生产订单和生产领料
-└── purchase/     # 采购需求、采购订单和采购入库
-
-sql/smart-erp/
-├── sys_*.sql              # 系统与权限表
-├── md_*.sql               # 基础资料表
-├── inv_*.sql              # 库存表
-├── sal_*.sql              # 销售表
-├── prd_*.sql              # BOM 与生产表
-├── pur_*.sql              # 采购表
-├── permission_init.sql    # 与后端鉴权一致的权限初始化
-├── menu_init.sql          # 配套 Web 客户端菜单
-└── seed_dev_admin.sql     # 本地开发管理员数据
-```
-
-每个业务模块通常包含：
-
-```text
-controller → dto → service → mapper → entity / vo
-```
-
-## 构建与验证
-
-```bash
-# 编译
-./mvnw clean compile
-
-# 运行测试
 ./mvnw test
-
-# 打包
 ./mvnw clean package
-```
-
-测试集使用 Testcontainers + MySQL 8.4 验证首次并发入库。Docker 可用时会自动运行该集成测试；
-未安装或未启动 Docker 时自动跳过，不阻断其余单元测试。CI 应提供 Docker 环境，避免将该并发测试跳过。
-
-构建产物位于 `target/`。
-
-数据库初始化与多租户隔离有独立回归入口，需要 Docker；脚本使用临时数据库/Redis，不连接开发业务库：
-
-```bash
+# 隔离数据库回归，需要 Docker
 python3 sql/bootstrap/test_seed.py
 python3 sql/platform/test_tenants.py
 ```
 
-未提供集成环境导致的跳过不能视为隔离验收通过。前端配套回归分别在 Web 仓库运行 `npm run test:unit -- --run`、移动端仓库运行 `npm run test:run`。
+单元测试、数据库集成测试与真实业务验收分别记录。缺少 Docker 或集成环境造成的跳过不能作为隔离验收通过；模型桩测试不替代实际模型联调。
 
-## 开发规范
+## 文档导航
 
-- Controller 负责参数校验、权限声明和统一响应，核心业务逻辑放在 Service。
-- 跨表写操作使用事务，订单与库存变化必须保持原子性。
-- 状态切换必须校验当前状态，禁止客户端绕过业务流程。
-- 实体主键使用 `Long`；传给 JavaScript 客户端时按字符串处理。
-- 枚举通过 MyBatis-Plus 映射数据库值，避免散落的魔法数字。
-- 新增字段时同步更新实体、DTO、VO、Mapper 查询和 SQL 脚本。
-- 新增或修改接口时同步维护 OpenAPI 注解和客户端类型。
+| 文档                                                 | 内容                                   |
+| ---------------------------------------------------- | -------------------------------------- |
+| [开发与部署参考](docs/development.md)                | 配置、接口、缓存、通知、AI 与发布细节  |
+| [数据库初始化](sql/bootstrap/README.md)              | 单组织 seed、默认账号、执行顺序与验收  |
+| [Flyway 与租户维护](docs/plans/tenancy-t3-flyway.md) | 新库开通、旧库接管、逐库升级、失败恢复 |
+| [缓存与异步隔离](docs/plans/tenancy-t4-isolation.md) | Redis、通知、WebSocket、AI 的组织边界  |
+| [AI 模块](docs/ai-architecture.md)                   | 工具、确认动作、对话记忆和当前范围     |
 
-## 生产部署建议
+## 产品演进与参与
 
-- 使用环境变量或配置中心管理数据库、Redis 和 JWT 配置。
-- 不要在仓库中提交生产密码、私钥或访问令牌。
-- 在反向代理层启用 HTTPS、请求大小限制和访问日志。
-- 为 `/ws/notification` 配置 WebSocket 协议升级、合理的空闲超时和 WSS；不要记录带 JWT 的完整查询字符串。
-- 对数据库执行定期备份，并对库存、订单等核心表保留审计能力。
-- 部署前执行完整测试和打包，确认目标环境使用 JDK 21。
+近期工作围绕多租户业务验收、现场作业可靠性和部署维护展开。客户订货商城、知识库和表单配置等能力仍需独立设计与验收；阶段方案见 [多租户设计](docs/plans/multi-tenancy.md) 与 [需求讨论记录](docs/plans/open-issues.md)，其中历史阶段记录不等于当前交付清单。
 
-## 未来计划
+通过 [Issues](https://github.com/weigu2700-cell/ORIGIN-ERP-BackEnd/issues) 提交问题或需求时，请描述使用角色、业务场景、部署模式、预期行为和可复现步骤，并移除账号凭据与企业数据。贡献 PR 请说明业务影响、数据库迁移和验证方式；界面、接口和文档随行为变更同步更新。
 
-以下能力处于规划阶段，尚未落地：
-
-- **多租户上线验收**：补齐真实业务切换联调、旧单号计数接管与灰度恢复，再评估开放正式业务。
-- **通知能力扩展**：多设备会话、模板和 Web 自动重连已实现，后续完善心跳、跨节点投递及更多业务事件。
-- **AI 能力扩展**：多轮对话、只读业务查询与需确认的采购审批提案已接入；后续扩展知识库和经确认执行的业务操作范围。
-- **零代码表单建设**：提供可视化表单设计器，支持动态字段、校验与联动规则配置，并能基于业务单据自动生成录入页与列表页，为 DIY/低代码场景预留扩展能力。
-
-## 参与贡献
-
-1. Fork 仓库并创建功能分支：`git checkout -b feature/your-feature`
-2. 完成功能并执行 `./mvnw test`
-3. 使用清晰的提交信息，例如：`feat: add production picking approval`
-4. 推送分支并创建 Pull Request，说明业务规则、数据影响和验证方式
-
-问题与建议请提交到 [GitHub Issues](https://github.com/weigu2700-cell/ORIGIN-ERP-BackEnd/issues)。
-
-## 许可证
-
-本项目基于 [MIT License](./LICENSE) 开源。
+本仓库采用 [MIT License](LICENSE)。
