@@ -118,7 +118,7 @@ public final class TenantSchemaMigrator {
                     throw new IllegalStateException("NEW 不接管已做 BASELINE 的旧库");
                 }
                 String version = flyway.info().current().getVersion().getVersion();
-                if (!Set.of("1", "2", "3", TenantFlyway.TENANT_VERSION).contains(version)) {
+                if (!Set.of("1", "2", "3", "4", TenantFlyway.TENANT_VERSION).contains(version)) {
                     throw new IllegalStateException("目标库版本不受当前迁移器支持");
                 }
                 SchemaContract.verify(target, "tenant-v" + version);

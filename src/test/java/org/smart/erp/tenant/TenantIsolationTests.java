@@ -68,7 +68,7 @@ class TenantIsolationTests {
             jdbc.execute("CREATE TABLE sys_tenant_identity(singleton TINYINT PRIMARY KEY,tenant_id VARCHAR(64) UNIQUE)");
             jdbc.update("INSERT INTO sys_tenant_identity VALUES(1,?)",key);
             platform.update("INSERT INTO plt_tenant(id,code,name,status) VALUES(?,?,?,'ACTIVE')",key,key,"企业"+key);
-            platform.update("INSERT INTO plt_tenant_database(tenant_id,connection_ref,schema_status,schema_version) VALUES(?,?,'READY','4')",key,key);
+            platform.update("INSERT INTO plt_tenant_database(tenant_id,connection_ref,schema_status,schema_version) VALUES(?,?,'READY','5')",key,key);
         }
         var props = new TenantProperties(); props.setMode(TenantProperties.Mode.MULTI);
         for (String key : new String[]{"a","b"}) {
@@ -164,7 +164,7 @@ class TenantIsolationTests {
         try {
             mvc.perform(get("/tenant-verification/value").header("Authorization","Bearer "+tokenA)).andExpect(status().isServiceUnavailable());
             mvc.perform(get("/tenant-verification/value").header("Authorization","Bearer "+tokenB)).andExpect(status().isOk());
-        } finally { platform.update("UPDATE plt_tenant_database SET schema_version='4' WHERE tenant_id='a'"); }
+        } finally { platform.update("UPDATE plt_tenant_database SET schema_version='5' WHERE tenant_id='a'"); }
     }
     @Test void missingScopeAndPrematureBusinessAccessAreBlocked() throws Exception {
         assertThatThrownBy(routed::getConnection).isInstanceOf(TenantException.class);

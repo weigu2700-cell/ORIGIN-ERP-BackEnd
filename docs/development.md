@@ -107,10 +107,10 @@ OpenAPI JSON：<http://localhost:8080/v3/api-docs>
 | 对象               | 迁移目录                | 历史表                           | 当前版本         |
 | ------------------ | ----------------------- | -------------------------------- | ---------------- |
 | 平台库             | `db/platform-migration` | `flyway_platform_schema_history` | 2                |
-| 每个租户库         | `db/tenant-migration`   | `flyway_tenant_schema_history`   | 4                |
+| 每个租户库         | `db/tenant-migration`   | `flyway_tenant_schema_history`   | 5                |
 | 未接管的旧单企业库 | `db/migration`          | `flyway_schema_history`          | 保留既有增量历史 |
 
-目录均位于 `src/main/resources/`。新租户的 V1 建表、V2 公共权限/菜单及归属标记、V3 AI 记忆标识升级、V4员工聊天按顺序执行；公共 seed 不包含通用开发账号或虚构业务数据。已应用脚本保持不可变，后续结构变更新增版本。
+目录均位于 `src/main/resources/`。新租户的 V1 建表、V2 公共权限/菜单及归属标记、V3 AI 记忆标识升级、V4员工聊天、V5知识库表按顺序执行；公共 seed 不包含通用开发账号或虚构业务数据。已应用脚本保持不可变，后续结构变更新增版本。
 
 1. 部署人员预先创建独立平台库和租户库，准备迁移账号与运行账号；将 [配置模板](../sql/tenant/tenancy.example.properties) 复制到仓库外。
 2. 执行 `platform-init` 初始化空平台库；已有 T1 登记库使用 `platform-adopt`。然后按 [T3 操作说明](plans/tenancy-t3-flyway.md) 登记目标租户，保持 PROVISIONING/UPGRADING。
@@ -513,3 +513,5 @@ python3 sql/platform/test_tenants.py
 
 - [员工实时聊天 V1：后端方案、接口文档与 OpenAPI](design/realtime-chat-v1/README.md)：已实现同组织单聊/群聊、实时同步与50 MB附件传输，默认关闭。
 - [部署、迁移与联调说明](design/realtime-chat-v1/deployment.md)：存储与扫描配置、测试证据及开启步骤。
+
+迁移完整性及本机连接库执行结果见 [2026-11-03 数据库迁移核对](migrations/2026-11-03-database-audit.md)。

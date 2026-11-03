@@ -239,7 +239,7 @@ class ImIntegrationTests {
         var jdbc = new JdbcTemplate(source);
         jdbc.update("INSERT INTO sys_tenant_identity(singleton,tenant_id) VALUES(1,?)", tenant);
         flyway.migrate();
-        SchemaContract.verify(source, "tenant-v4");
+        SchemaContract.verify(source, "tenant-v5");
         for (int user = 1; user <= 5; user++) {
             jdbc.update(
                     "INSERT INTO sys_user(id,username,real_name,password,status,create_time,deleted) VALUES(?,?,?,'test-only',1,NOW(),0)",

@@ -20,11 +20,11 @@
 | 现有环境 | 新增迁移 | 开启方式 |
 | --- | --- | --- |
 | single 原有增量迁移轨道 | `db/migration/V20261103__employee_realtime_chat.sql` | 随原Spring Flyway配置执行；不要手工修改已执行迁移 |
-| 租户逐库运维轨道 | `db/tenant-migration/V4__employee_realtime_chat.sql` | 使用现有 `TenantMigrationCommand` 的UPGRADE；目标schema版本由3升到4 |
+| 租户逐库运维轨道 | `db/tenant-migration/V4__employee_realtime_chat.sql` | 使用现有 `TenantMigrationCommand` 的UPGRADE；聊天结构为V4；当前完整schema为V5（另含RAG表） |
 
 两份IM DDL相同，测试检查一致性。新增11张IM表及3个权限：`im:access`、`im:group:create`、`im:file:upload`。已有启用的admin角色获得新增权限；其他员工由管理员通过已有角色权限功能分配。角色权限不授予非成员聊天读取权。
 
-逐库轨道同时新增冻结的 `db/schema-contract/tenant-v4.json`；V1～V3及旧契约不修改。已验证空库初始化、旧V3升级、重复升级及账号密码保留。已有multi业务门禁继续关闭，升级schema不会自动开放multi聊天或其他业务。
+聊天逐库轨道有冻结的 `db/schema-contract/tenant-v4.json`；当前V5另有 `tenant-v5.json`；V1～V3及旧契约不修改。已验证空库初始化、旧V3升级、重复升级及账号密码保留。已有multi业务门禁继续关闭，升级schema不会自动开放multi聊天或其他业务。
 
 ## 2. 开启文字聊天
 
