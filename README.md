@@ -32,6 +32,7 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 - **多级 BOM 能力**：支持 BOM 版本管理、启用/停用、递归展开和按生产数量计算物料需求。
 - **全链路缓存**：基于 Redis 的旁路缓存（Cache-Aside），BOM 展开查询优先命中缓存，显著降低多级 BOM 递归查询的数据库压力，并在 BOM 激活/停用时主动失效。
 - **移动作业复用同一后端**：Web 与移动端共享账户、权限、业务数据和统一响应协议。
+- **组织身份与数据库版本**：按“一租户一库、共用服务”推进，JWT 绑定组织；平台与租户库使用独立 Flyway 轨道，支持逐库初始化、接管、升级与校验。当前多租户正式业务仍受门禁保护。
 - **持久化实时通知**：通知先写入数据库，再通过带 JWT 握手认证的 WebSocket 推送；离线用户重新登录后仍可查询未读消息。
 - **开箱即用的接口文档**：通过 Springdoc OpenAPI 提供 Swagger UI，便于联调和接口验收。
 - **AI 业务助手**：基于 Spring AI 接入 DeepSeek，支持多轮对话与工具调用（如按物料编码聚合各仓库库存），并以当前登录用户身份受 RBAC 约束。
@@ -40,15 +41,15 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 
 | 业务域   | 主要能力                                                       |
 | -------- | -------------------------------------------------------------- |
-| 系统管理 | 登录认证、用户/角色/部门管理、菜单与权限分配                    |
-| 基础资料 | 客户、供应商、物料、仓库与工厂/车间/产线主数据                  |
-| 销售管理 | 销售订单、库存预留、销售出库与状态流转                          |
-| 库存管理 | 在库/预留/可用量、库存流水、Excel 导入导出                      |
-| BOM 管理 | BOM 版本与多级展开、基于生产数量的物料净需求计算                |
-| 生产管理 | 生产需求、生产订单、下达/开工/完工/取消与生产领料               |
-| 采购管理 | 采购需求、采购订单、采购入库审核与上架                          |
-| 消息通知 | 通知落库、实时推送、未读统计与单条/全部已读                      |
-| AI 助手  | 基于 Spring AI 的对话助手，支持工具调用查询库存等 ERP 业务数据  |
+| 系统管理 | 登录认证、用户/角色/部门管理、菜单与权限分配                   |
+| 基础资料 | 客户、供应商、物料、仓库与工厂/车间/产线主数据                 |
+| 销售管理 | 销售订单、库存预留、销售出库与状态流转                         |
+| 库存管理 | 在库/预留/可用量、库存流水、Excel 导入导出                     |
+| BOM 管理 | BOM 版本与多级展开、基于生产数量的物料净需求计算               |
+| 生产管理 | 生产需求、生产订单、下达/开工/完工/取消与生产领料              |
+| 采购管理 | 采购需求、采购订单、采购入库审核与上架                         |
+| 消息通知 | 通知落库、实时推送、未读统计与单条/全部已读                    |
+| AI 助手  | 基于 Spring AI 的对话助手，支持工具调用查询库存等 ERP 业务数据 |
 
 ## 业务链路
 
@@ -97,24 +98,25 @@ ORIGIN ERP Service 是原点 ERP 的统一业务后端。项目采用 Spring Boo
 
 ## 技术栈
 
-| 分类       | 技术                           |
-| ---------- | ------------------------------ |
-| 运行环境   | Java 21                        |
-| 核心框架   | Spring Boot 4.1.0              |
-| Web 与校验 | Spring Web、Jakarta Validation |
-| 认证授权   | Spring Security、JJWT 0.12     |
-| 数据访问   | MyBatis-Plus 3.5               |
-| 数据库     | MySQL 8.x                      |
-| 缓存与单号 | Spring Data Redis、Redisson    |
-| 实时通信   | Spring WebSocket               |
-| 接口文档   | Springdoc OpenAPI 2.8          |
+| 分类       | 技术                                                   |
+| ---------- | ------------------------------------------------------ |
+| 运行环境   | Java 21                                                |
+| 核心框架   | Spring Boot 4.1.0                                      |
+| Web 与校验 | Spring Web、Jakarta Validation                         |
+| 认证授权   | Spring Security、JJWT 0.12                             |
+| 数据访问   | MyBatis-Plus 3.5                                       |
+| 数据库     | MySQL 8.x                                              |
+| 数据库迁移 | Flyway：平台库、租户库与旧单企业库分轨管理             |
+| 缓存与单号 | Spring Data Redis、Redisson                            |
+| 实时通信   | Spring WebSocket                                       |
+| 接口文档   | Springdoc OpenAPI 2.8                                  |
 | AI 能力    | Spring AI 2.0（OpenAI 兼容协议，接入 DeepSeek 大模型） |
-| Excel      | FastExcel                      |
-| 构建工具   | Maven Wrapper                  |
+| Excel      | FastExcel                                              |
+| 构建工具   | Maven Wrapper                                          |
 
 ## 缓存设计
 
-系统采用 **Cache-Aside（旁路缓存）** 模式，以 Redis 作为集中缓存，目标是减少读多写少场景（尤其是多级 BOM 递归展开）对数据库的重复查询。
+系统采用 **Cache-Aside（旁路缓存）** 模式，以 Redis 作为集中缓存，目标是减少读多写少场景（尤其是多级 BOM 递归展开）对数据库的重复查询。以下示例使用 single 模式的原始键；multi 模式会统一加上 `erp:t:{tenantId}:`，Redisson 锁也绑定组织，缺少有效组织上下文时拒绝访问。详见 [T4 隔离说明](docs/plans/tenancy-t4-isolation.md)。
 
 ### BOM 缓存
 
@@ -180,6 +182,8 @@ cd ORIGIN-ERP-BackEnd
 ```
 
 ### 初始化数据库
+
+先选择部署轨道：现有单企业环境使用本节 bootstrap；多租户新库、旧库接管使用下方“组织与多租户”中的逐库 Flyway 入口。两条路径不要对同一业务库混用。
 
 2026-09-26 的“数据库转储”提交只包含 DDL，没有用户、权限或菜单预置数据。
 首次开发部署请使用下列入口（需要 Python 3 和 MySQL 8 客户端）：
@@ -248,7 +252,64 @@ Swagger UI：<http://localhost:8080/swagger-ui.html>
 
 OpenAPI JSON：<http://localhost:8080/v3/api-docs>
 
+## 组织与多租户
+
+部署方案为 **一租户一库、共用服务**。默认 `tenancy.mode=single` 兼容单企业运行；多租户验证使用 `tenant-verification` profile 和仓库外部连接配置。平台只保存连接引用，真实连接与凭据由部署环境提供，客户端不能指定数据库。
+
+### 当前可用范围
+
+- 已实现组织解析、组织 JWT、数据库路由、物理库归属校验、独立 Flyway 历史，以及 Redis、通知、WebSocket、AI 与异步上下文边界。
+- Web 与移动端已接入组织编码核验、当前组织展示、退出后重新登录切换；最近组织仅为客户端本地记录，不是公开企业目录。
+- **multi 模式目前 `businessAvailable=false`**：允许登录和读取当前会话，主页提示“当前组织暂未开放业务”；采购、生产、库存、菜单、AI、WebSocket 等正式业务入口仍返回 503。不能仅修改前端页面就开放业务。
+- 正式放开前仍需完成同 ID 的跨组织业务联调、旧单号计数接管、连接预算、备份恢复和灰度验收。平台运维 UI、自动建库和连接池热轮换尚未实现。
+
+### Flyway 轨道与执行顺序
+
+| 对象               | 迁移目录                | 历史表                           | 当前版本         |
+| ------------------ | ----------------------- | -------------------------------- | ---------------- |
+| 平台库             | `db/platform-migration` | `flyway_platform_schema_history` | 2                |
+| 每个租户库         | `db/tenant-migration`   | `flyway_tenant_schema_history`   | 3                |
+| 未接管的旧单企业库 | `db/migration`          | `flyway_schema_history`          | 保留既有增量历史 |
+
+目录均位于 `src/main/resources/`。新租户的 V1 建表、V2 公共权限/菜单及归属标记、V3 AI 记忆标识升级按顺序执行；公共 seed 不包含通用开发账号或虚构业务数据。已应用脚本保持不可变，后续结构变更新增版本。
+
+1. 部署人员预先创建独立平台库和租户库，准备迁移账号与运行账号；将 [配置模板](sql/tenant/tenancy.example.properties) 复制到仓库外。
+2. 执行 `platform-init` 初始化空平台库；已有 T1 登记库使用 `platform-adopt`。然后按 [T3 操作说明](docs/plans/tenancy-t3-flyway.md) 登记目标租户，保持 PROVISIONING/UPGRADING。
+3. 新租户通过环境变量注入 `TENANT_ADMIN_USERNAME` 和 `TENANT_ADMIN_BCRYPT`（BCrypt cost 10–16），再执行 `new`、`verify`；**没有默认账号或密码**。已有业务库先备份停服，按结构契约检查后执行 `adopt`，保留已有账号及密码。
+4. 后续逐租户执行 `upgrade`、`verify`；全部校验成功才更新 READY/ACTIVE。失败检查操作记录与 Flyway 历史，不通过删除历史、自动 repair 或 clean 绕过校验。
+
+```bash
+# 从后端仓库根目录执行；配置文件与凭据由部署方准备
+python3 sql/tenant/run.py platform-init /secure/tenancy.properties
+# 完成平台登记并注入管理员环境变量后：
+python3 sql/tenant/run.py new /secure/tenancy.properties enterprise-a
+python3 sql/tenant/run.py verify /secure/tenancy.properties enterprise-a
+# 后续版本升级：
+python3 sql/tenant/run.py upgrade /secure/tenancy.properties enterprise-a
+```
+
+共用服务启动时使用运行账号对应的外部配置；该 profile 关闭旧全局 Flyway 与 AI 自动建表，数据库维护由上述独立入口完成：
+
+```bash
+SPRING_PROFILES_ACTIVE=tenant-verification \
+SPRING_CONFIG_ADDITIONAL_LOCATION=file:/secure/tenancy-runtime.properties \
+./mvnw spring-boot:run
+```
+
+方案及维护细节见 [多租户方案](docs/plans/multi-tenancy.md)、[Flyway 操作说明](docs/plans/tenancy-t3-flyway.md)、[缓存与异步隔离](docs/plans/tenancy-t4-isolation.md)。
+
 ## 认证与响应
+
+组织相关接口与最新 Web、移动端配套使用：
+
+| 方法   | 地址                   | 认证与用途                                            |
+| ------ | ---------------------- | ----------------------------------------------------- |
+| `GET`  | `/auth/tenant/context` | 匿名；返回 single/multi，single 附带默认组织          |
+| `POST` | `/auth/tenant/resolve` | 匿名；入参 `tenantCode`，仅返回已核验的组织编码与名称 |
+| `POST` | `/auth/login`          | 匿名；multi 提交 `tenantCode`、`username`、`password` |
+| `GET`  | `/auth/tenant/session` | JWT；返回当前组织、用户基础身份和 `businessAvailable` |
+
+没有公开组织列表。single 兼容省略 `tenantCode`；multi 必须提供有效组织编码。新 JWT 绑定组织，后续请求以验签结果确定组织，不能通过修改请求头切换。无效登录返回 401，组织停用或冲突返回 403，平台/目标库不可用或业务门禁返回 503。
 
 登录成功后，客户端在受保护请求中携带 JWT：
 
@@ -312,18 +373,18 @@ eip.listener.NotificationPublishEventListener
 
 ### 已接入的业务节点
 
-| 业务节点 | 收件人规则 | 通知后的动作 |
-| -------- | ---------- | ------------ |
-| 生产需求已自动排产 | 拥有生产订单下达权限的用户 | 审核并下达生产订单 |
-| 采购需求创建 | 拥有采购需求审批权限的用户 | 审批采购需求 |
-| 采购需求审批通过 | 拥有采购订单新增或编辑权限的用户 | 创建或更新采购订单 |
-| 采购入库单创建 | 拥有采购入库审批权限的用户 | 审批入库单 |
-| 采购入库审批通过 | 拥有采购入库上架权限的用户 | 完成上架 |
-| 生产领料单备料完成或审批通过 | 拥有领料确认权限的用户 | 确认领料 |
-| 生产报工提交 | 拥有报工审批权限的用户 | 审批报工单 |
-| 生产报工审批通过或驳回 | 报工人本人 | 查看审批结果 |
-| 报工完成并生成成品入库单 | 拥有成品入库操作权限的用户 | 审批成品入库单 |
-| 销售发货单确认 | 拥有销售出库完成权限的用户 | 完成销售出库 |
+| 业务节点                     | 收件人规则                       | 通知后的动作       |
+| ---------------------------- | -------------------------------- | ------------------ |
+| 生产需求已自动排产           | 拥有生产订单下达权限的用户       | 审核并下达生产订单 |
+| 采购需求创建                 | 拥有采购需求审批权限的用户       | 审批采购需求       |
+| 采购需求审批通过             | 拥有采购订单新增或编辑权限的用户 | 创建或更新采购订单 |
+| 采购入库单创建               | 拥有采购入库审批权限的用户       | 审批入库单         |
+| 采购入库审批通过             | 拥有采购入库上架权限的用户       | 完成上架           |
+| 生产领料单备料完成或审批通过 | 拥有领料确认权限的用户           | 确认领料           |
+| 生产报工提交                 | 拥有报工审批权限的用户           | 审批报工单         |
+| 生产报工审批通过或驳回       | 报工人本人                       | 查看审批结果       |
+| 报工完成并生成成品入库单     | 拥有成品入库操作权限的用户       | 审批成品入库单     |
+| 销售发货单确认               | 拥有销售出库完成权限的用户       | 完成销售出库       |
 
 ### 建立连接与认证
 
@@ -343,11 +404,11 @@ wss://api.example.com/ws/notification?token=<JWT>
 
 1. `/ws/**` 在 Spring Security HTTP 过滤链中放行，使请求可以完成协议升级。
 2. `WebSocketAuthInterceptor` 从 `token` 查询参数读取 JWT，并调用现有 `JwtUtil` 校验。
-3. 校验成功后将 `userId` 写入 WebSocket session attributes；校验失败直接拒绝握手。
+3. 校验成功后将 `tenantId`、`userId` 和有效期写入 WebSocket session attributes；校验失败直接拒绝握手。
 4. `NotificationWebSocketHandler` 建立连接时注册用户会话，关闭时精确移除同一会话。
-5. `WebSocketSessionManager` 使用线程安全 Map 保存当前在线连接，并按 `userId` 定向发送文本消息。
+5. `WebSocketSessionManager` 使用线程安全 Map 保存当前在线连接，并按 `(tenantId, userId)` 定向发送文本消息。
 
-当前实现支持同一账号多浏览器、多设备同时在线：会话以 `Map<Long, Set<WebSocketSession>>` 按用户聚合，新连接追加而非替换旧连接；推送时遍历该用户全部活动会话，单会话推送失败仅移除该失效会话并继续其余会话，保证其他设备正常接收。
+当前实现支持同一组织账号多浏览器、多设备同时在线：新连接追加而非替换旧连接；推送遍历该组织用户的全部活动会话。并发发送串行化，慢连接有缓冲和发送时限；失效连接独立移除。发送前与周期检查会核验有效期和组织状态。会话管理仍局限于单应用实例，尚无跨节点消息总线；multi 的正式 WS 入口仍受业务门禁限制。
 
 JWT 位于 WebSocket URL 查询参数中。生产环境必须使用 WSS，并避免在反向代理访问日志、APM 或错误页中记录完整查询字符串。
 
@@ -434,26 +495,26 @@ AI 助手基于 Spring AI 2.0（OpenAI 兼容协议，当前接入 DeepSeek 大�
 
 ### 接口
 
-| 方法    | 地址                                    | 说明                                    |
-| ------- | --------------------------------------- | --------------------------------------- |
-| `POST`  | `/ai/assistant/chat`                    | 非流式对话                              |
-| `POST`  | `/ai/assistant/chat/stream`             | 流式对话（SSE，响应 `text/event-stream`）|
-| `POST`  | `/ai/conversation`                      | 创建对话，返回 `conversationId`         |
-| `GET`   | `/ai/conversation`                      | 当前用户的对话列表                      |
-| `GET`   | `/ai/conversation/{conversationId}`     | 获取指定对话（归属校验）                |
-| `PUT`   | `/ai/conversation/{conversationId}/archive` | 归档对话                            |
-| `GET`   | `/ai/message/{conversationId}`          | 拉取某对话的历史消息                    |
+| 方法   | 地址                                        | 说明                                      |
+| ------ | ------------------------------------------- | ----------------------------------------- |
+| `POST` | `/ai/assistant/chat`                        | 非流式对话                                |
+| `POST` | `/ai/assistant/chat/stream`                 | 流式对话（SSE，响应 `text/event-stream`） |
+| `POST` | `/ai/conversation`                          | 创建对话，返回 `conversationId`           |
+| `GET`  | `/ai/conversation`                          | 当前用户的对话列表                        |
+| `GET`  | `/ai/conversation/{conversationId}`         | 获取指定对话（归属校验）                  |
+| `PUT`  | `/ai/conversation/{conversationId}/archive` | 归档对话                                  |
+| `GET`  | `/ai/message/{conversationId}`              | 拉取某对话的历史消息                      |
 
 对话入参 `AiAssistantRequest`：
 
 ```json
 {
-  "conversationId": 10001,
+  "conversationId": "10001",
   "message": "查一下物料 A-1001 在各仓库的库存情况"
 }
 ```
 
-流式接口返回 `Flux<AiAssistantStreamResult>`（内容、标题或错误事件）；非流式返回 `Result<AiAssistantResult>`。
+流式接口返回 `Flux<AiAssistantStreamResult>`（内容、标题或错误事件）；非流式返回 `Result<AiAssistantResult>`。需确认的业务动作与普通查询分开处理；RAG 目前仍是未接入主链路的草稿，不应按已上线知识库部署。
 
 模块包结构与依赖规则见 [AI 模块结构](docs/ai-architecture.md)。
 
@@ -461,22 +522,22 @@ AI 助手基于 Spring AI 2.0（OpenAI 兼容协议，当前接入 DeepSeek 大�
 
 - 所有 AI 接口同样需要 `Authorization: Bearer <token>`。
 - 助手以当前登录用户身份执行。工具调用走的是 `MaterialStockService.pageMaterialStock()`，该方法带有 `@PreAuthorize("hasAnyAuthority('inventory:material-stock:list')")`，因此用户必须拥有相应权限工具才会成功，否则返回无权限错误。
-- 对话与消息按 `userId` 归属隔离：`getOwnedConversation` 会校验对话所属用户与当前用户一致，越权访问返回 403，确保用户之间无法互看或篡改对话。
+- 对话与消息在当前组织数据库内按 `userId` 校验归属；multi 的模型记忆标识由服务端生成为 `t:{tenantId}:u:{userId}:c:{conversationId}`，异步/流式回调显式恢复组织和用户身份。正式 AI 入口仍受 multi 门禁限制。
 
 ### 配置
 
 AI 配置位于 `application.yaml` 的 `spring.ai` 段，敏感项建议用环境变量覆盖：
 
-| 配置                                        | 环境变量                        | 说明                                                  |
-| ------------------------------------------- | ------------------------------- | ----------------------------------------------------- |
-| `spring.ai.openai.api-key`                  | `AI_API_KEY`                    | 大模型 API Key（当前为 DeepSeek）                     |
-| `spring.ai.model.embedding`                 | `AI_EMBEDDING_MODEL`            | 默认 `none`，RAG 尚未接入聊天                          |
-| `spring.ai.openai.embedding.api-key`       | `AI_EMBEDDING_API_KEY`          | 预留的嵌入模型密钥                                    |
-| `spring.ai.openai.base-url`                 | —                               | 服务地址，当前 `https://api.deepseek.com`             |
-| `spring.ai.chat.options.model`              | `SPRING_AI_CHAT_OPTIONS_MODEL`  | 模型名，须为服务支持的值（如 `deepseek-flash`、`deepseek-v4-pro`）|
-| `spring.ai.chat.memory.repository.jdbc.initialize-schema` | —                | `always` 时自动建对话记忆表                           |
+| 配置                                                      | 环境变量                       | 说明                                                                 |
+| --------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------- |
+| `spring.ai.openai.api-key`                                | `AI_API_KEY`                   | 大模型 API Key（当前为 DeepSeek）                                    |
+| `spring.ai.model.embedding`                               | `AI_EMBEDDING_MODEL`           | 默认 `none`，RAG 尚未接入聊天                                        |
+| `spring.ai.openai.embedding.api-key`                      | `AI_EMBEDDING_API_KEY`         | 预留的嵌入模型密钥                                                   |
+| `spring.ai.openai.base-url`                               | —                              | 服务地址，当前 `https://api.deepseek.com`                            |
+| `spring.ai.chat.options.model`                            | `SPRING_AI_CHAT_OPTIONS_MODEL` | 模型名，须与部署账号实际可用模型一致                                 |
+| `spring.ai.chat.memory.repository.jdbc.initialize-schema` | —                              | 旧 single 配置可自动建表；多租户验证为 `never`，改由逐库 Flyway 管理 |
 
-> 模型名必须以大模型服务实际支持的值为准。若启动或调用时返回 “supported API model names are ...” 之类错误，说明传入的模型名不被支持，改为 `deepseek-flash` 或 `deepseek-v4-pro` 等受支持的值即可。
+> 模型名以部署环境配置和服务端实际支持值为准。调用报模型不支持时，核对服务商账号可用模型后修改配置。
 
 ## 项目结构
 
@@ -485,6 +546,7 @@ src/main/java/org/smart/erp/
 ├── common/       # 响应、异常、安全、WebSocket、配置、序号、Excel 和通用工具
 ├── ai/           # AI 助手：controller、request、result、service、persistence、config、tool、rag
 ├── system/       # 用户、角色、部门、菜单、权限和认证
+├── tenant/       # 组织身份、登记、数据源路由、Flyway 维护及异步隔离
 ├── eip/          # 通知实体、DTO、收件人解析、持久化与 WebSocket 适配
 │   ├── entity/ dto/ mapper/ service/ (service/impl/)
 │   ├── controller/ converter/ event/ listener/ adapter/ port/
@@ -531,6 +593,15 @@ controller → dto → service → mapper → entity / vo
 
 构建产物位于 `target/`。
 
+数据库初始化与多租户隔离有独立回归入口，需要 Docker；脚本使用临时数据库/Redis，不连接开发业务库：
+
+```bash
+python3 sql/bootstrap/test_seed.py
+python3 sql/platform/test_tenants.py
+```
+
+未提供集成环境导致的跳过不能视为隔离验收通过。前端配套回归分别在 Web 仓库运行 `npm run test:unit -- --run`、移动端仓库运行 `npm run test:run`。
+
 ## 开发规范
 
 - Controller 负责参数校验、权限声明和统一响应，核心业务逻辑放在 Service。
@@ -554,8 +625,9 @@ controller → dto → service → mapper → entity / vo
 
 以下能力处于规划阶段，尚未落地：
 
-- **通知能力扩展**：增加自动重连、心跳、多设备会话、消息模板和更多业务事件接入。
-- **AI 能力扩展**：多轮对话与只读业务查询已落地。后续可规划知识库与需用户确认的业务操作。
+- **多租户上线验收**：补齐真实业务切换联调、旧单号计数接管与灰度恢复，再评估开放正式业务。
+- **通知能力扩展**：多设备会话、模板和 Web 自动重连已实现，后续完善心跳、跨节点投递及更多业务事件。
+- **AI 能力扩展**：多轮对话、只读业务查询与需确认的采购审批提案已接入；后续扩展知识库和经确认执行的业务操作范围。
 - **零代码表单建设**：提供可视化表单设计器，支持动态字段、校验与联动规则配置，并能基于业务单据自动生成录入页与列表页，为 DIY/低代码场景预留扩展能力。
 
 ## 参与贡献
