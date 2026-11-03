@@ -1,0 +1,27 @@
+# 通过 --spring.config.additional-location=file:/absolute/path/application-im.yaml 加载。
+# 文字聊天只需 enabled=true；附件还需 storage.enabled=true 和可用扫描服务。
+im:
+  enabled: ${IM_ENABLED:false}
+  max-group-members: 200
+  max-file-bytes: 50000000
+  max-connections-per-user: 5
+  max-pending-uploads-per-user: 3
+  sends-per-second: 5
+  storage-quota-bytes: 20000000000
+  allowed-origins:
+    - ${IM_WEB_ORIGIN:https://erp.example.com}
+  allowed-extensions: [jpg, jpeg, png, webp, pdf, docx, xlsx, pptx, txt, csv, zip]
+  storage:
+    enabled: ${IM_STORAGE_ENABLED:false}
+    # AWS S3 可留空 endpoint；兼容服务填写客户端也能访问的 HTTPS 地址。
+    endpoint: ${IM_STORAGE_ENDPOINT:}
+    region: ${IM_STORAGE_REGION:us-east-1}
+    bucket: ${IM_STORAGE_BUCKET:}
+    # 不提供静态密钥时使用 AWS SDK 默认凭据链（例如实例角色）。
+    access-key: ${IM_STORAGE_ACCESS_KEY:}
+    secret-key: ${IM_STORAGE_SECRET_KEY:}
+    path-style: ${IM_STORAGE_PATH_STYLE:true}
+  scanner:
+    host: ${IM_SCANNER_HOST:}
+    port: ${IM_SCANNER_PORT:3310}
+    timeout-millis: 30000

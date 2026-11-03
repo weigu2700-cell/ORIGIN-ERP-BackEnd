@@ -15,7 +15,7 @@ import static org.mockito.Mockito.*;
 class TenantContextTests {
     private TenantCatalog catalog;
     private TenantExecutor executor;
-    static TenantDescriptor descriptor(String id) { return new TenantDescriptor(id,id,id,id,1,"ACTIVE","READY","3"); }
+    static TenantDescriptor descriptor(String id) { return new TenantDescriptor(id,id,id,id,1,"ACTIVE","READY",org.smart.erp.tenant.migration.TenantFlyway.TENANT_VERSION); }
     @BeforeEach void setup() {
         catalog = mock(TenantCatalog.class);
         when(catalog.byId(anyString())).thenAnswer(call -> descriptor(call.getArgument(0)));

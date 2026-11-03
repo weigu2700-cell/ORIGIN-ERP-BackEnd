@@ -1,0 +1,4147 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ORIGIN ERP 员工实时聊天 V1（设计稿）",
+    "version": "1.0.0",
+    "description": "员工实时聊天后端 V1。已实现，默认关闭；按 deployment.md 配置数据库、Redis、私有版本化对象存储与扫描服务后开启。接口与业务协议见 api.md。"
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "应用根路径；/api等部署前缀由实际网关补充。"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "基础"
+    },
+    {
+      "name": "会话"
+    },
+    {
+      "name": "消息"
+    },
+    {
+      "name": "群管理"
+    },
+    {
+      "name": "文件"
+    },
+    {
+      "name": "实时同步"
+    }
+  ],
+  "paths": {
+    "/im/config": {
+      "get": {
+        "operationId": "getImConfig",
+        "summary": "读取当前聊天限额与文件类型",
+        "tags": [
+          "基础"
+        ],
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Config"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/im/contacts": {
+      "get": {
+        "operationId": "getImContacts",
+        "summary": "搜索同组织可聊天员工",
+        "tags": [
+          "基础"
+        ],
+        "description": "仅返回启用且具备IM资格的同组织员工，不返回手机号或权限列表。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ContactPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": ""
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "不透明游标，不得跨组织/用户或快照复用。"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/im/conversations/direct": {
+      "post": {
+        "operationId": "createDirectConversation",
+        "summary": "创建或取得单聊",
+        "tags": [
+          "会话"
+        ],
+        "description": "以两个用户ID数值排序后的唯一对保证并发只建一个会话。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDirect"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/conversations": {
+      "get": {
+        "operationId": "getConversationSnapshot",
+        "summary": "分页读取固定会话快照",
+        "tags": [
+          "会话"
+        ],
+        "description": "首次不传token/cursor；后续同时传。10分钟一致性快照，水位固定；条目仍复核最新访问权。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ConversationSnapshot"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "snapshotToken",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": ""
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "不透明游标，不得跨组织/用户或快照复用。"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/im/conversations/{id}": {
+      "get": {
+        "operationId": "getConversation",
+        "summary": "会话详情",
+        "tags": [
+          "会话"
+        ],
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/im/conversations/{id}/preferences": {
+      "put": {
+        "operationId": "setConversationPreference",
+        "summary": "设置本人静音偏好",
+        "tags": [
+          "会话"
+        ],
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Preference"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferenceInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/conversations/{id}/messages": {
+      "post": {
+        "operationId": "sendChatMessage",
+        "summary": "可靠发送消息",
+        "tags": [
+          "消息"
+        ],
+        "description": "同组织同发送者clientMessageId唯一；相同规范化内容返回原消息，不同内容409。附件须READY、本人上传、同会话且未占用。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SendResult"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessage"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getChatMessages",
+        "summary": "消息历史与向前补拉",
+        "tags": [
+          "消息"
+        ],
+        "description": "beforeSeq/afterSeq互斥，都不传为最近一页。始终升序；BACKWARD的nextSeq为最小seq，FORWARD为最大seq。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MessagePage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          },
+          {
+            "name": "beforeSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Seq"
+            },
+            "description": ""
+          },
+          {
+            "name": "afterSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Seq"
+            },
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/im/messages/by-client-id": {
+      "get": {
+        "operationId": "getMessageByClientId",
+        "summary": "查询本人发送的幂等结果",
+        "tags": [
+          "消息"
+        ],
+        "description": "返回结果前仍检查当前成员/历史可见性；未提交或无访问权404。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Message"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "clientMessageId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/im/conversations/{id}/read": {
+      "put": {
+        "operationId": "advanceReadCursor",
+        "summary": "单调推进本人已读水位",
+        "tags": [
+          "消息"
+        ],
+        "description": "不超过可见已提交序号；排除本人/SYSTEM后计算未读，并同步本人其他设备。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ReadState"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/groups": {
+      "post": {
+        "operationId": "createGroup",
+        "summary": "创建群聊",
+        "tags": [
+          "群管理"
+        ],
+        "description": "im:group:create；创建者加2～199名其他员工。同clientRequestId同载荷返回原群，不同载荷409。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroup"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/groups/{id}": {
+      "put": {
+        "operationId": "renameGroup",
+        "summary": "修改群名",
+        "tags": [
+          "群管理"
+        ],
+        "description": "OWNER/ADMIN；expectedVersion不符409。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroup"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/groups/{id}/members": {
+      "get": {
+        "operationId": "getGroupMembers",
+        "summary": "分页读取群成员",
+        "tags": [
+          "群管理"
+        ],
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/MemberPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "不透明游标，不得跨组织/用户或快照复用。"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": ""
+          },
+          {
+            "name": "groupVersion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Version"
+            },
+            "description": "后续分页必传首响应版本；版本变化409。"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "addGroupMembers",
+        "summary": "向群添加成员",
+        "tags": [
+          "群管理"
+        ],
+        "description": "OWNER/ADMIN；全成或全败，最多200人；新成员从入群SYSTEM序号开始可见。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMembers"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/groups/{id}/members/{userId}": {
+      "delete": {
+        "operationId": "removeGroupMember",
+        "summary": "从群移除成员",
+        "tags": [
+          "群管理"
+        ],
+        "description": "OWNER可移除非本人；ADMIN只能移除MEMBER；移除立即撤销未来查询/下载访问。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Version"
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/im/groups/{id}/members/{userId}/role": {
+      "put": {
+        "operationId": "setGroupMemberRole",
+        "summary": "任免群管理员",
+        "tags": [
+          "群管理"
+        ],
+        "description": "仅OWNER，不得修改OWNER角色或借此移除本人。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRole"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/groups/{id}/transfer": {
+      "post": {
+        "operationId": "transferGroupOwner",
+        "summary": "转让群主",
+        "tags": [
+          "群管理"
+        ],
+        "description": "仅OWNER；目标是当前成员；原OWNER转ADMIN，事务内始终唯一群主。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferOwner"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/groups/{id}/leave": {
+      "post": {
+        "operationId": "leaveGroup",
+        "summary": "本人退出群",
+        "tags": [
+          "群管理"
+        ],
+        "description": "OWNER须先转让或解散；退出撤销在线历史/文件访问。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LeaveResult"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/groups/{id}/dissolve": {
+      "post": {
+        "operationId": "dissolveGroup",
+        "summary": "解散群并进入只读",
+        "tags": [
+          "群管理"
+        ],
+        "description": "仅OWNER；解散时仍在群内的成员可读历史，禁止新发送/拉人。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/uploads": {
+      "post": {
+        "operationId": "reserveChatUpload",
+        "summary": "预约私有附件上传",
+        "tags": [
+          "文件"
+        ],
+        "description": "需要im:file:upload和活跃会话成员；同clientUploadId同载荷幂等，返回短期签名PUT；最大50,000,000字节。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/UploadReservation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveUpload"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/uploads/{id}/renew": {
+      "post": {
+        "operationId": "renewChatUpload",
+        "summary": "更新未完成上传的签名授权",
+        "tags": [
+          "文件"
+        ],
+        "description": "仅上传者且仍有会话权限，INITIATED且预约未过期；VERIFYING/READY不得renew。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/UploadReservation"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/im/uploads/{id}/complete": {
+      "post": {
+        "operationId": "completeChatUpload",
+        "summary": "确认字节上传完成并安排检查",
+        "tags": [
+          "文件"
+        ],
+        "description": "重复调用返回当前状态；HEAD固定对象版本，检查该版本后才READY。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/UploadStatus"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ]
+      }
+    },
+    "/im/uploads/{id}": {
+      "get": {
+        "operationId": "getChatUpload",
+        "summary": "查询本人上传检查结果",
+        "tags": [
+          "文件"
+        ],
+        "description": "仅上传者本人且仍有会话权限；非READY时file为null。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/UploadStatus"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "cancelChatUpload",
+        "summary": "取消本人尚未发送的附件",
+        "tags": [
+          "文件"
+        ],
+        "description": "仅上传者且仍有会话权限；状态变为CANCELLED，重复取消幂等；已绑定消息409，物理清理后再释放字节配额。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/UploadStatus"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/im/files/{id}/content": {
+      "get": {
+        "operationId": "downloadChatFile",
+        "summary": "鉴权后流式下载已发送附件",
+        "tags": [
+          "文件"
+        ],
+        "description": "必须有当前消息可见权，绑定READY版本；不公开对象key/长期URL。下载不是JSON Result。",
+        "responses": {
+          "200": {
+            "description": "完整文件流",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment; filename与filename*安全编码。"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string",
+                  "const": "bytes"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          },
+          "206": {
+            "description": "单段范围文件流",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment; filename与filename*安全编码。"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string",
+                  "const": "bytes"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "416": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": ""
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^bytes=[0-9]*-[0-9]*$"
+            },
+            "description": "只支持单段；起止至少一个非空；越界416。"
+          }
+        ]
+      }
+    },
+    "/im/ws-tickets": {
+      "post": {
+        "operationId": "createChatWsTicket",
+        "summary": "获取一次性聊天连接票据",
+        "tags": [
+          "实时同步"
+        ],
+        "description": "60秒一次消费，绑定tenant/user/clientId/原JWT有效期。WS地址按返回的相对路径在API同源连接。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/WsTicket"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/im/sync/events": {
+      "get": {
+        "operationId": "syncChatEvents",
+        "summary": "补拉本人持久事件",
+        "tags": [
+          "实时同步"
+        ],
+        "description": "7天事件保留；过期410。失去访问权的历史事件替换为EVENT.SKIPPED；nextAfterEventSeq只推进本页已处理范围。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 200
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/EventPage"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "msg",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimit"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "afterEventSeq",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Seq"
+            },
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 100
+            },
+            "description": ""
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Id": {
+        "type": "string",
+        "pattern": "^[1-9][0-9]{0,18}$",
+        "description": "正的有符号64位ID，以字符串传输；服务端另校验Long范围。",
+        "examples": [
+          "110001"
+        ]
+      },
+      "Seq": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]{0,18})$",
+        "description": "序号字符串，0表示尚未接收任何事件/未读。",
+        "examples": [
+          "42"
+        ]
+      },
+      "Version": {
+        "type": "integer",
+        "format": "int32",
+        "minimum": 1
+      },
+      "Uuid": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "Config": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "maxFileBytes": {
+            "type": "integer",
+            "maximum": 50000000,
+            "minimum": 1
+          },
+          "maxGroupMembers": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 200
+          },
+          "textMaxChars": {
+            "type": "integer",
+            "maximum": 4000
+          },
+          "textMaxUtf8Bytes": {
+            "type": "integer",
+            "maximum": 16384
+          },
+          "maxAttachmentsPerMessage": {
+            "type": "integer",
+            "const": 1
+          },
+          "allowedExtensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "syncRetentionDays": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "maxConnectionsPerUser": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "maxFileBytes",
+          "maxGroupMembers",
+          "textMaxChars",
+          "textMaxUtf8Bytes",
+          "maxAttachmentsPerMessage",
+          "allowedExtensions",
+          "syncRetentionDays",
+          "maxConnectionsPerUser"
+        ]
+      },
+      "Contact": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "userId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "departmentName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "userId",
+          "displayName",
+          "departmentName",
+          "avatarUrl"
+        ]
+      },
+      "ContactPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Contact"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "records",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
+      "File": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 50000000
+          },
+          "mime": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "size",
+          "mime",
+          "sha256"
+        ]
+      },
+      "SystemPayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "GROUP_CREATED",
+              "MEMBERS_ADDED",
+              "MEMBER_REMOVED",
+              "ROLE_CHANGED",
+              "OWNER_TRANSFERRED",
+              "MEMBER_LEFT",
+              "GROUP_DISSOLVED",
+              "GROUP_RENAMED"
+            ]
+          },
+          "actorId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "targetUserIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "actorId",
+          "targetUserIds",
+          "description"
+        ]
+      },
+      "Message": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "seq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "senderId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "clientMessageId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "TEXT",
+              "IMAGE",
+              "FILE",
+              "SYSTEM"
+            ]
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "file": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/File"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "system": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SystemPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "conversationId",
+          "seq",
+          "senderId",
+          "clientMessageId",
+          "type",
+          "text",
+          "file",
+          "system",
+          "createdAt"
+        ]
+      },
+      "Conversation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DIRECT",
+              "GROUP"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISSOLVED"
+            ]
+          },
+          "ownerId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "memberCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "myRole": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "OWNER",
+                  "ADMIN",
+                  "MEMBER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibleFromSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "lastSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "lastReadSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "unreadCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "lastMessage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Message"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name",
+          "status",
+          "ownerId",
+          "version",
+          "memberCount",
+          "myRole",
+          "visibleFromSeq",
+          "lastSeq",
+          "lastReadSeq",
+          "unreadCount",
+          "muted",
+          "lastMessage",
+          "updatedAt"
+        ]
+      },
+      "ConversationSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Conversation"
+            }
+          },
+          "snapshotToken": {
+            "type": "string"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "syncEventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "totalUnreadCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "records",
+          "snapshotToken",
+          "nextCursor",
+          "hasMore",
+          "syncEventSeq",
+          "totalUnreadCount",
+          "expiresAt"
+        ]
+      },
+      "CreateDirect": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "peerUserId": {
+            "$ref": "#/components/schemas/Id"
+          }
+        },
+        "required": [
+          "peerUserId"
+        ]
+      },
+      "PreferenceInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "muted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "muted"
+        ]
+      },
+      "Preference": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "muted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "conversationId",
+          "muted"
+        ]
+      },
+      "SendText": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "clientMessageId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "type": {
+            "type": "string",
+            "const": "TEXT"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "pattern": "\\S",
+            "description": "非空白Unicode文字；UTF-8编码总长度另限制16KiB。"
+          }
+        },
+        "required": [
+          "clientMessageId",
+          "type",
+          "text"
+        ]
+      },
+      "SendFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "clientMessageId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "IMAGE",
+              "FILE"
+            ]
+          },
+          "fileId": {
+            "$ref": "#/components/schemas/Id"
+          }
+        },
+        "required": [
+          "clientMessageId",
+          "type",
+          "fileId"
+        ]
+      },
+      "SendMessage": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SendText"
+          },
+          {
+            "$ref": "#/components/schemas/SendFile"
+          }
+        ],
+        "description": "只允许TEXT、IMAGE、FILE；不接收senderId、tenantId、SYSTEM或任意URL。"
+      },
+      "SendResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          },
+          "deduplicated": {
+            "type": "boolean"
+          },
+          "senderEventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          }
+        },
+        "required": [
+          "message",
+          "deduplicated",
+          "senderEventSeq"
+        ]
+      },
+      "MessagePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextSeq": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Seq"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "BACKWARD",
+              "FORWARD"
+            ]
+          },
+          "latestSeq": {
+            "$ref": "#/components/schemas/Seq"
+          }
+        },
+        "required": [
+          "records",
+          "hasMore",
+          "nextSeq",
+          "direction",
+          "latestSeq"
+        ]
+      },
+      "ReadInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "throughSeq": {
+            "$ref": "#/components/schemas/Seq"
+          }
+        },
+        "required": [
+          "throughSeq"
+        ]
+      },
+      "ReadState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "lastReadSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "unreadCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "conversationId",
+          "lastReadSeq",
+          "unreadCount"
+        ]
+      },
+      "CreateGroup": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "clientRequestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "\\S"
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "minItems": 2,
+            "maxItems": 199,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "clientRequestId",
+          "name",
+          "memberIds"
+        ],
+        "description": "不含创建者；创建者自动OWNER，所有目标必须同组织、启用且有IM资格。"
+      },
+      "UpdateGroup": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "\\S"
+          },
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "required": [
+          "name",
+          "expectedVersion"
+        ]
+      },
+      "GroupMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "userId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "departmentName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "ADMIN",
+              "MEMBER"
+            ]
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "userId",
+          "displayName",
+          "departmentName",
+          "avatarUrl",
+          "role",
+          "joinedAt"
+        ]
+      },
+      "MemberPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMember"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "groupVersion": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "required": [
+          "records",
+          "nextCursor",
+          "hasMore",
+          "groupVersion"
+        ]
+      },
+      "AddMembers": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true
+          },
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "required": [
+          "memberIds",
+          "expectedVersion"
+        ]
+      },
+      "SetRole": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "MEMBER"
+            ]
+          },
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "required": [
+          "role",
+          "expectedVersion"
+        ]
+      },
+      "TransferOwner": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "newOwnerId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "required": [
+          "newOwnerId",
+          "expectedVersion"
+        ]
+      },
+      "VersionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "LeaveResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "required": [
+          "conversationId",
+          "version"
+        ]
+      },
+      "ReserveUpload": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "clientUploadId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 50000000
+          },
+          "mime": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "clientUploadId",
+          "conversationId",
+          "name",
+          "size",
+          "mime",
+          "sha256"
+        ]
+      },
+      "UploadReservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "uploadId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "method": {
+            "type": "string",
+            "const": "PUT"
+          },
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "requiredHeaders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reservationExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "maxFileBytes": {
+            "type": "integer",
+            "const": 50000000
+          }
+        },
+        "required": [
+          "uploadId",
+          "method",
+          "uploadUrl",
+          "requiredHeaders",
+          "expiresAt",
+          "reservationExpiresAt",
+          "maxFileBytes"
+        ]
+      },
+      "UploadStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "uploadId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "INITIATED",
+              "VERIFYING",
+              "READY",
+              "REJECTED",
+              "EXPIRED",
+              "CANCELLED"
+            ]
+          },
+          "file": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/File"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejectionReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "uploadId",
+          "status",
+          "file",
+          "rejectionReason"
+        ],
+        "description": "只有READY时file非null；READY对象已固定经检查的存储版本，上传PUT不能覆盖该版本。"
+      },
+      "TicketInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        },
+        "required": [
+          "clientId"
+        ]
+      },
+      "WsTicket": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 512
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "websocketPath": {
+            "type": "string",
+            "pattern": "^/ws/chat\\?ticket="
+          },
+          "heartbeatSeconds": {
+            "type": "integer",
+            "const": 30
+          },
+          "idleTimeoutSeconds": {
+            "type": "integer",
+            "const": 90
+          }
+        },
+        "required": [
+          "ticket",
+          "expiresAt",
+          "websocketPath",
+          "heartbeatSeconds",
+          "idleTimeoutSeconds"
+        ]
+      },
+      "EventMessageCreated": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocolVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "eventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "type": {
+            "type": "string",
+            "const": "MESSAGE.CREATED"
+          },
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "message": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "required": [
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "protocolVersion",
+          "eventId",
+          "eventSeq",
+          "type",
+          "conversationId",
+          "occurredAt",
+          "payload"
+        ]
+      },
+      "EventConversationUpdated": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocolVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "eventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "type": {
+            "type": "string",
+            "const": "CONVERSATION.UPDATED"
+          },
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "conversation": {
+                "$ref": "#/components/schemas/Conversation"
+              }
+            },
+            "required": [
+              "conversation"
+            ]
+          }
+        },
+        "required": [
+          "protocolVersion",
+          "eventId",
+          "eventSeq",
+          "type",
+          "conversationId",
+          "occurredAt",
+          "payload"
+        ]
+      },
+      "EventMemberChanged": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocolVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "eventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "type": {
+            "type": "string",
+            "const": "MEMBER.CHANGED"
+          },
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "ADDED",
+                  "REMOVED",
+                  "ROLE_CHANGED",
+                  "OWNER_TRANSFERRED",
+                  "LEFT"
+                ]
+              },
+              "userId": {
+                "$ref": "#/components/schemas/Id"
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "OWNER",
+                      "ADMIN",
+                      "MEMBER"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "groupVersion": {
+                "$ref": "#/components/schemas/Version"
+              }
+            },
+            "required": [
+              "action",
+              "userId",
+              "role",
+              "groupVersion"
+            ]
+          }
+        },
+        "required": [
+          "protocolVersion",
+          "eventId",
+          "eventSeq",
+          "type",
+          "conversationId",
+          "occurredAt",
+          "payload"
+        ]
+      },
+      "EventConversationRevoked": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocolVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "eventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "type": {
+            "type": "string",
+            "const": "CONVERSATION.REVOKED"
+          },
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "LEFT",
+                  "REMOVED",
+                  "ACCESS_DISABLED"
+                ]
+              }
+            },
+            "required": [
+              "reason"
+            ]
+          }
+        },
+        "required": [
+          "protocolVersion",
+          "eventId",
+          "eventSeq",
+          "type",
+          "conversationId",
+          "occurredAt",
+          "payload"
+        ]
+      },
+      "EventReadUpdated": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocolVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "eventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "type": {
+            "type": "string",
+            "const": "READ.UPDATED"
+          },
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ReadState"
+          }
+        },
+        "required": [
+          "protocolVersion",
+          "eventId",
+          "eventSeq",
+          "type",
+          "conversationId",
+          "occurredAt",
+          "payload"
+        ]
+      },
+      "EventEventSkipped": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocolVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "eventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "type": {
+            "type": "string",
+            "const": "EVENT.SKIPPED"
+          },
+          "conversationId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "type": "string",
+                "const": "ACCESS_CHANGED"
+              }
+            },
+            "required": [
+              "reason"
+            ]
+          }
+        },
+        "required": [
+          "protocolVersion",
+          "eventId",
+          "eventSeq",
+          "type",
+          "conversationId",
+          "occurredAt",
+          "payload"
+        ]
+      },
+      "ChatEvent": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/EventMessageCreated"
+          },
+          {
+            "$ref": "#/components/schemas/EventConversationUpdated"
+          },
+          {
+            "$ref": "#/components/schemas/EventMemberChanged"
+          },
+          {
+            "$ref": "#/components/schemas/EventConversationRevoked"
+          },
+          {
+            "$ref": "#/components/schemas/EventReadUpdated"
+          },
+          {
+            "$ref": "#/components/schemas/EventEventSkipped"
+          }
+        ]
+      },
+      "EventPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatEvent"
+            }
+          },
+          "nextAfterEventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "highWatermark": {
+            "$ref": "#/components/schemas/Seq"
+          }
+        },
+        "required": [
+          "records",
+          "nextAfterEventSeq",
+          "hasMore",
+          "highWatermark"
+        ]
+      },
+      "SessionReady": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "SESSION.READY"
+          },
+          "protocolVersion": {
+            "type": "integer",
+            "const": 1
+          },
+          "connectionId": {
+            "type": "string"
+          },
+          "userId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "latestEventSeq": {
+            "$ref": "#/components/schemas/Seq"
+          },
+          "heartbeatSeconds": {
+            "type": "integer",
+            "const": 30
+          },
+          "idleTimeoutSeconds": {
+            "type": "integer",
+            "const": 90
+          }
+        },
+        "required": [
+          "type",
+          "protocolVersion",
+          "connectionId",
+          "userId",
+          "latestEventSeq",
+          "heartbeatSeconds",
+          "idleTimeoutSeconds"
+        ]
+      },
+      "Ping": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "PING"
+          },
+          "nonce": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "type",
+          "nonce"
+        ]
+      },
+      "Pong": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "PONG"
+          },
+          "nonce": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "type",
+          "nonce"
+        ]
+      },
+      "ProtocolError": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "PROTOCOL.ERROR"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "message"
+        ]
+      },
+      "ErrorData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "error",
+          "requestId"
+        ]
+      },
+      "ErrorResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "description": "共享JWT过滤器/网关可返回data:null。"
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "HTTP/code一致；IM领域错误附data.error，共享过滤器可能data:null。",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResult"
+            }
+          }
+        }
+      },
+      "RateLimit": {
+        "description": "频率或配额限制；按Retry-After退避，持久配额须管理员处理。",
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "秒，频率限制时返回。"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResult"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-websocket": {
+    "path": "/ws/chat",
+    "query": "ticket=<one-time-ticket>",
+    "controlSchemas": [
+      "SessionReady",
+      "Ping",
+      "Pong",
+      "ProtocolError"
+    ],
+    "persistentSchema": "ChatEvent",
+    "protocolDocument": "api.md#7-实时连接与补偿"
+  }
+}

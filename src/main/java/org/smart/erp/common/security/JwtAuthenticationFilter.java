@@ -48,6 +48,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 reject(response, 503, "多租户业务入口尚未开放，请先完成全链路隔离验证"); return;
             }
         }
+        // 聊天握手由一次性票据认证；保留上面的 multi 业务门禁，不接受 URL JWT。
+        if (path.equals("/ws/chat")) { chain.doFilter(request, response); return; }
         // 登录使用本次账号密码，不能被客户端残留的过期 Bearer 阻止。
         if (login) { chain.doFilter(request, response); return; }
         String authorization = request.getHeader("Authorization");

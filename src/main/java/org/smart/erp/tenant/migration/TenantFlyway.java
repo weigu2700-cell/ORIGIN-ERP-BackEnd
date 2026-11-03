@@ -7,7 +7,7 @@ import javax.sql.DataSource;
 /** 运维入口直接绑定目标数据源，绝不经过请求路由或全局默认库。 */
 public final class TenantFlyway {
 
-    public static final String TENANT_VERSION = "3";
+    public static final String TENANT_VERSION = "4";
     public static final String TENANT_HISTORY = "flyway_tenant_schema_history";
     public static final String PLATFORM_HISTORY = "flyway_platform_schema_history";
 
